@@ -1,0 +1,9 @@
+// ========================================
+// Release Build Configuration
+// ========================================
+
+// Stripe API Keys (Live)
+STRIPE_PUBLISHABLE_KEY = pk_live_51MRPhyDHUqifxNa843bDtU6nVmSpTjl23Nap27hjmBpCYGJPFxgYLG3Ao4WOjBQtymA7xmT4ZX4bXohJ03VOhxKo00NnKXbxux
+
+// API Base URL
+API_BASE_URL = https://byters.jp/api

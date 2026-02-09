@@ -1,0 +1,9 @@
+// ========================================
+// Debug Build Configuration
+// ========================================
+
+// Stripe API Keys (Test)
+STRIPE_PUBLISHABLE_KEY = pk_test_YOUR_TEST_PUBLISHABLE_KEY
+
+// API Base URL
+API_BASE_URL = https://byters.jp/api
