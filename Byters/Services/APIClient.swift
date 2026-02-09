@@ -133,6 +133,15 @@ class APIClient {
         )
     }
 
+    func adminLogin(email: String, password: String) async throws -> LoginResponse {
+        return try await request(
+            endpoint: "/admin/login",
+            method: "POST",
+            body: ["email": email, "password": password],
+            requiresAuth: false
+        )
+    }
+
     func register(email: String, password: String, name: String, userType: String) async throws -> RegisterResponse {
         return try await request(
             endpoint: "/auth/register",

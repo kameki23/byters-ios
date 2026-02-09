@@ -94,7 +94,12 @@ class AuthManager: ObservableObject {
 
     func logout() {
         UserDefaults.standard.removeObject(forKey: "auth_token")
+        UserDefaults.standard.removeObject(forKey: "is_admin")
         currentUser = nil
         isAuthenticated = false
+    }
+
+    var isAdmin: Bool {
+        return currentUser?.userType == "admin" || UserDefaults.standard.bool(forKey: "is_admin")
     }
 }

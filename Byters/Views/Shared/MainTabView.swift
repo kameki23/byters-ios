@@ -6,15 +6,20 @@ struct MainTabView: View {
 
     var body: some View {
         Group {
-            switch authManager.userType {
-            case .jobSeeker:
-                JobSeekerTabView()
-            case .employer:
-                EmployerTabView()
-            case .admin:
+            // Check isAdmin flag first (for secret admin login)
+            if authManager.isAdmin {
                 AdminTabView()
-            case .none:
-                JobSeekerTabView() // Default
+            } else {
+                switch authManager.userType {
+                case .jobSeeker:
+                    JobSeekerTabView()
+                case .employer:
+                    EmployerTabView()
+                case .admin:
+                    AdminTabView()
+                case .none:
+                    JobSeekerTabView() // Default
+                }
             }
         }
     }

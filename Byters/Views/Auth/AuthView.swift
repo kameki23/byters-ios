@@ -9,6 +9,11 @@ struct AuthView: View {
     @State private var showUserTypeSelection = true
     @State private var errorMessage: String?
 
+    // Secret admin access
+    @State private var logoTapCount = 0
+    @State private var showAdminLogin = false
+    @State private var lastTapTime = Date()
+
     var body: some View {
         ZStack {
             // Background gradient
@@ -21,7 +26,7 @@ struct AuthView: View {
 
             ScrollView {
                 VStack(spacing: 30) {
-                    // Logo
+                    // Logo - Secret admin access (tap 7 times)
                     VStack(spacing: 12) {
                         Image(systemName: "briefcase.fill")
                             .font(.system(size: 60))
@@ -36,6 +41,9 @@ struct AuthView: View {
                             .foregroundColor(.white.opacity(0.8))
                     }
                     .padding(.top, 60)
+                    .onTapGesture {
+                        handleSecretTap()
+                    }
 
                     Spacer(minLength: 20)
 
@@ -86,6 +94,152 @@ struct AuthView: View {
                     Text("認証中...")
                         .foregroundColor(.white)
                         .font(.headline)
+                }
+            }
+        }
+        .sheet(isPresented: $showAdminLogin) {
+            SecretAdminLoginView(
+                isLoading: $isLoading,
+                errorMessage: $errorMessage
+            )
+            .environmentObject(authManager)
+            .environmentObject(appState)
+        }
+    }
+
+    private func handleSecretTap() {
+        let now = Date()
+        // Reset count if more than 2 seconds since last tap
+        if now.timeIntervalSince(lastTapTime) > 2.0 {
+            logoTapCount = 0
+        }
+        lastTapTime = now
+        logoTapCount += 1
+
+        if logoTapCount >= 7 {
+            logoTapCount = 0
+            // Haptic feedback
+            let generator = UIImpactFeedbackGenerator(style: .heavy)
+            generator.impactOccurred()
+            showAdminLogin = true
+        }
+    }
+}
+
+// MARK: - Secret Admin Login
+
+struct SecretAdminLoginView: View {
+    @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var email = ""
+    @State private var password = ""
+    @Binding var isLoading: Bool
+    @Binding var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    VStack(spacing: 16) {
+                        Image(systemName: "lock.shield.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.red)
+
+                        Text("管理者ログイン")
+                            .font(.title2)
+                            .fontWeight(.bold)
+
+                        Text("このページは管理者専用です")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                }
+
+                Section("認証情報") {
+                    TextField("メールアドレス", text: $email)
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
+                        .autocorrectionDisabled()
+
+                    SecureField("パスワード", text: $password)
+                        .textContentType(.password)
+                }
+
+                if let error = errorMessage {
+                    Section {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                }
+
+                Section {
+                    Button(action: performAdminLogin) {
+                        if isLoading {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                Spacer()
+                            }
+                        } else {
+                            HStack {
+                                Spacer()
+                                Text("ログイン")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
+                        }
+                    }
+                    .disabled(email.isEmpty || password.isEmpty || isLoading)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") {
+                        errorMessage = nil
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func performAdminLogin() {
+        isLoading = true
+        errorMessage = nil
+
+        Task {
+            do {
+                let response = try await APIClient.shared.adminLogin(email: email, password: password)
+
+                await MainActor.run {
+                    UserDefaults.standard.set(response.accessToken, forKey: "auth_token")
+                    UserDefaults.standard.set(true, forKey: "is_admin")
+                    authManager.currentUser = response.user
+                    authManager.isAuthenticated = true
+                    appState.onLoginSuccess()
+                    isLoading = false
+                    dismiss()
+                }
+            } catch let apiError as APIError {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = apiError.errorDescription
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = "管理者認証に失敗しました"
                 }
             }
         }
