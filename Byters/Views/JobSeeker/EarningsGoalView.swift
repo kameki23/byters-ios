@@ -18,14 +18,14 @@ struct EarningsGoalView: View {
 
                 // Quick Stats
                 HStack(spacing: 12) {
-                    StatCard(
+                    EarningsStatCard(
                         title: "今月の収入",
                         value: "¥\(viewModel.thisMonthEarnings.formatted())",
                         icon: "calendar",
                         color: .blue
                     )
 
-                    StatCard(
+                    EarningsStatCard(
                         title: "残り日数",
                         value: "\(viewModel.remainingDays)日",
                         icon: "clock",
@@ -176,7 +176,7 @@ struct GoalProgressCard: View {
     }
 }
 
-struct StatCard: View {
+struct EarningsStatCard: View {
     let title: String
     let value: String
     let icon: String

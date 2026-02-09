@@ -47,8 +47,10 @@ struct StripeConfig {
 
 /// Stripe Service for handling payment operations
 @MainActor
-class StripeService: ObservableObject {
+class StripeService: NSObject, ObservableObject {
     static let shared = StripeService()
+
+    private let authContext = StripeAuthenticationContext()
 
     @Published var isConfigured = false
     @Published var lastError: String?
@@ -140,7 +142,7 @@ class StripeService: ObservableObject {
         setupIntentParams.paymentMethodID = paymentMethodId
 
         return try await withCheckedThrowingContinuation { continuation in
-            STPPaymentHandler.shared().confirmSetupIntent(setupIntentParams, with: self) { status, _, error in
+            STPPaymentHandler.shared().confirmSetupIntent(setupIntentParams, with: self.authContext) { status, _, error in
                 switch status {
                 case .succeeded:
                     continuation.resume(returning: true)
@@ -171,7 +173,7 @@ class StripeService: ObservableObject {
         paymentIntentParams.paymentMethodId = paymentMethodId
 
         return try await withCheckedThrowingContinuation { continuation in
-            STPPaymentHandler.shared().confirmPayment(paymentIntentParams, with: self) { status, _, error in
+            STPPaymentHandler.shared().confirmPayment(paymentIntentParams, with: self.authContext) { status, _, error in
                 switch status {
                 case .succeeded:
                     continuation.resume(returning: true)
@@ -231,22 +233,20 @@ class StripeService: ObservableObject {
     }
 }
 
-// MARK: - STPAuthenticationContext
+// MARK: - Stripe Authentication Context Helper
 
-extension StripeService: STPAuthenticationContext {
-    nonisolated func authenticationPresentingViewController() -> UIViewController {
-        DispatchQueue.main.sync {
-            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                  let rootVC = windowScene.windows.first?.rootViewController else {
-                return UIViewController()
-            }
-
-            var topVC = rootVC
-            while let presentedVC = topVC.presentedViewController {
-                topVC = presentedVC
-            }
-            return topVC
+class StripeAuthenticationContext: NSObject, STPAuthenticationContext {
+    func authenticationPresentingViewController() -> UIViewController {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first?.rootViewController else {
+            return UIViewController()
         }
+
+        var topVC = rootVC
+        while let presentedVC = topVC.presentedViewController {
+            topVC = presentedVC
+        }
+        return topVC
     }
 }
 

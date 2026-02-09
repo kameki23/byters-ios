@@ -15,7 +15,7 @@ struct QualificationsView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         // Info Card
-                        InfoCard(
+                        QualificationInfoCard(
                             icon: "checkmark.seal.fill",
                             title: "資格・免許を登録",
                             message: "資格や免許を登録すると、対象の求人に応募できるようになります。"
@@ -69,7 +69,7 @@ struct EmptyQualificationsView: View {
     }
 }
 
-struct InfoCard: View {
+struct QualificationInfoCard: View {
     let icon: String
     let title: String
     let message: String

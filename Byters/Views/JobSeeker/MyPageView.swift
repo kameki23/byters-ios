@@ -192,7 +192,7 @@ struct MyPageView: View {
                                 )
                             }
 
-                            NavigationLink(destination: NotificationSettingsView()) {
+                            NavigationLink(destination: JobSeekerNotificationSettingsView()) {
                                 MenuRow(
                                     icon: "bell.fill",
                                     iconColor: .red,

@@ -1,8 +1,8 @@
 import SwiftUI
 
-// MARK: - Notification Settings View
+// MARK: - Job Seeker Notification Settings View
 
-struct NotificationSettingsView: View {
+struct JobSeekerNotificationSettingsView: View {
     @StateObject private var viewModel = NotificationSettingsViewModel()
 
     var body: some View {
@@ -1074,6 +1074,6 @@ struct PrivacyPolicyView: View {
 
 #Preview {
     NavigationStack {
-        NotificationSettingsView()
+        JobSeekerNotificationSettingsView()
     }
 }
