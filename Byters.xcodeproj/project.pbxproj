@@ -34,6 +34,7 @@
 		A1000001234567890000025 /* NotificationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000026 /* NotificationViews.swift */; };
 		A1000001234567890000026 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000027 /* NotificationManager.swift */; };
 		AE000001234567890000001 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = AE000001234567890000002 /* StripePaymentSheet */; };
+		AE000001234567890000003 /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = AE000001234567890000004 /* Stripe */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +74,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AE000001234567890000001 /* StripePaymentSheet in Frameworks */,
+				AE000001234567890000003 /* Stripe in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,6 +245,7 @@
 			name = Byters;
 			packageProductDependencies = (
 				AE000001234567890000002 /* StripePaymentSheet */,
+				AE000001234567890000004 /* Stripe */,
 			);
 			productName = Byters;
 			productReference = A3000001234567890000001 /* Byters.app */;
@@ -560,6 +563,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AF000001234567890000001 /* XCRemoteSwiftPackageReference "stripe-ios" */;
 			productName = StripePaymentSheet;
+		};
+		AE000001234567890000004 /* Stripe */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AF000001234567890000001 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = Stripe;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

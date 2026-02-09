@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Stripe
 import StripePaymentSheet
 
 // MARK: - Stripe Service
