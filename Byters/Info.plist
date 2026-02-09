@@ -54,6 +54,8 @@
     <string>$(STRIPE_PUBLISHABLE_KEY)</string>
     <key>APIBaseURL</key>
     <string>$(API_BASE_URL)</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
