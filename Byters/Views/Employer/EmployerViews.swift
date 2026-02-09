@@ -1167,7 +1167,7 @@ struct EmployerSettingsView: View {
                         Label("通知一覧", systemImage: "bell.badge.fill")
                     }
 
-                    NavigationLink(destination: NotificationSettingsView()) {
+                    NavigationLink(destination: QuickNotificationSettingsView()) {
                         Label("通知設定", systemImage: "bell.fill")
                     }
                 }
