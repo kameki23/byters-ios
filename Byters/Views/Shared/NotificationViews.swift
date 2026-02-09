@@ -229,9 +229,9 @@ struct NotificationRow: View {
     }
 }
 
-// MARK: - Notification Settings
+// MARK: - Quick Notification Settings
 
-struct NotificationSettingsView: View {
+struct QuickNotificationSettingsView: View {
     @State private var jobNotifications = true
     @State private var chatNotifications = true
     @State private var paymentNotifications = true

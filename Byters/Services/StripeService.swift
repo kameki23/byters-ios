@@ -55,7 +55,8 @@ class StripeService: NSObject, ObservableObject {
     @Published var isConfigured = false
     @Published var lastError: String?
 
-    private init() {
+    private override init() {
+        super.init()
         configure()
     }
 
