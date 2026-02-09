@@ -24,6 +24,15 @@
 		A1000001234567890000015 /* EmployerViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000015 /* EmployerViews.swift */; };
 		A1000001234567890000016 /* AdminViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000016 /* AdminViews.swift */; };
 		A1000001234567890000017 /* StripeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000018 /* StripeService.swift */; };
+		A1000001234567890000018 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000019 /* Assets.xcassets */; };
+		A1000001234567890000019 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000020 /* Preview Assets.xcassets */; };
+		A1000001234567890000020 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000021 /* SettingsView.swift */; };
+		A1000001234567890000021 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000022 /* FavoritesView.swift */; };
+		A1000001234567890000022 /* BadgesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000023 /* BadgesView.swift */; };
+		A1000001234567890000023 /* QualificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000024 /* QualificationsView.swift */; };
+		A1000001234567890000024 /* EarningsGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000025 /* EarningsGoalView.swift */; };
+		A1000001234567890000025 /* NotificationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000026 /* NotificationViews.swift */; };
+		A1000001234567890000026 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001234567890000027 /* NotificationManager.swift */; };
 		AE000001234567890000001 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = AE000001234567890000002 /* StripePaymentSheet */; };
 /* End PBXBuildFile section */
 
@@ -46,6 +55,15 @@
 		A2000001234567890000016 /* AdminViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminViews.swift; sourceTree = "<group>"; };
 		A2000001234567890000017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000001234567890000018 /* StripeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StripeService.swift; sourceTree = "<group>"; };
+		A2000001234567890000019 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A2000001234567890000020 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		A2000001234567890000021 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A2000001234567890000022 /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
+		A2000001234567890000023 /* BadgesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgesView.swift; sourceTree = "<group>"; };
+		A2000001234567890000024 /* QualificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualificationsView.swift; sourceTree = "<group>"; };
+		A2000001234567890000025 /* EarningsGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EarningsGoalView.swift; sourceTree = "<group>"; };
+		A2000001234567890000026 /* NotificationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationViews.swift; sourceTree = "<group>"; };
+		A2000001234567890000027 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		A3000001234567890000001 /* Byters.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Byters.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -80,6 +98,8 @@
 				A5000001234567890000007 /* Views */,
 				A5000001234567890000020 /* Resources */,
 				A5000001234567890000021 /* ViewModels */,
+				A2000001234567890000019 /* Assets.xcassets */,
+				A5000001234567890000022 /* Preview Content */,
 				A2000001234567890000017 /* Info.plist */,
 			);
 			path = Byters;
@@ -107,6 +127,7 @@
 				A2000001234567890000004 /* APIClient.swift */,
 				A2000001234567890000005 /* AuthManager.swift */,
 				A2000001234567890000018 /* StripeService.swift */,
+				A2000001234567890000027 /* NotificationManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -143,6 +164,7 @@
 			isa = PBXGroup;
 			children = (
 				A2000001234567890000008 /* MainTabView.swift */,
+				A2000001234567890000026 /* NotificationViews.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -156,6 +178,11 @@
 				A2000001234567890000012 /* WorkView.swift */,
 				A2000001234567890000013 /* ChatListView.swift */,
 				A2000001234567890000014 /* MyPageView.swift */,
+				A2000001234567890000021 /* SettingsView.swift */,
+				A2000001234567890000022 /* FavoritesView.swift */,
+				A2000001234567890000023 /* BadgesView.swift */,
+				A2000001234567890000024 /* QualificationsView.swift */,
+				A2000001234567890000025 /* EarningsGoalView.swift */,
 			);
 			path = JobSeeker;
 			sourceTree = "<group>";
@@ -188,6 +215,14 @@
 			children = (
 			);
 			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		A5000001234567890000022 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				A2000001234567890000020 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -255,6 +290,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000001234567890000018 /* Assets.xcassets in Resources */,
+				A1000001234567890000019 /* Preview Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,6 +319,13 @@
 				A1000001234567890000015 /* EmployerViews.swift in Sources */,
 				A1000001234567890000016 /* AdminViews.swift in Sources */,
 				A1000001234567890000017 /* StripeService.swift in Sources */,
+				A1000001234567890000020 /* SettingsView.swift in Sources */,
+				A1000001234567890000021 /* FavoritesView.swift in Sources */,
+				A1000001234567890000022 /* BadgesView.swift in Sources */,
+				A1000001234567890000023 /* QualificationsView.swift in Sources */,
+				A1000001234567890000024 /* EarningsGoalView.swift in Sources */,
+				A1000001234567890000025 /* NotificationViews.swift in Sources */,
+				A1000001234567890000026 /* NotificationManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
