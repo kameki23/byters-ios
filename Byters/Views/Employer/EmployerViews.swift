@@ -227,80 +227,28 @@ struct EmployerJobsView: View {
     @StateObject private var viewModel = EmployerJobsViewModel()
     @State private var showingCreateSheet = false
     @State private var selectedJobForQR: Job?
+    @State private var repostTargetJob: Job?
+    @State private var showRepostSheet = false
+
+    private var activeJobs: [Job] {
+        viewModel.jobs.filter { $0.status == "active" || $0.status == "recruiting" }
+    }
+    private var draftJobs: [Job] {
+        viewModel.jobs.filter { $0.status == "draft" }
+    }
+    private var closedJobs: [Job] {
+        viewModel.jobs.filter { $0.status == "closed" || $0.status == "expired" }
+    }
 
     var body: some View {
         List {
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                ProgressView().frame(maxWidth: .infinity)
             } else {
-                // Active Jobs
-                let activeJobs = viewModel.jobs.filter { $0.status == "active" }
-                if !activeJobs.isEmpty {
-                    Section("掲載中") {
-                        ForEach(activeJobs) { job in
-                            EmployerJobRow(job: job)
-                                .swipeActions(edge: .trailing) {
-                                    Button {
-                                        selectedJobForQR = job
-                                    } label: {
-                                        Label("QR", systemImage: "qrcode")
-                                    }
-                                    .tint(.blue)
-                                }
-                                .contextMenu {
-                                    Button {
-                                        selectedJobForQR = job
-                                    } label: {
-                                        Label("チェックインQR表示", systemImage: "qrcode")
-                                    }
-                                    NavigationLink(destination: JobEditView(job: job)) {
-                                        Label("編集", systemImage: "pencil")
-                                    }
-                                }
-                        }
-                    }
-                }
-
-                // Draft Jobs
-                let draftJobs = viewModel.jobs.filter { $0.status == "draft" }
-                if !draftJobs.isEmpty {
-                    Section("下書き") {
-                        ForEach(draftJobs) { job in
-                            NavigationLink(destination: JobEditView(job: job)) {
-                                EmployerJobRow(job: job)
-                            }
-                        }
-                    }
-                }
-
-                // Closed Jobs
-                let closedJobs = viewModel.jobs.filter { $0.status == "closed" }
-                if !closedJobs.isEmpty {
-                    Section("終了") {
-                        ForEach(closedJobs) { job in
-                            NavigationLink(destination: JobEditView(job: job)) {
-                                EmployerJobRow(job: job)
-                            }
-                        }
-                    }
-                }
-
-                if viewModel.jobs.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "doc.text")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray)
-                        Text("求人がありません")
-                            .foregroundColor(.gray)
-                        Button("求人を作成") {
-                            showingCreateSheet = true
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                }
+                activeJobsSection
+                draftJobsSection
+                closedJobsSection
+                emptySection
             }
         }
         .listStyle(.insetGrouped)
@@ -322,11 +270,227 @@ struct EmployerJobsView: View {
         .sheet(item: $selectedJobForQR) { job in
             JobQRCodeView(job: job)
         }
+        .sheet(isPresented: $showRepostSheet) {
+            if let job = repostTargetJob {
+                RepostJobSheet(job: job, onSuccess: {
+                    Task { await viewModel.loadData() }
+                })
+            }
+        }
         .refreshable {
             await viewModel.loadData()
         }
         .task {
             await viewModel.loadData()
+        }
+    }
+
+    @ViewBuilder
+    private var activeJobsSection: some View {
+        if !activeJobs.isEmpty {
+            Section("掲載中") {
+                ForEach(activeJobs) { job in
+                    ActiveJobRow(job: job, onQR: { selectedJobForQR = job }, onClose: {
+                        Task {
+                            _ = try? await APIClient.shared.closeJob(jobId: job.id)
+                            await viewModel.loadData()
+                        }
+                    })
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var draftJobsSection: some View {
+        if !draftJobs.isEmpty {
+            Section("下書き") {
+                ForEach(draftJobs) { job in
+                    NavigationLink(destination: JobEditView(job: job)) {
+                        EmployerJobRow(job: job)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var closedJobsSection: some View {
+        if !closedJobs.isEmpty {
+            Section("終了") {
+                ForEach(closedJobs) { job in
+                    ClosedJobRow(job: job, onRepost: {
+                        repostTargetJob = job
+                        showRepostSheet = true
+                    })
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var emptySection: some View {
+        if viewModel.jobs.isEmpty {
+            VStack(spacing: 12) {
+                Image(systemName: "doc.text")
+                    .font(.largeTitle)
+                    .foregroundColor(.gray)
+                Text("求人がありません")
+                    .foregroundColor(.gray)
+                Button("求人を作成") { showingCreateSheet = true }
+                    .buttonStyle(.borderedProminent)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+        }
+    }
+}
+
+// MARK: - Active Job Row
+
+struct ActiveJobRow: View {
+    let job: Job
+    let onQR: () -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        EmployerJobRow(job: job)
+            .swipeActions(edge: .trailing) {
+                Button { onQR() } label: {
+                    Label("QR", systemImage: "qrcode")
+                }.tint(.blue)
+                Button { onClose() } label: {
+                    Label("終了", systemImage: "xmark.circle")
+                }.tint(.orange)
+            }
+            .contextMenu {
+                Button { onQR() } label: {
+                    Label("チェックインQR表示", systemImage: "qrcode")
+                }
+                Button { onClose() } label: {
+                    Label("募集を終了", systemImage: "xmark.circle")
+                }
+            }
+    }
+}
+
+// MARK: - Closed Job Row
+
+struct ClosedJobRow: View {
+    let job: Job
+    let onRepost: () -> Void
+
+    var body: some View {
+        EmployerJobRow(job: job)
+            .swipeActions(edge: .trailing) {
+                Button { onRepost() } label: {
+                    Label("再投稿", systemImage: "arrow.clockwise")
+                }.tint(.green)
+            }
+            .contextMenu {
+                Button { onRepost() } label: {
+                    Label("再投稿する", systemImage: "arrow.clockwise")
+                }
+            }
+    }
+}
+
+// MARK: - Repost Job Sheet
+
+struct RepostJobSheet: View {
+    let job: Job
+    let onSuccess: () -> Void
+    @Environment(\.dismiss) var dismiss
+    @State private var workDate = Date()
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    VStack(spacing: 8) {
+                        Image(systemName: "arrow.clockwise.circle.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.green)
+                        Text("求人を再投稿")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        Text(job.title)
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+
+                Section("新しい勤務日") {
+                    DatePicker("勤務日", selection: $workDate, in: Date()..., displayedComponents: .date)
+                }
+
+                Section("求人情報（前回と同じ）") {
+                    LabeledContent("時給", value: "¥\(job.hourlyRate ?? 0)")
+                    LabeledContent("勤務時間", value: job.workTime ?? "未設定")
+                    LabeledContent("募集人数", value: "\(job.requiredPeople ?? 1)名")
+                }
+
+                if let error = errorMessage {
+                    Section {
+                        Text(error).foregroundColor(.red).font(.caption)
+                    }
+                }
+
+                Section {
+                    Button(action: repost) {
+                        if isLoading {
+                            HStack { Spacer(); ProgressView(); Spacer() }
+                        } else {
+                            HStack {
+                                Spacer()
+                                Label("再投稿する", systemImage: "paperplane.fill")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
+                        }
+                    }
+                    .disabled(isLoading)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func repost() {
+        isLoading = true
+        errorMessage = nil
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let dateStr = formatter.string(from: workDate)
+
+        Task {
+            do {
+                _ = try await APIClient.shared.repostJob(
+                    jobId: job.id,
+                    workDate: dateStr,
+                    hourlyRate: job.hourlyRate,
+                    requiredPeople: job.requiredPeople
+                )
+                await MainActor.run {
+                    isLoading = false
+                    onSuccess()
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = "再投稿に失敗しました"
+                }
+            }
         }
     }
 }
@@ -529,10 +693,20 @@ struct EmployerJobRow: View {
 
     var statusColor: Color {
         switch job.status {
-        case "active": return .green
+        case "active", "recruiting": return .green
         case "draft": return .orange
-        case "closed": return .gray
+        case "closed", "expired": return .gray
         default: return .gray
+        }
+    }
+
+    var statusText: String {
+        switch job.status {
+        case "active", "recruiting": return "掲載中"
+        case "draft": return "下書き"
+        case "closed": return "終了"
+        case "expired": return "期限切れ"
+        default: return job.status ?? "不明"
         }
     }
 }

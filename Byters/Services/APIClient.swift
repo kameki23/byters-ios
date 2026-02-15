@@ -684,6 +684,25 @@ class APIClient {
         )
     }
 
+    func closeJob(jobId: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/employer/jobs/\(jobId)/close",
+            method: "PUT"
+        )
+    }
+
+    func repostJob(jobId: String, workDate: String?, hourlyRate: Int?, requiredPeople: Int?) async throws -> Job {
+        var body: [String: Any] = [:]
+        if let workDate = workDate { body["work_date"] = workDate }
+        if let hourlyRate = hourlyRate { body["hourly_rate"] = hourlyRate }
+        if let requiredPeople = requiredPeople { body["required_people"] = requiredPeople }
+        return try await request(
+            endpoint: "/employer/jobs/\(jobId)/repost",
+            method: "POST",
+            body: body
+        )
+    }
+
     func getEmployerApplications() async throws -> [Application] {
         return try await request(endpoint: "/employer/applications")
     }

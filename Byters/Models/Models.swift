@@ -74,6 +74,10 @@ struct Job: Codable, Identifiable {
     let latitude: Double?
     let longitude: Double?
     let createdAt: String?
+    let isExpired: Bool?
+    let hourlyRate: Int?
+    let workTime: String?
+    let repostedFrom: String?
 
     var wageDisplay: String {
         if let hourly = hourlyWage {
@@ -99,9 +103,10 @@ struct Job: Codable, Identifiable {
 
     var statusDisplay: String {
         switch status {
-        case "active": return "公開中"
+        case "active", "recruiting": return "募集中"
         case "draft": return "下書き"
-        case "closed": return "終了"
+        case "closed": return "募集終了"
+        case "expired": return "期限切れ"
         case "pending": return "審査中"
         default: return status ?? ""
         }

@@ -218,41 +218,60 @@ struct StatCard: View {
 struct JobCard: View {
     let job: Job
 
+    private var isExpired: Bool {
+        job.status == "closed" || job.status == "expired" || job.isExpired == true
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Employer name
-            Text(job.employerName ?? "企業名")
-                .font(.caption)
-                .foregroundColor(.gray)
-
-            // Title
-            Text(job.title)
-                .font(.headline)
-                .lineLimit(2)
-
-            // Location
-            HStack {
-                Image(systemName: "mappin.circle.fill")
-                    .foregroundColor(.red)
-                Text(job.locationDisplay)
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Employer name
+                Text(job.employerName ?? "企業名")
                     .font(.caption)
                     .foregroundColor(.gray)
-                    .lineLimit(1)
+
+                // Title
+                Text(job.title)
+                    .font(.headline)
+                    .lineLimit(2)
+
+                // Location
+                HStack {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundColor(.red)
+                    Text(job.locationDisplay)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                // Wage
+                Text(job.wageDisplay)
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(isExpired ? .gray : .blue)
             }
+            .frame(width: 200, height: 160)
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+            .opacity(isExpired ? 0.7 : 1.0)
 
-            Spacer()
-
-            // Wage
-            Text(job.wageDisplay)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(.blue)
+            if isExpired {
+                Text("募集終了")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.gray)
+                    .clipShape(Capsule())
+                    .padding(8)
+            }
         }
-        .frame(width: 200, height: 160)
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
     }
 }
 
