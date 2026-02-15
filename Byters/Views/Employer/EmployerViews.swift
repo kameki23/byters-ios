@@ -945,6 +945,32 @@ struct JobCreateView: View {
                     }
                 }
 
+                // Fee Breakdown
+                if let wage = Int(hourlyWage), wage > 0 {
+                    Section("費用見積もり") {
+                        let estimatedHours = calculateHours()
+                        let workerPay = wage * estimatedHours
+                        let fee = Int(Double(workerPay) * 0.18)
+                        let totalPerPerson = workerPay + fee
+                        let people = Int(requiredPeople) ?? 1
+
+                        LabeledContent("労働者報酬", value: "¥\(workerPay.formatted())")
+                        LabeledContent("手数料（18%）", value: "¥\(fee.formatted())")
+                            .foregroundColor(.orange)
+                        LabeledContent("1人あたり合計", value: "¥\(totalPerPerson.formatted())")
+                            .fontWeight(.semibold)
+                        if people > 1 {
+                            LabeledContent("総額（\(people)名）", value: "¥\((totalPerPerson * people).formatted())")
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
+                        }
+
+                        Text("※ 手数料はプラットフォーム利用料です")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                }
+
                 Section("応募条件（任意）") {
                     TextEditor(text: $requirements)
                         .frame(height: 80)
@@ -994,6 +1020,16 @@ struct JobCreateView: View {
         !title.isEmpty && !description.isEmpty && !prefecture.isEmpty && !city.isEmpty &&
         !hourlyWage.isEmpty && Int(hourlyWage) != nil &&
         !requiredPeople.isEmpty && Int(requiredPeople) != nil
+    }
+
+    private func calculateHours() -> Int {
+        let parts1 = startTime.split(separator: ":").compactMap { Int($0) }
+        let parts2 = endTime.split(separator: ":").compactMap { Int($0) }
+        guard parts1.count >= 2, parts2.count >= 2 else { return 8 }
+        let start = parts1[0] * 60 + parts1[1]
+        let end = parts2[0] * 60 + parts2[1]
+        let diff = end > start ? end - start : (end + 24 * 60) - start
+        return max(1, diff / 60)
     }
 
     func createJob() {
@@ -1340,11 +1376,40 @@ struct ApplicationInfoRow: View {
                 )
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(application.applicantName ?? "応募者")
-                    .font(.headline)
+                HStack(spacing: 6) {
+                    Text(application.applicantName ?? "応募者")
+                        .font(.headline)
+                    if application.isVerified == true {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                }
                 Text(application.jobTitle ?? "求人")
                     .font(.caption)
                     .foregroundColor(.gray)
+
+                // Worker stats
+                HStack(spacing: 8) {
+                    if let rate = application.goodRate, rate > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "hand.thumbsup.fill")
+                                .font(.system(size: 9))
+                            Text("\(rate)%")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(rate >= 80 ? .green : .orange)
+                    }
+                    if let count = application.completedJobs, count > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "briefcase.fill")
+                                .font(.system(size: 9))
+                            Text("\(count)件完了")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(.gray)
+                    }
+                }
             }
 
             Spacer()

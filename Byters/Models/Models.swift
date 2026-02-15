@@ -78,6 +78,9 @@ struct Job: Codable, Identifiable {
     let hourlyRate: Int?
     let workTime: String?
     let repostedFrom: String?
+    let goodRate: Int?
+    let reviewCount: Int?
+    let employerGoodRate: Int?
 
     var wageDisplay: String {
         if let hourly = hourlyWage {
@@ -148,6 +151,12 @@ struct Application: Codable, Identifiable {
     let hourlyWage: Int?
     let createdAt: String?
     let updatedAt: String?
+    let goodRate: Int?
+    let reviewCount: Int?
+    let completedJobs: Int?
+    let isVerified: Bool?
+    let bio: String?
+    let iconUrl: String?
 
     var statusDisplay: String {
         switch status {
@@ -156,6 +165,9 @@ struct Application: Codable, Identifiable {
         case "rejected": return "不採用"
         case "canceled": return "キャンセル"
         case "completed": return "完了"
+        case "confirmed": return "確定"
+        case "working": return "勤務中"
+        case "paid": return "支払済"
         default: return status
         }
     }

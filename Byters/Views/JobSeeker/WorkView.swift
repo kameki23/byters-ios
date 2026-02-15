@@ -164,16 +164,13 @@ struct WorkView: View {
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
-            .alert("成功", isPresented: $showSuccessAlert) {
-                Button("OK") {
-                    viewModel.successMessage = nil
-                }
+            .alert("お疲れ様でした！", isPresented: $showSuccessAlert) {
                 Button("レビューを書く") {
                     viewModel.successMessage = nil
                     showReviewSheet = true
                 }
             } message: {
-                Text(viewModel.successMessage ?? "")
+                Text((viewModel.successMessage ?? "") + "\n\n事業者へのレビューをお願いします")
             }
             .sheet(isPresented: $showReviewSheet) {
                 NavigationStack {

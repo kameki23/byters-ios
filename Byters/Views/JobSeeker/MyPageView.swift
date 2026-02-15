@@ -2208,12 +2208,16 @@ struct SubmitReviewView: View {
     let pendingReview: PendingReview
     let onComplete: () -> Void
 
-    @State private var rating = 5
+    @State private var ratingType: String? = nil // "good" or "bad"
     @State private var comment = ""
+    @State private var selectedTags: Set<String> = []
     @State private var isSubmitting = false
     @State private var showSuccess = false
     @State private var errorMessage: String?
     @Environment(\.dismiss) private var dismiss
+
+    private let goodTags = ["時間通り", "丁寧な対応", "また働きたい", "清潔な職場", "わかりやすい指示"]
+    private let badTags = ["時間にルーズ", "対応が不親切", "説明不足", "環境が悪い"]
 
     var body: some View {
         Form {
@@ -2233,55 +2237,90 @@ struct SubmitReviewView: View {
                 .padding()
             }
 
-            Section("評価") {
-                VStack(spacing: 12) {
-                    HStack(spacing: 8) {
-                        ForEach(1...5, id: \.self) { star in
-                            Button(action: { rating = star }) {
-                                Image(systemName: star <= rating ? "star.fill" : "star")
-                                    .font(.title)
-                                    .foregroundColor(.yellow)
+            Section("この事業者はどうでしたか？") {
+                HStack(spacing: 24) {
+                    Spacer()
+                    Button(action: { ratingType = "good" }) {
+                        VStack(spacing: 8) {
+                            Image(systemName: ratingType == "good" ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                .font(.system(size: 40))
+                                .foregroundColor(ratingType == "good" ? .green : .gray)
+                            Text("Good")
+                                .font(.headline)
+                                .foregroundColor(ratingType == "good" ? .green : .gray)
+                        }
+                    }
+                    .buttonStyle(BorderlessButtonStyle())
+
+                    Button(action: { ratingType = "bad" }) {
+                        VStack(spacing: 8) {
+                            Image(systemName: ratingType == "bad" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                                .font(.system(size: 40))
+                                .foregroundColor(ratingType == "bad" ? .red : .gray)
+                            Text("Bad")
+                                .font(.headline)
+                                .foregroundColor(ratingType == "bad" ? .red : .gray)
+                        }
+                    }
+                    .buttonStyle(BorderlessButtonStyle())
+                    Spacer()
+                }
+                .padding(.vertical, 12)
+            }
+
+            if let type = ratingType {
+                Section("タグを選択（任意）") {
+                    let tags = type == "good" ? goodTags : badTags
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], spacing: 8) {
+                        ForEach(tags, id: \.self) { tag in
+                            Button(action: {
+                                if selectedTags.contains(tag) {
+                                    selectedTags.remove(tag)
+                                } else {
+                                    selectedTags.insert(tag)
+                                }
+                            }) {
+                                Text(tag)
+                                    .font(.caption)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(selectedTags.contains(tag) ? (type == "good" ? Color.green.opacity(0.2) : Color.red.opacity(0.2)) : Color.gray.opacity(0.1))
+                                    .foregroundColor(selectedTags.contains(tag) ? (type == "good" ? .green : .red) : .primary)
+                                    .clipShape(Capsule())
                             }
                             .buttonStyle(BorderlessButtonStyle())
                         }
                     }
-                    .frame(maxWidth: .infinity)
-
-                    Text(ratingDescription)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
                 }
-                .padding(.vertical, 8)
             }
 
             Section("コメント（任意）") {
                 TextEditor(text: $comment)
-                    .frame(height: 120)
+                    .frame(height: 100)
             }
 
             if let error = errorMessage {
                 Section {
-                    Text(error)
-                        .foregroundColor(.red)
+                    Text(error).foregroundColor(.red)
                 }
             }
 
             Section {
                 Button(action: submitReview) {
                     if isSubmitting {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
+                        ProgressView().frame(maxWidth: .infinity)
                     } else {
                         Text("レビューを投稿")
+                            .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                     }
                 }
-                .disabled(isSubmitting)
+                .disabled(isSubmitting || ratingType == nil)
             }
         }
         .navigationTitle("レビューを書く")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("レビューを投稿しました", isPresented: $showSuccess) {
+        .alert("レビューを投稿しました！", isPresented: $showSuccess) {
             Button("OK") {
                 onComplete()
                 dismiss()
@@ -2289,18 +2328,8 @@ struct SubmitReviewView: View {
         }
     }
 
-    private var ratingDescription: String {
-        switch rating {
-        case 1: return "非常に悪い"
-        case 2: return "悪い"
-        case 3: return "普通"
-        case 4: return "良い"
-        case 5: return "非常に良い"
-        default: return ""
-        }
-    }
-
     private func submitReview() {
+        guard let type = ratingType else { return }
         isSubmitting = true
         errorMessage = nil
 
@@ -2309,7 +2338,7 @@ struct SubmitReviewView: View {
                 _ = try await APIClient.shared.submitReview(
                     jobId: pendingReview.jobId,
                     revieweeId: pendingReview.revieweeId,
-                    rating: rating,
+                    rating: type == "good" ? 5 : 1,
                     comment: comment.isEmpty ? nil : comment
                 )
                 showSuccess = true

@@ -858,6 +858,17 @@ struct JobListRow: View {
                     .font(.caption)
                     .foregroundColor(.gray)
 
+                // Employer rating
+                if let rate = job.employerGoodRate ?? job.goodRate, rate > 0 {
+                    HStack(spacing: 2) {
+                        Image(systemName: "hand.thumbsup.fill")
+                            .font(.system(size: 10))
+                        Text("\(rate)%")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(rate >= 80 ? .green : rate >= 50 ? .orange : .red)
+                }
+
                 Spacer()
 
                 if let onFavoriteToggle = onFavoriteToggle {
