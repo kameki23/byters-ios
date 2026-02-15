@@ -23,15 +23,26 @@ enum APIError: Error, LocalizedError {
 class APIClient {
     static let shared = APIClient()
 
-    // TODO: Change to production URL when deploying
-    private let baseURL = "https://byters.jp/api"
-    // For local development: "http://localhost:8000/api"
+    private let baseURL: String = StripeConfig.apiBaseURL
+    private let maxRetries = 2
+    private let session: URLSession
 
     private var token: String? {
-        UserDefaults.standard.string(forKey: "auth_token")
+        KeychainHelper.load(key: "auth_token")
     }
 
-    private init() {}
+    private init() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 20
+        config.timeoutIntervalForResource = 60
+        session = URLSession(configuration: config)
+    }
+
+    private func notifyUnauthorized() {
+        Task { @MainActor in
+            AuthManager.shared.handleUnauthorized()
+        }
+    }
 
     // MARK: - Generic Request
 
@@ -54,36 +65,61 @@ class APIClient {
         }
 
         if let body = body {
-            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
 
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+        let isIdempotent = method == "GET" || method == "HEAD"
+        var lastError: Error = APIError.noData
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw APIError.noData
+        for attempt in 0...maxRetries {
+            if attempt > 0 {
+                let delay = UInt64(pow(2.0, Double(attempt - 1))) * 1_000_000_000
+                try await Task.sleep(nanoseconds: delay)
             }
 
-            if httpResponse.statusCode == 401 {
-                throw APIError.unauthorized
-            }
+            do {
+                let (data, response) = try await session.data(for: request)
 
-            if httpResponse.statusCode >= 400 {
-                if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                    throw APIError.serverError(errorResponse.detail)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw APIError.noData
                 }
-                throw APIError.serverError("サーバーエラー: \(httpResponse.statusCode)")
+
+                if httpResponse.statusCode == 401 {
+                    notifyUnauthorized()
+                    throw APIError.unauthorized
+                }
+
+                if httpResponse.statusCode >= 500 && isIdempotent && attempt < maxRetries {
+                    lastError = APIError.serverError("サーバーエラー: \(httpResponse.statusCode)")
+                    continue
+                }
+
+                if httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                        throw APIError.serverError(errorResponse.detail)
+                    }
+                    throw APIError.serverError("サーバーエラー: \(httpResponse.statusCode)")
+                }
+
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+                return try decoder.decode(T.self, from: data)
+            } catch let error as APIError {
+                if case .unauthorized = error { throw error }
+                lastError = error
+                if !isIdempotent || attempt >= maxRetries { throw error }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = APIError.networkError(error)
+                if !isIdempotent || attempt >= maxRetries {
+                    throw APIError.networkError(error)
+                }
             }
-
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-
-            return try decoder.decode(T.self, from: data)
-        } catch let error as APIError {
-            throw error
-        } catch {
-            throw APIError.networkError(error)
         }
+
+        throw lastError
     }
 
     // Request that returns raw Data (for file uploads)
@@ -107,14 +143,22 @@ class APIClient {
 
         request.httpBody = formData
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.noData
         }
 
+        if httpResponse.statusCode == 401 {
+            notifyUnauthorized()
+            throw APIError.unauthorized
+        }
+
         if httpResponse.statusCode >= 400 {
-            throw APIError.serverError("Upload failed: \(httpResponse.statusCode)")
+            if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                throw APIError.serverError(errorResponse.detail)
+            }
+            throw APIError.serverError("アップロードに失敗しました: \(httpResponse.statusCode)")
         }
 
         let decoder = JSONDecoder()
@@ -175,15 +219,34 @@ class APIClient {
         )
     }
 
+    func uploadProfileImage(imageData: Data) async throws -> SimpleResponse {
+        let boundary = UUID().uuidString
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"image\"; filename=\"profile.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        return try await requestData(
+            endpoint: "/auth/profile/image",
+            formData: body,
+            contentType: "multipart/form-data; boundary=\(boundary)"
+        )
+    }
+
     // MARK: - Jobs Endpoints
 
-    func getJobs(search: String? = nil, prefecture: String? = nil, category: String? = nil) async throws -> [Job] {
+    func getJobs(search: String? = nil, prefecture: String? = nil, city: String? = nil, category: String? = nil) async throws -> [Job] {
         var queryParams: [String] = []
         if let search = search, !search.isEmpty {
             queryParams.append("keyword=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")
         }
         if let prefecture = prefecture, !prefecture.isEmpty {
             queryParams.append("prefecture=\(prefecture.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")
+        }
+        if let city = city, !city.isEmpty {
+            queryParams.append("city=\(city.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")
         }
         if let category = category, !category.isEmpty {
             queryParams.append("category=\(category.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")
@@ -778,12 +841,12 @@ class APIClient {
     // MARK: - QR Code Endpoints
 
     func getJobQRCode(jobId: String) async throws -> QRCodeResponse {
-        return try await request(endpoint: "/employer/jobs/\(jobId)/qr-code")
+        return try await request(endpoint: "/employer/jobs/\(jobId)/qr-token")
     }
 
     func regenerateJobQRCode(jobId: String) async throws -> QRCodeResponse {
         return try await request(
-            endpoint: "/employer/jobs/\(jobId)/qr-code/regenerate",
+            endpoint: "/employer/jobs/\(jobId)/qr-token",
             method: "POST"
         )
     }
@@ -1012,6 +1075,14 @@ class APIClient {
         )
     }
 
+    func updateAdminSystemSettings(key: String, value: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/admin/settings/\(key)",
+            method: "PUT",
+            body: ["value": value]
+        )
+    }
+
     // MARK: - KYC Settings
 
     func getKycSettings() async throws -> KycSettings {
@@ -1030,21 +1101,6 @@ class APIClient {
 
     func getFavorites() async throws -> [FavoriteJob] {
         return try await request(endpoint: "/favorites")
-    }
-
-    func addFavorite(jobId: String) async throws -> SimpleResponse {
-        return try await request(
-            endpoint: "/favorites",
-            method: "POST",
-            body: ["job_id": jobId]
-        )
-    }
-
-    func removeFavorite(jobId: String) async throws -> SimpleResponse {
-        return try await request(
-            endpoint: "/favorites/\(jobId)",
-            method: "DELETE"
-        )
     }
 
     func isFavorite(jobId: String) async throws -> Bool {
@@ -1522,6 +1578,296 @@ extension APIClient {
     }
 }
 
+// MARK: - Admin Wallet
+
+extension APIClient {
+    func getAdminWallet() async throws -> Wallet {
+        return try await request(endpoint: "/admin/wallet")
+    }
+
+    func getAdminTransactions() async throws -> [Transaction] {
+        let response: TransactionsResponse = try await request(endpoint: "/admin/wallet/transactions")
+        return response.data
+    }
+
+    func getAdminBankAccounts() async throws -> [BankAccount] {
+        let response: BankAccountsResponse = try await request(endpoint: "/admin/wallet/bank-accounts")
+        return response.data
+    }
+
+    func addAdminBankAccount(
+        bankName: String,
+        bankCode: String,
+        branchName: String,
+        branchCode: String,
+        accountType: String,
+        accountNumber: String,
+        accountHolderName: String
+    ) async throws -> BankAccount {
+        return try await request(
+            endpoint: "/admin/wallet/bank-accounts",
+            method: "POST",
+            body: [
+                "bank_name": bankName,
+                "bank_code": bankCode,
+                "branch_name": branchName,
+                "branch_code": branchCode,
+                "account_type": accountType,
+                "account_number": accountNumber,
+                "account_holder_name": accountHolderName
+            ]
+        )
+    }
+
+    func deleteAdminBankAccount(accountId: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/admin/wallet/bank-accounts/\(accountId)",
+            method: "DELETE"
+        )
+    }
+
+    func requestAdminWithdrawal(bankAccountId: String, amount: Int) async throws -> WithdrawalRequest {
+        return try await request(
+            endpoint: "/admin/wallet/withdrawal-request",
+            method: "POST",
+            body: [
+                "bank_account_id": bankAccountId,
+                "amount": amount
+            ]
+        )
+    }
+
+    func getAdminWithdrawalHistory() async throws -> [WithdrawalRequest] {
+        return try await request(endpoint: "/admin/wallet/withdrawal-requests")
+    }
+}
+
+// MARK: - Admin Category Management
+
+extension APIClient {
+    func getAdminCategories() async throws -> [AdminCategory] {
+        return try await request(endpoint: "/admin/categories")
+    }
+
+    func createAdminCategory(name: String, label: String, description: String, icon: String, displayOrder: Int) async throws -> SimpleResponse {
+        return try await request(endpoint: "/admin/categories", method: "POST", body: [
+            "name": name, "label": label, "description": description, "icon": icon, "display_order": displayOrder
+        ] as [String: Any])
+    }
+
+    func updateAdminCategory(categoryId: String, name: String, label: String, description: String, icon: String, displayOrder: Int) async throws -> SimpleResponse {
+        return try await request(endpoint: "/admin/categories/\(categoryId)", method: "PUT", body: [
+            "name": name, "label": label, "description": description, "icon": icon, "display_order": displayOrder
+        ] as [String: Any])
+    }
+
+    func deleteAdminCategory(categoryId: String) async throws -> SimpleResponse {
+        return try await request(endpoint: "/admin/categories/\(categoryId)", method: "DELETE")
+    }
+}
+
+// MARK: - Admin Reports Management
+
+extension APIClient {
+    func getAdminReports(status: String? = nil) async throws -> [AdminReport] {
+        var endpoint = "/admin/reports"
+        if let s = status { endpoint += "?status=\(s)" }
+        return try await request(endpoint: endpoint)
+    }
+
+    func updateAdminReport(reportId: String, status: String, adminNote: String?) async throws -> SimpleResponse {
+        var body: [String: Any] = ["status": status]
+        if let note = adminNote { body["admin_note"] = note }
+        return try await request(endpoint: "/admin/reports/\(reportId)", method: "PUT", body: body)
+    }
+
+    func getAdminReportStats() async throws -> AdminReportStats {
+        return try await request(endpoint: "/admin/reports/stats")
+    }
+}
+
+// MARK: - Admin CMS Content
+
+extension APIClient {
+    func getAdminContent(key: String) async throws -> AdminContent {
+        return try await request(endpoint: "/admin/content/\(key)")
+    }
+
+    func updateAdminContent(key: String, title: String, content: String) async throws -> SimpleResponse {
+        return try await request(endpoint: "/admin/content/\(key)", method: "PUT", body: [
+            "title": title, "content": content, "content_type": "page"
+        ])
+    }
+}
+
+// MARK: - Admin API Keys
+
+extension APIClient {
+    func getAdminAPIKeys() async throws -> [AdminAPIKey] {
+        return try await request(endpoint: "/admin/api-keys")
+    }
+
+    func getAdminGlobalAPIKeys() async throws -> AdminGlobalAPIKeys {
+        return try await request(endpoint: "/admin/api-keys/global")
+    }
+
+    func updateAdminGlobalAPIKeys(keys: [String: String]) async throws -> SimpleResponse {
+        return try await request(endpoint: "/admin/api-keys/global", method: "PUT", body: keys)
+    }
+
+    func createAdminAPIKey(name: String, description: String, permissions: [String]) async throws -> SimpleResponse {
+        return try await request(endpoint: "/admin/api-keys", method: "POST", body: [
+            "name": name, "description": description, "permissions": permissions
+        ] as [String: Any])
+    }
+
+    func deleteAdminAPIKey(keyId: String) async throws -> SimpleResponse {
+        return try await request(endpoint: "/admin/api-keys/\(keyId)", method: "DELETE")
+    }
+}
+
+// MARK: - Admin Access Logs
+
+extension APIClient {
+    func getAdminAccessLogs() async throws -> [AdminAccessLog] {
+        return try await request(endpoint: "/admin/access-logs")
+    }
+}
+
+// MARK: - Admin Models (Additional)
+
+struct AdminCategory: Codable, Identifiable {
+    let id: String
+    let name: String?
+    let label: String?
+    let description: String?
+    let icon: String?
+    let displayOrder: Int?
+    let isActive: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, label, description, icon
+        case displayOrder = "display_order"
+        case isActive = "is_active"
+    }
+}
+
+struct AdminReport: Codable, Identifiable {
+    let id: String
+    let reporterId: String?
+    let reportedUserId: String?
+    let reportedJobId: String?
+    let type: String?
+    let reason: String?
+    let description: String?
+    let status: String?
+    let adminNote: String?
+    let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case reporterId = "reporter_id"
+        case reportedUserId = "reported_user_id"
+        case reportedJobId = "reported_job_id"
+        case type, reason, description, status
+        case adminNote = "admin_note"
+        case createdAt = "created_at"
+    }
+
+    var statusDisplay: String {
+        switch status {
+        case "pending": return "対応待ち"
+        case "in_progress": return "対応中"
+        case "resolved": return "解決済み"
+        case "rejected": return "却下"
+        default: return status ?? "不明"
+        }
+    }
+
+    var statusColor: String {
+        switch status {
+        case "pending": return "orange"
+        case "in_progress": return "blue"
+        case "resolved": return "green"
+        case "rejected": return "gray"
+        default: return "gray"
+        }
+    }
+}
+
+struct AdminReportStats: Codable {
+    let pending: Int
+    let inProgress: Int?
+    let resolved: Int
+    let rejected: Int?
+    let total: Int
+
+    enum CodingKeys: String, CodingKey {
+        case pending, resolved, rejected, total
+        case inProgress = "in_progress"
+    }
+}
+
+struct AdminContent: Codable {
+    let key: String?
+    let title: String?
+    let content: String?
+    let contentType: String?
+
+    enum CodingKeys: String, CodingKey {
+        case key, title, content
+        case contentType = "content_type"
+    }
+}
+
+struct AdminAPIKey: Codable, Identifiable {
+    let id: String
+    let name: String?
+    let description: String?
+    let permissions: [String]?
+    let key: String?
+    let isActive: Bool?
+    let usageCount: Int?
+    let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, permissions, key
+        case isActive = "is_active"
+        case usageCount = "usage_count"
+        case createdAt = "created_at"
+    }
+}
+
+struct AdminGlobalAPIKeys: Codable {
+    let googleMapsApiKey: String?
+    let stripePk: String?
+    let env: String?
+
+    enum CodingKeys: String, CodingKey {
+        case googleMapsApiKey = "google_maps_api_key"
+        case stripePk = "stripe_publishable_key"
+        case env
+    }
+}
+
+struct AdminAccessLog: Codable, Identifiable {
+    var id: String { "\(timestamp ?? "")-\(action ?? "")" }
+    let adminId: String?
+    let adminName: String?
+    let action: String?
+    let timestamp: String?
+    let ipAddress: String?
+    let status: String?
+
+    enum CodingKeys: String, CodingKey {
+        case adminId = "admin_id"
+        case adminName = "admin_name"
+        case action, timestamp
+        case ipAddress = "ip_address"
+        case status
+    }
+}
+
 // MARK: - Employer Plan Management
 
 extension APIClient {
@@ -1732,6 +2078,64 @@ struct FeedbackItem: Codable, Identifiable {
     let status: String
     let createdAt: String
     let response: String?
+}
+
+// MARK: - Account Deletion
+
+extension APIClient {
+    func deleteMyAccount() async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/auth/me",
+            method: "DELETE"
+        )
+    }
+}
+
+// MARK: - Device Token Registration
+
+extension APIClient {
+    func registerDeviceToken(token: String, platform: String = "ios") async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/auth/device-token",
+            method: "POST",
+            body: ["token": token, "platform": platform]
+        )
+    }
+}
+
+// MARK: - Password Reset / Change
+
+extension APIClient {
+    func requestPasswordReset(email: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/auth/password-reset",
+            method: "POST",
+            body: ["email": email],
+            requiresAuth: false
+        )
+    }
+
+    func changePassword(currentPassword: String, newPassword: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/auth/change-password",
+            method: "POST",
+            body: [
+                "current_password": currentPassword,
+                "new_password": newPassword
+            ]
+        )
+    }
+}
+
+// MARK: - Email Verification
+
+extension APIClient {
+    func resendVerificationEmail() async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/auth/resend-verification",
+            method: "POST"
+        )
+    }
 }
 
 // MARK: - Distance Search

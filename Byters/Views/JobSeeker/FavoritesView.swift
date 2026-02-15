@@ -9,6 +9,17 @@ struct FavoritesView: View {
         Group {
             if viewModel.isLoading {
                 ProgressView("読み込み中...")
+            } else if let error = viewModel.errorMessage {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Button("再試行") { Task { await viewModel.loadFavorites() } }
+                        .buttonStyle(.bordered)
+                }
             } else if viewModel.favorites.isEmpty {
                 EmptyFavoritesView()
             } else {
@@ -75,12 +86,16 @@ struct FavoriteJobCard: View {
 
                 Spacer()
 
-                Button(action: onRemove) {
+                Button(action: {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    onRemove()
+                }) {
                     Image(systemName: "heart.fill")
                         .foregroundColor(.red)
                         .font(.title2)
                 }
                 .buttonStyle(BorderlessButtonStyle())
+                .accessibilityLabel("お気に入りから削除")
             }
 
             HStack(spacing: 16) {
@@ -104,7 +119,7 @@ struct FavoriteJobCard: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -133,6 +148,7 @@ struct FavoriteJobCard: View {
 class FavoritesViewModel: ObservableObject {
     @Published var favorites: [FavoriteJob] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -141,17 +157,17 @@ class FavoritesViewModel: ObservableObject {
         do {
             favorites = try await api.getFavorites()
         } catch {
-            print("Failed to load favorites: \(error)")
+            errorMessage = "お気に入りの読み込みに失敗しました"
         }
         isLoading = false
     }
 
     func removeFavorite(jobId: String) async {
         do {
-            _ = try await api.removeFavorite(jobId: jobId)
+            _ = try await api.removeFavoriteJob(jobId: jobId)
             favorites.removeAll { $0.jobId == jobId }
         } catch {
-            print("Failed to remove favorite: \(error)")
+            errorMessage = "お気に入りの削除に失敗しました"
         }
     }
 }

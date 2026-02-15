@@ -11,6 +11,7 @@ struct User: Codable, Identifiable {
     let profileImageUrl: String?
     let isIdentityVerified: Bool?
     let identityVerificationStatus: String?
+    let emailVerified: Bool?
     let createdAt: String?
     let bio: String?
     let birthDate: String?
@@ -70,6 +71,8 @@ struct Job: Codable, Identifiable {
     let requirements: String?
     let benefits: String?
     let imageUrl: String?
+    let latitude: Double?
+    let longitude: Double?
     let createdAt: String?
 
     var wageDisplay: String {
@@ -463,16 +466,52 @@ struct Prefecture: Identifiable {
 
     static let all: [Prefecture] = [
         Prefecture(id: "hokkaido", name: "北海道"),
-        Prefecture(id: "tokyo", name: "東京都"),
-        Prefecture(id: "kanagawa", name: "神奈川県"),
-        Prefecture(id: "osaka", name: "大阪府"),
-        Prefecture(id: "aichi", name: "愛知県"),
-        Prefecture(id: "fukuoka", name: "福岡県"),
+        Prefecture(id: "aomori", name: "青森県"),
+        Prefecture(id: "iwate", name: "岩手県"),
+        Prefecture(id: "miyagi", name: "宮城県"),
+        Prefecture(id: "akita", name: "秋田県"),
+        Prefecture(id: "yamagata", name: "山形県"),
+        Prefecture(id: "fukushima", name: "福島県"),
+        Prefecture(id: "ibaraki", name: "茨城県"),
+        Prefecture(id: "tochigi", name: "栃木県"),
+        Prefecture(id: "gunma", name: "群馬県"),
         Prefecture(id: "saitama", name: "埼玉県"),
         Prefecture(id: "chiba", name: "千葉県"),
+        Prefecture(id: "tokyo", name: "東京都"),
+        Prefecture(id: "kanagawa", name: "神奈川県"),
+        Prefecture(id: "niigata", name: "新潟県"),
+        Prefecture(id: "toyama", name: "富山県"),
+        Prefecture(id: "ishikawa", name: "石川県"),
+        Prefecture(id: "fukui", name: "福井県"),
+        Prefecture(id: "yamanashi", name: "山梨県"),
+        Prefecture(id: "nagano", name: "長野県"),
+        Prefecture(id: "gifu", name: "岐阜県"),
+        Prefecture(id: "shizuoka", name: "静岡県"),
+        Prefecture(id: "aichi", name: "愛知県"),
+        Prefecture(id: "mie", name: "三重県"),
+        Prefecture(id: "shiga", name: "滋賀県"),
+        Prefecture(id: "kyoto", name: "京都府"),
+        Prefecture(id: "osaka", name: "大阪府"),
         Prefecture(id: "hyogo", name: "兵庫県"),
-        Prefecture(id: "kyoto", name: "京都府")
-        // Add more as needed
+        Prefecture(id: "nara", name: "奈良県"),
+        Prefecture(id: "wakayama", name: "和歌山県"),
+        Prefecture(id: "tottori", name: "鳥取県"),
+        Prefecture(id: "shimane", name: "島根県"),
+        Prefecture(id: "okayama", name: "岡山県"),
+        Prefecture(id: "hiroshima", name: "広島県"),
+        Prefecture(id: "yamaguchi", name: "山口県"),
+        Prefecture(id: "tokushima", name: "徳島県"),
+        Prefecture(id: "kagawa", name: "香川県"),
+        Prefecture(id: "ehime", name: "愛媛県"),
+        Prefecture(id: "kochi", name: "高知県"),
+        Prefecture(id: "fukuoka", name: "福岡県"),
+        Prefecture(id: "saga", name: "佐賀県"),
+        Prefecture(id: "nagasaki", name: "長崎県"),
+        Prefecture(id: "kumamoto", name: "熊本県"),
+        Prefecture(id: "oita", name: "大分県"),
+        Prefecture(id: "miyazaki", name: "宮崎県"),
+        Prefecture(id: "kagoshima", name: "鹿児島県"),
+        Prefecture(id: "okinawa", name: "沖縄県")
     ]
 }
 
@@ -515,6 +554,8 @@ struct CheckOutResponse: Codable {
     let checkOutTime: String?
     let workedHours: Double?
     let earnings: Int?
+    let paid: Bool?
+    let paymentId: String?
     let message: String?
 }
 
@@ -740,4 +781,10 @@ struct AdminSystemSettings: Codable {
     let requireIdentityVerification: Bool
     let autoApproveJobs: Bool
     let maintenanceMode: Bool
+    let enablePushNotifications: Bool?
+    let enableEmailNotifications: Bool?
+    let notifyNewRegistration: Bool?
+    let notifyWithdrawalRequest: Bool?
+    let notifyIdentitySubmission: Bool?
+    let notifyNewJobPost: Bool?
 }

@@ -9,6 +9,18 @@ struct EarningsGoalView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                if viewModel.isLoading {
+                    ProgressView("読み込み中...")
+                        .padding(.top, 40)
+                }
+
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+
                 // Current Goal Progress
                 GoalProgressCard(
                     currentAmount: viewModel.currentEarnings,
@@ -155,7 +167,7 @@ struct GoalProgressCard: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -198,7 +210,7 @@ struct EarningsStatCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -273,7 +285,7 @@ struct EarningsChartView: View {
             .padding(.top, 20)
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -327,7 +339,7 @@ struct RecentEarningsSection: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -429,6 +441,8 @@ class EarningsGoalViewModel: ObservableObject {
     @Published var remainingDays: Int = 0
     @Published var weeklyEarnings: [DayEarnings] = []
     @Published var recentEarnings: [EarningRecord] = []
+    @Published var errorMessage: String?
+    @Published var isLoading = false
 
     var remainingAmount: Int {
         max(goalAmount - currentEarnings, 0)
@@ -442,6 +456,8 @@ class EarningsGoalViewModel: ObservableObject {
     private let api = APIClient.shared
 
     func loadData() async {
+        isLoading = true
+        errorMessage = nil
         // Calculate remaining days in month
         let calendar = Calendar.current
         let now = Date()
@@ -458,18 +474,19 @@ class EarningsGoalViewModel: ObservableObject {
             currentEarnings = goalData.currentEarnings
             thisMonthEarnings = goalData.currentEarnings
         } catch {
-            print("Failed to load earnings goal: \(error)")
+            errorMessage = "収入目標の読み込みに失敗しました"
         }
 
-        // Load weekly earnings
-        weeklyEarnings = generateWeeklyData()
-
-        // Load recent earnings
+        // Load recent earnings first, then build weekly chart from them
         do {
             recentEarnings = try await api.getRecentEarnings()
         } catch {
-            print("Failed to load recent earnings: \(error)")
+            errorMessage = "最近の収入の読み込みに失敗しました"
         }
+
+        // Generate weekly chart data from recent earnings
+        weeklyEarnings = generateWeeklyData(from: recentEarnings)
+        isLoading = false
     }
 
     func setGoal(amount: Int, period: String) async {
@@ -478,26 +495,40 @@ class EarningsGoalViewModel: ObservableObject {
             goalAmount = amount
             goalPeriod = period
         } catch {
-            print("Failed to set goal: \(error)")
+            _ = error
         }
     }
 
-    private func generateWeeklyData() -> [DayEarnings] {
+    private func generateWeeklyData(from earnings: [EarningRecord]) -> [DayEarnings] {
         let calendar = Calendar.current
         let today = Date()
         var data: [DayEarnings] = []
 
+        // Build a lookup of date string -> total amount
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "ja_JP")
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+
+        var earningsByDate: [String: Int] = [:]
+        for record in earnings {
+            let dateKey = String(record.date.prefix(10)) // Extract "yyyy-MM-dd" portion
+            earningsByDate[dateKey, default: 0] += record.amount
+        }
+
+        let dayLabelFormatter = DateFormatter()
+        dayLabelFormatter.locale = Locale(identifier: "ja_JP")
+        dayLabelFormatter.dateFormat = "E"
+
         for i in (0..<7).reversed() {
             if let date = calendar.date(byAdding: .day, value: -i, to: today) {
-                let dayFormatter = DateFormatter()
-                dayFormatter.locale = Locale(identifier: "ja_JP")
-                dayFormatter.dateFormat = "E"
-                let dayLabel = dayFormatter.string(from: date)
+                let dayLabel = dayLabelFormatter.string(from: date)
+                let dateKey = dateFormatter.string(from: date)
+                let amount = earningsByDate[dateKey] ?? 0
 
                 data.append(DayEarnings(
                     id: String(i),
                     dayLabel: dayLabel,
-                    amount: 0, // Will be filled from API
+                    amount: amount,
                     isToday: i == 0
                 ))
             }

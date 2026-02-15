@@ -7,6 +7,13 @@ struct ChatListView: View {
     var body: some View {
         NavigationStack {
             Group {
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+
                 if viewModel.isLoading {
                     ProgressView()
                 } else if viewModel.chatRooms.isEmpty {
@@ -42,6 +49,11 @@ struct ChatListView: View {
 class ChatListViewModel: ObservableObject {
     @Published var chatRooms: [ChatRoom] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
+
+    var totalUnreadCount: Int {
+        chatRooms.compactMap(\.unreadCount).reduce(0, +)
+    }
 
     private let api = APIClient.shared
 
@@ -50,7 +62,7 @@ class ChatListViewModel: ObservableObject {
         do {
             chatRooms = try await api.getChatRooms()
         } catch {
-            print("Failed to load chat rooms: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -150,6 +162,14 @@ struct ChatRoomView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding(.horizontal)
+                    .padding(.vertical, 4)
+            }
+
             // Messages
             ScrollViewReader { proxy in
                 ScrollView {
@@ -165,6 +185,7 @@ struct ChatRoomView: View {
                     }
                     .padding()
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: viewModel.messages.count) { _, _ in
                     if let lastMessage = viewModel.messages.last {
                         withAnimation {
@@ -215,19 +236,6 @@ struct ChatRoomView: View {
                     }
                 }
 
-                // Call buttons
-                Button(action: { /* Video call */ }) {
-                    Image(systemName: "video")
-                        .font(.title2)
-                        .foregroundColor(.blue)
-                }
-
-                Button(action: { /* Phone call */ }) {
-                    Image(systemName: "phone")
-                        .font(.title2)
-                        .foregroundColor(.blue)
-                }
-
                 TextField("メッセージを入力", text: $messageText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
 
@@ -245,8 +253,17 @@ struct ChatRoomView: View {
         }
         .navigationTitle(room?.jobTitle ?? "チャット")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("準備中", isPresented: $viewModel.showComingSoon) {
+            Button("OK") {}
+        } message: {
+            Text("通話機能は近日公開予定です。")
+        }
         .task {
             await viewModel.loadMessages(roomId: roomId)
+            viewModel.startPolling(roomId: roomId)
+        }
+        .onDisappear {
+            viewModel.stopPolling()
         }
     }
 
@@ -278,8 +295,15 @@ class ChatRoomViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var currentUserId: String = ""
     @Published var isSending = false
+    @Published var showComingSoon = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
+    private var pollingTask: Task<Void, Never>?
+
+    deinit {
+        pollingTask?.cancel()
+    }
 
     func loadMessages(roomId: String) async {
         do {
@@ -287,8 +311,35 @@ class ChatRoomViewModel: ObservableObject {
             currentUserId = user.id
             messages = try await api.getChatMessages(roomId: roomId)
         } catch {
-            print("Failed to load messages: \(error)")
+            errorMessage = error.localizedDescription
         }
+    }
+
+    func startPolling(roomId: String) {
+        stopPolling()
+        pollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                guard !Task.isCancelled else { break }
+                do {
+                    let newMessages = try await APIClient.shared.getChatMessages(roomId: roomId)
+                    await MainActor.run {
+                        let lastLocalId = self?.messages.last?.id
+                        let lastRemoteId = newMessages.last?.id
+                        if lastLocalId != lastRemoteId || newMessages.count != self?.messages.count {
+                            self?.messages = newMessages
+                        }
+                    }
+                } catch {
+                    // Continue polling even on error
+                }
+            }
+        }
+    }
+
+    func stopPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
     }
 
     func sendMessage(roomId: String, content: String) async {
@@ -297,7 +348,7 @@ class ChatRoomViewModel: ObservableObject {
             let message = try await api.sendMessage(roomId: roomId, content: content)
             messages.append(message)
         } catch {
-            print("Failed to send message: \(error)")
+            errorMessage = error.localizedDescription
         }
         isSending = false
     }
@@ -317,7 +368,7 @@ class ChatRoomViewModel: ObservableObject {
             )
             messages.append(message)
         } catch {
-            print("Failed to send image message: \(error)")
+            errorMessage = error.localizedDescription
         }
         isSending = false
     }
@@ -359,7 +410,7 @@ struct MessageBubble: View {
                     }
 
                     // Check if message contains file
-                    if let fileUrl = message.fileUrl, let fileName = message.fileName {
+                    if let _ = message.fileUrl, let fileName = message.fileName {
                         HStack {
                             Image(systemName: "doc.fill")
                                 .foregroundColor(.blue)

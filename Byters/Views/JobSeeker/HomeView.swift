@@ -8,6 +8,23 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
+                    if let error = viewModel.errorMessage {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                            Spacer()
+                            Button("再試行") {
+                                Task { await viewModel.loadData() }
+                            }
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        }
+                        .padding(.horizontal)
+                    }
+
                     // Welcome Header
                     VStack(alignment: .leading, spacing: 8) {
                         Text("こんにちは、")
@@ -85,7 +102,10 @@ struct HomeView: View {
                         } else {
                             VStack(spacing: 12) {
                                 ForEach(viewModel.recentApplications.prefix(3)) { app in
-                                    HomeApplicationRow(application: app)
+                                    NavigationLink(destination: JobDetailView(jobId: app.jobId)) {
+                                        HomeApplicationRow(application: app)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal)
@@ -116,19 +136,18 @@ class HomeViewModel: ObservableObject {
     @Published var pendingApplications: Int = 0
     @Published var upcomingWork: Int = 0
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
     func loadData() async {
         isLoading = true
 
-        async let jobsTask = loadJobs()
-        async let applicationsTask = loadApplications()
-        async let walletTask = loadWallet()
+        async let jobsTask: Void = loadJobs()
+        async let applicationsTask: Void = loadApplications()
+        async let walletTask: Void = loadWallet()
 
-        await jobsTask
-        await applicationsTask
-        await walletTask
+        _ = await (jobsTask, applicationsTask, walletTask)
 
         isLoading = false
     }
@@ -141,7 +160,7 @@ class HomeViewModel: ObservableObject {
         do {
             featuredJobs = try await api.getJobs()
         } catch {
-            print("Failed to load jobs: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -152,7 +171,7 @@ class HomeViewModel: ObservableObject {
             pendingApplications = apps.filter { $0.status == "pending" }.count
             upcomingWork = apps.filter { $0.status == "accepted" }.count
         } catch {
-            print("Failed to load applications: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -161,7 +180,7 @@ class HomeViewModel: ObservableObject {
             let wallet = try await api.getWallet()
             walletBalance = wallet.balance
         } catch {
-            print("Failed to load wallet: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -190,7 +209,7 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -231,7 +250,7 @@ struct JobCard: View {
         }
         .frame(width: 200, height: 160)
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
     }
@@ -264,7 +283,7 @@ struct HomeApplicationRow: View {
                 .clipShape(Capsule())
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
     }
@@ -283,6 +302,7 @@ struct EmptyStateView: View {
     let icon: String
     let title: String
     let message: String
+    var retryAction: (() async -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 16) {
@@ -298,6 +318,25 @@ struct EmptyStateView: View {
                 .font(.subheadline)
                 .foregroundColor(.gray.opacity(0.8))
                 .multilineTextAlignment(.center)
+
+            if let retryAction = retryAction {
+                Button(action: {
+                    Task { await retryAction() }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.clockwise")
+                        Text("再試行")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(Color.blue)
+                    .clipShape(Capsule())
+                }
+                .padding(.top, 4)
+            }
         }
         .padding(40)
     }
@@ -305,6 +344,6 @@ struct EmptyStateView: View {
 
 #Preview {
     HomeView()
-        .environmentObject(AuthManager())
+        .environmentObject(AuthManager.shared)
         .environmentObject(AppState())
 }

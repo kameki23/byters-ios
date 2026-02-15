@@ -12,9 +12,40 @@ struct JobDetailView: View {
     var body: some View {
         ScrollView {
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.top, 100)
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("求人情報を読み込み中...")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 100)
+            } else if let errorMessage = viewModel.errorMessage, viewModel.job == nil {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(.orange)
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                    Button(action: {
+                        Task { await viewModel.loadJob(jobId: jobId) }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("再試行")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .background(Color.blue)
+                        .clipShape(Capsule())
+                    }
+                }
+                .padding(.top, 100)
             } else if let job = viewModel.job {
                 VStack(alignment: .leading, spacing: 24) {
                     // Job Image
@@ -54,6 +85,8 @@ struct JobDetailView: View {
 
                             // Favorite Button
                             Button(action: {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
                                 Task {
                                     await viewModel.toggleFavorite()
                                 }
@@ -61,7 +94,10 @@ struct JobDetailView: View {
                                 Image(systemName: viewModel.isFavorite ? "heart.fill" : "heart")
                                     .font(.title2)
                                     .foregroundColor(viewModel.isFavorite ? .red : .gray)
+                                    .scaleEffect(viewModel.isFavorite ? 1.1 : 1.0)
+                                    .animation(.spring(response: 0.3), value: viewModel.isFavorite)
                             }
+                            .accessibilityLabel(viewModel.isFavorite ? "お気に入りから削除" : "お気に入りに追加")
                         }
 
                         // Tags
@@ -275,6 +311,8 @@ struct JobDetailView: View {
         .sheet(isPresented: $showApplySheet) {
             ApplySheetView(jobId: jobId) { success in
                 if success {
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
                     viewModel.isApplied = true
                 }
                 showApplySheet = false
@@ -300,9 +338,11 @@ struct JobDetailView: View {
 
     private func shareJob() {
         guard let job = viewModel.job else { return }
-        let url = URL(string: "https://byters.jp/jobs/\(jobId)")!
+        let shareText = "\(job.title) - Bytersで短期バイトを見つけよう！"
+        let webBaseURL = StripeConfig.apiBaseURL.replacingOccurrences(of: "/api", with: "")
+        let url = URL(string: "\(webBaseURL)/jobs/\(jobId)")!
         let activityVC = UIActivityViewController(
-            activityItems: [job.title, url],
+            activityItems: [shareText, url],
             applicationActivities: nil
         )
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -323,6 +363,7 @@ class JobDetailViewModel: ObservableObject {
     @Published var reviews: [Review] = []
     @Published var eligibility: EligibilityResponse?
     @Published var isCheckingEligibility = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -330,9 +371,14 @@ class JobDetailViewModel: ObservableObject {
         isLoading = true
         do {
             job = try await api.getJobDetail(jobId: jobId)
-            // Check if already favorited (could be done via API)
         } catch {
-            print("Failed to load job: \(error)")
+            errorMessage = "求人情報の読み込みに失敗しました"
+        }
+        // Load favorite status
+        do {
+            isFavorite = try await api.isFavorite(jobId: jobId)
+        } catch {
+            // Non-critical - default to not favorited
         }
         isLoading = false
     }
@@ -341,7 +387,7 @@ class JobDetailViewModel: ObservableObject {
         do {
             reviews = try await api.getJobReviews(jobId: jobId)
         } catch {
-            print("Failed to load reviews: \(error)")
+            _ = error
         }
     }
 
@@ -350,14 +396,8 @@ class JobDetailViewModel: ObservableObject {
         do {
             eligibility = try await api.checkApplicationEligibility(jobId: jobId)
         } catch {
-            // If eligibility check fails, assume eligible
-            eligibility = EligibilityResponse(
-                eligible: true,
-                reasons: nil,
-                identityVerified: nil,
-                profileComplete: nil,
-                message: nil
-            )
+            errorMessage = "応募資格の確認に失敗しました"
+            eligibility = nil
         }
         isCheckingEligibility = false
     }
@@ -372,7 +412,7 @@ class JobDetailViewModel: ObservableObject {
             }
             isFavorite.toggle()
         } catch {
-            print("Failed to toggle favorite: \(error)")
+            _ = error
         }
     }
 }

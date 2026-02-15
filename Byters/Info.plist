@@ -17,9 +17,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>4</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>UIApplicationSceneManifest</key>
@@ -48,8 +48,12 @@
     <string>出勤場所の確認のために位置情報を使用します</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>プロフィール画像や本人確認書類をアップロードするために写真ライブラリを使用します</string>
-    <key>UIUserInterfaceStyle</key>
-    <string>Light</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>安全なログインのためにFace IDを使用します</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>チャットで音声メッセージを送信するためにマイクを使用します</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>StripePublishableKey</key>
     <string>$(STRIPE_PUBLISHABLE_KEY)</string>
     <key>APIBaseURL</key>

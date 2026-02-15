@@ -134,7 +134,7 @@ struct QualificationCard: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -319,7 +319,7 @@ class QualificationsViewModel: ObservableObject {
         do {
             qualifications = try await api.getQualifications()
         } catch {
-            print("Failed to load qualifications: \(error)")
+            _ = error
         }
         isLoading = false
     }

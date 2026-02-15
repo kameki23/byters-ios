@@ -5,19 +5,31 @@ class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
 
     @Published var unreadCount: Int = 0
+    @Published var chatUnreadCount: Int = 0
     @Published var notifications: [AppNotification] = []
+    @Published var loadError: String?
 
     private let api = APIClient.shared
 
     private init() {}
 
     func loadUnreadCount() async {
+        loadError = nil
         do {
             let allNotifications = try await api.getNotifications()
             unreadCount = allNotifications.filter { !$0.isRead }.count
             notifications = allNotifications
         } catch {
-            print("Failed to load notifications: \(error)")
+            loadError = "通知の読み込みに失敗しました"
+        }
+    }
+
+    func loadChatUnreadCount() async {
+        do {
+            let rooms = try await api.getChatRooms()
+            chatUnreadCount = rooms.compactMap(\.unreadCount).reduce(0, +)
+        } catch {
+            // Chat unread count is non-critical
         }
     }
 
@@ -39,7 +51,7 @@ class NotificationManager: ObservableObject {
             }
             unreadCount = max(0, unreadCount - 1)
         } catch {
-            print("Failed to mark as read: \(error)")
+            _ = error
         }
     }
 
@@ -60,7 +72,7 @@ class NotificationManager: ObservableObject {
             }
             unreadCount = 0
         } catch {
-            print("Failed to mark all as read: \(error)")
+            _ = error
         }
     }
 }

@@ -7,6 +7,9 @@ struct WorkView: View {
     @State private var showQRScanner = false
     @State private var selectedApplication: Application?
     @State private var isCheckingOut = false
+    @State private var showErrorAlert = false
+    @State private var showSuccessAlert = false
+    @State private var showReviewSheet = false
 
     var body: some View {
         NavigationStack {
@@ -27,6 +30,7 @@ struct WorkView: View {
                             .foregroundColor(.white)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
+                        .accessibilityLabel("QRコードをスキャンして出勤打刻")
                         .padding(.horizontal)
                     }
 
@@ -70,6 +74,9 @@ struct WorkView: View {
                                     onCheckIn: {
                                         selectedApplication = app
                                         showQRScanner = true
+                                    },
+                                    onCancel: {
+                                        Task { await viewModel.cancelApplication(applicationId: app.id) }
                                     }
                                 )
                             }
@@ -150,23 +157,38 @@ struct WorkView: View {
                     }
                 }
             }
-            .alert("エラー", isPresented: .constant(viewModel.errorMessage != nil)) {
+            .alert("エラー", isPresented: $showErrorAlert) {
                 Button("OK") {
                     viewModel.errorMessage = nil
                 }
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
-            .alert("成功", isPresented: .constant(viewModel.successMessage != nil)) {
+            .alert("成功", isPresented: $showSuccessAlert) {
                 Button("OK") {
                     viewModel.successMessage = nil
+                }
+                Button("レビューを書く") {
+                    viewModel.successMessage = nil
+                    showReviewSheet = true
                 }
             } message: {
                 Text(viewModel.successMessage ?? "")
             }
+            .sheet(isPresented: $showReviewSheet) {
+                NavigationStack {
+                    PendingReviewsView()
+                }
+            }
         }
         .task {
             await viewModel.loadData()
+        }
+        .onChange(of: viewModel.errorMessage) { _, newValue in
+            showErrorAlert = newValue != nil
+        }
+        .onChange(of: viewModel.successMessage) { _, newValue in
+            showSuccessAlert = newValue != nil
         }
     }
 }
@@ -186,6 +208,7 @@ class WorkViewModel: ObservableObject {
 
     private let api = APIClient.shared
     private let locationManager = CLLocationManager()
+    private var locationDelegate: NSObject?
 
     func loadData() async {
         isLoading = true
@@ -195,9 +218,19 @@ class WorkViewModel: ObservableObject {
             workHistory = apps.filter { $0.status == "completed" }
             currentlyWorking = apps.first { $0.status == "checked_in" }
         } catch {
-            print("Failed to load work: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    func cancelApplication(applicationId: String) async {
+        do {
+            _ = try await api.cancelApplication(applicationId: applicationId)
+            successMessage = "応募をキャンセルしました"
+            await loadData()
+        } catch {
+            errorMessage = "キャンセルに失敗しました"
+        }
     }
 
     func refresh() async {
@@ -224,6 +257,8 @@ class WorkViewModel: ObservableObject {
                 deviceTime: ISO8601DateFormatter().string(from: Date())
             )
 
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
             successMessage = "チェックインしました！\n\(response.jobTitle ?? "")で勤務開始"
             await loadData()
         } catch {
@@ -235,7 +270,7 @@ class WorkViewModel: ObservableObject {
 
     func checkOut(applicationId: String) async {
         isProcessing = true
-        processingMessage = "チェックアウト中..."
+        processingMessage = "チェックアウト・決済処理中..."
 
         do {
             let location = await getCurrentLocation()
@@ -247,7 +282,17 @@ class WorkViewModel: ObservableObject {
                 deviceTime: ISO8601DateFormatter().string(from: Date())
             )
 
-            successMessage = "お疲れ様でした！\n勤務時間: \(response.workedHours ?? 0)時間\n報酬: ¥\(response.earnings ?? 0)"
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+
+            let hours = String(format: "%.1f", response.workedHours ?? 0)
+            let earnings = response.earnings ?? 0
+
+            if response.paid == true {
+                successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬: ¥\(earnings.formatted())\n\n報酬が自動で確定しました！\nレビューを書いてバッジを獲得しよう！"
+            } else {
+                successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬見込み: ¥\(earnings.formatted())\n\n\(response.message ?? "事業者の確認後に報酬が確定します。")\n\nレビューを書いてバッジを獲得しよう！"
+            }
             await loadData()
         } catch {
             errorMessage = "チェックアウトに失敗しました: \(error.localizedDescription)"
@@ -257,33 +302,74 @@ class WorkViewModel: ObservableObject {
     }
 
     private func getCurrentLocation() async -> CLLocation? {
+        let status = locationManager.authorizationStatus
+
+        // 権限が未決定の場合、リクエストして待つ
+        if status == .notDetermined {
+            let authorized = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                let authDelegate = LocationAuthDelegate { granted in
+                    continuation.resume(returning: granted)
+                }
+                self.locationDelegate = authDelegate
+                locationManager.delegate = authDelegate
+                locationManager.requestWhenInUseAuthorization()
+            }
+            if !authorized { return nil }
+        }
+
+        // 権限が拒否されている場合
+        if status == .denied || status == .restricted {
+            return nil
+        }
+
+        // 位置情報を取得
         return await withCheckedContinuation { continuation in
-            let delegate = LocationDelegate { location in
+            let delegate = LocationDelegate { [weak self] location in
+                self?.locationDelegate = nil
                 continuation.resume(returning: location)
             }
+            self.locationDelegate = delegate
             locationManager.delegate = delegate
-            locationManager.requestWhenInUseAuthorization()
+            locationManager.desiredAccuracy = kCLLocationAccuracyBest
             locationManager.requestLocation()
         }
+    }
+}
+
+// MARK: - Location Auth Delegate
+
+class LocationAuthDelegate: NSObject, CLLocationManagerDelegate {
+    private var completion: ((Bool) -> Void)?
+
+    init(completion: @escaping (Bool) -> Void) {
+        self.completion = completion
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        guard status != .notDetermined else { return }
+        completion?(status == .authorizedWhenInUse || status == .authorizedAlways)
+        completion = nil
     }
 }
 
 // MARK: - Location Delegate
 
 class LocationDelegate: NSObject, CLLocationManagerDelegate {
-    private var completion: (CLLocation?) -> Void
+    private var completion: ((CLLocation?) -> Void)?
 
     init(completion: @escaping (CLLocation?) -> Void) {
         self.completion = completion
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        completion(locations.first)
+        completion?(locations.first)
+        completion = nil
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error)")
-        completion(nil)
+        completion?(nil)
+        completion = nil
     }
 }
 
@@ -300,45 +386,72 @@ struct QRScannerView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Camera preview
-                QRCameraPreview(scanner: scanner)
-                    .ignoresSafeArea()
-
-                // Overlay
-                VStack {
-                    Spacer()
-
-                    // Scan frame
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.white, lineWidth: 3)
-                        .frame(width: 250, height: 250)
-                        .background(Color.clear)
-
-                    Spacer()
-
-                    // Instructions
-                    VStack(spacing: 16) {
-                        Text("QRコードをスキャン")
+                if scanner.cameraPermissionDenied {
+                    // Camera permission denied
+                    VStack(spacing: 20) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 60))
+                            .foregroundColor(.gray)
+                        Text("カメラへのアクセスが必要です")
                             .font(.headline)
-                            .foregroundColor(.white)
-
-                        Text("勤務先に設置されたQRコードをカメラで読み取ってください")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.8))
+                        Text("QRコードをスキャンするにはカメラへのアクセスを許可してください")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
-
-                        Button(action: { showManualEntry = true }) {
-                            Text("手動で入力")
-                                .font(.subheadline)
-                                .foregroundColor(.blue)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
-                                .background(Color.white)
-                                .clipShape(Capsule())
+                        Button("設定を開く") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
                         }
+                        .buttonStyle(.borderedProminent)
+                        Button("手動で入力") {
+                            showManualEntry = true
+                        }
+                        .foregroundColor(.blue)
                     }
-                    .padding(.bottom, 50)
+                    .padding()
+                } else {
+                    // Camera preview
+                    QRCameraPreview(scanner: scanner)
+                        .ignoresSafeArea()
+
+                    // Overlay
+                    VStack {
+                        Spacer()
+
+                        // Scan frame
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.white, lineWidth: 3)
+                            .frame(width: 250, height: 250)
+                            .background(Color.clear)
+
+                        Spacer()
+
+                        // Instructions
+                        VStack(spacing: 16) {
+                            Text("QRコードをスキャン")
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            Text("勤務先に設置されたQRコードをカメラで読み取ってください")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.8))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+
+                            Button(action: { showManualEntry = true }) {
+                                Text("手動で入力")
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                    .background(Color(.systemBackground))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        .padding(.bottom, 50)
+                    }
                 }
             }
             .navigationTitle("QRスキャン")
@@ -348,7 +461,7 @@ struct QRScannerView: View {
                     Button("キャンセル") {
                         onCancel()
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(scanner.cameraPermissionDenied ? .primary : .white)
                 }
             }
             .onAppear {
@@ -446,10 +559,35 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
     var previewLayer = AVCaptureVideoPreviewLayer()
     private var onCodeScanned: ((String) -> Void)?
     private var hasScanned = false
+    @Published var cameraPermissionDenied = false
+    @Published var cameraReady = false
 
     override init() {
         super.init()
-        setupSession()
+    }
+
+    func requestCameraAccess() {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        switch status {
+        case .authorized:
+            setupSession()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        self?.setupSession()
+                    } else {
+                        self?.cameraPermissionDenied = true
+                    }
+                }
+            }
+        case .denied, .restricted:
+            DispatchQueue.main.async {
+                self.cameraPermissionDenied = true
+            }
+        @unknown default:
+            break
+        }
     }
 
     private func setupSession() {
@@ -473,11 +611,15 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
 
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer.videoGravity = .resizeAspectFill
+        DispatchQueue.main.async {
+            self.cameraReady = true
+        }
     }
 
     func startScanning(onCodeScanned: @escaping (String) -> Void) {
         self.onCodeScanned = onCodeScanned
         self.hasScanned = false
+        requestCameraAccess()
         DispatchQueue.global(qos: .background).async { [weak self] in
             self?.captureSession?.startRunning()
         }
@@ -559,6 +701,9 @@ struct CurrentWorkCard: View {
 struct WorkCard: View {
     let application: Application
     let onCheckIn: () -> Void
+    let onCancel: () -> Void
+
+    @State private var showCancelAlert = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -584,25 +729,39 @@ struct WorkCard: View {
 
                 Spacer()
 
-                Button(action: onCheckIn) {
-                    HStack {
-                        Image(systemName: "qrcode.viewfinder")
-                        Text("出勤")
+                VStack(spacing: 8) {
+                    Button(action: onCheckIn) {
+                        HStack {
+                            Image(systemName: "qrcode.viewfinder")
+                            Text("出勤")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
                     }
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .clipShape(Capsule())
+
+                    Button(action: { showCancelAlert = true }) {
+                        Text("キャンセル")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
                 }
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+        .alert("応募をキャンセル", isPresented: $showCancelAlert) {
+            Button("キャンセルする", role: .destructive) { onCancel() }
+            Button("戻る", role: .cancel) {}
+        } message: {
+            Text("この応募をキャンセルしますか？この操作は取り消せません。")
+        }
     }
 }
 

@@ -38,38 +38,42 @@ struct JobSeekerTabView: View {
                     Label("ホーム", systemImage: "house.fill")
                 }
                 .tag(AppState.Tab.home)
+                .accessibilityLabel("ホームタブ")
 
             JobSearchView()
                 .tabItem {
                     Label("検索", systemImage: "magnifyingglass")
                 }
                 .tag(AppState.Tab.search)
+                .accessibilityLabel("求人検索タブ")
 
             WorkView()
                 .tabItem {
                     Label("お仕事", systemImage: "briefcase.fill")
                 }
                 .tag(AppState.Tab.work)
+                .accessibilityLabel("お仕事タブ")
 
             ChatListView()
                 .tabItem {
                     Label("チャット", systemImage: "message.fill")
                 }
                 .tag(AppState.Tab.chat)
+                .badge(notificationManager.chatUnreadCount)
+                .accessibilityLabel("チャットタブ")
 
             MyPageView()
                 .tabItem {
                     Label("マイページ", systemImage: "person.fill")
                 }
                 .tag(AppState.Tab.mypage)
-                .badge(notificationManager.unreadCount > 0 ? notificationManager.unreadCount : 0)
+                .badge(notificationManager.unreadCount)
+                .accessibilityLabel("マイページタブ")
         }
         .tint(.blue)
         .task {
             await notificationManager.loadUnreadCount()
-        }
-        .refreshable {
-            await notificationManager.loadUnreadCount()
+            await notificationManager.loadChatUnreadCount()
         }
     }
 }
@@ -105,17 +109,19 @@ struct EmployerTabView: View {
                     Label("メッセージ", systemImage: "message.fill")
                 }
                 .tag(3)
+                .badge(notificationManager.chatUnreadCount)
 
             EmployerSettingsView()
                 .tabItem {
                     Label("設定", systemImage: "gearshape.fill")
                 }
                 .tag(4)
-                .badge(notificationManager.unreadCount > 0 ? notificationManager.unreadCount : 0)
+                .badge(notificationManager.unreadCount)
         }
         .tint(.blue)
         .task {
             await notificationManager.loadUnreadCount()
+            await notificationManager.loadChatUnreadCount()
         }
     }
 }
@@ -153,7 +159,7 @@ struct AdminTabView: View {
                 Label("通知", systemImage: "bell.fill")
             }
             .tag(3)
-            .badge(notificationManager.unreadCount > 0 ? notificationManager.unreadCount : 0)
+            .badge(notificationManager.unreadCount)
 
             AdminSettingsView()
                 .tabItem {
@@ -170,6 +176,6 @@ struct AdminTabView: View {
 
 #Preview {
     MainTabView()
-        .environmentObject(AuthManager())
+        .environmentObject(AuthManager.shared)
         .environmentObject(AppState())
 }

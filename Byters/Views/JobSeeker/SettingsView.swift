@@ -70,7 +70,8 @@ class NotificationSettingsViewModel: ObservableObject {
         do {
             settings = try await api.getNotificationSettings()
         } catch {
-            print("Failed to load notification settings: \(error)")
+            message = error.localizedDescription
+            isError = true
         }
         isLoading = false
     }
@@ -159,7 +160,8 @@ class EmailSettingsViewModel: ObservableObject {
         do {
             settings = try await api.getEmailSettings()
         } catch {
-            print("Failed to load email settings: \(error)")
+            message = error.localizedDescription
+            isError = true
         }
         isLoading = false
     }
@@ -270,7 +272,8 @@ class LocationSettingsViewModel: ObservableObject {
             city = settings.city
             searchRadius = settings.searchRadiusKm
         } catch {
-            print("Failed to load location settings: \(error)")
+            message = error.localizedDescription
+            isError = true
         }
         isLoading = false
     }
@@ -299,6 +302,12 @@ struct MutedEmployersView: View {
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.mutedEmployers.isEmpty {
                 Text("ミュートしている事業者はありません")
                     .foregroundColor(.gray)
@@ -359,6 +368,7 @@ struct MutedEmployersView: View {
 class MutedEmployersViewModel: ObservableObject {
     @Published var mutedEmployers: [MutedEmployer] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -367,7 +377,7 @@ class MutedEmployersViewModel: ObservableObject {
         do {
             mutedEmployers = try await api.getMutedEmployers()
         } catch {
-            print("Failed to load muted employers: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -377,7 +387,7 @@ class MutedEmployersViewModel: ObservableObject {
             _ = try await api.unmuteEmployer(employerId: id)
             await loadMutedEmployers()
         } catch {
-            print("Failed to unmute employer: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -390,6 +400,12 @@ struct TimesheetAdjustmentView: View {
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.adjustments.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "clock.arrow.2.circlepath")
@@ -507,24 +523,54 @@ struct TimesheetAdjustmentRow: View {
 struct TimesheetAdjustmentRequestSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedApplicationId = ""
+    @State private var applications: [Application] = []
     @State private var requestedCheckIn = ""
     @State private var requestedCheckOut = ""
     @State private var reason = ""
     @State private var isLoading = false
+    @State private var isLoadingApplications = true
+    @State private var errorMessage: String?
 
     let onComplete: () async -> Void
 
     var body: some View {
         NavigationStack {
             Form {
+                Section(header: Text("対象のお仕事")) {
+                    if isLoadingApplications {
+                        ProgressView("読み込み中...")
+                    } else if applications.isEmpty {
+                        Text("承認済みの応募がありません")
+                            .foregroundColor(.gray)
+                    } else {
+                        Picker("お仕事を選択", selection: $selectedApplicationId) {
+                            Text("選択してください").tag("")
+                            ForEach(applications) { app in
+                                Text(app.jobTitle ?? "求人ID: \(app.jobId)")
+                                    .tag(app.id)
+                            }
+                        }
+                    }
+                }
+
                 Section(header: Text("修正希望時間")) {
                     TextField("出勤時刻（例: 09:00）", text: $requestedCheckIn)
+                        .keyboardType(.numbersAndPunctuation)
                     TextField("退勤時刻（例: 18:00）", text: $requestedCheckOut)
+                        .keyboardType(.numbersAndPunctuation)
                 }
 
                 Section(header: Text("修正理由")) {
                     TextEditor(text: $reason)
                         .frame(height: 100)
+                }
+
+                if let error = errorMessage {
+                    Section {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
                 }
             }
             .navigationTitle("時間修正リクエスト")
@@ -537,14 +583,29 @@ struct TimesheetAdjustmentRequestSheet: View {
                     Button("送信") {
                         Task { await submitRequest() }
                     }
-                    .disabled(reason.isEmpty || isLoading)
+                    .disabled(reason.isEmpty || selectedApplicationId.isEmpty || isLoading)
                 }
+            }
+            .task {
+                await loadApplications()
             }
         }
     }
 
+    private func loadApplications() async {
+        isLoadingApplications = true
+        do {
+            let allApps = try await APIClient.shared.getMyApplications()
+            applications = allApps.filter { $0.status == "approved" || $0.status == "completed" }
+        } catch {
+            errorMessage = "応募一覧の取得に失敗しました"
+        }
+        isLoadingApplications = false
+    }
+
     private func submitRequest() async {
         isLoading = true
+        errorMessage = nil
         do {
             _ = try await APIClient.shared.requestTimesheetAdjustment(
                 applicationId: selectedApplicationId,
@@ -555,7 +616,7 @@ struct TimesheetAdjustmentRequestSheet: View {
             await onComplete()
             dismiss()
         } catch {
-            print("Failed to submit request: \(error)")
+            errorMessage = "送信に失敗しました"
         }
         isLoading = false
     }
@@ -565,6 +626,7 @@ struct TimesheetAdjustmentRequestSheet: View {
 class TimesheetAdjustmentViewModel: ObservableObject {
     @Published var adjustments: [TimesheetAdjustment] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -573,7 +635,7 @@ class TimesheetAdjustmentViewModel: ObservableObject {
         do {
             adjustments = try await api.getMyTimesheetAdjustments()
         } catch {
-            print("Failed to load adjustments: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -586,6 +648,12 @@ struct TaxDocumentsView: View {
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -625,6 +693,8 @@ struct TaxDocumentsView: View {
 
 struct TaxDocumentRow: View {
     let document: TaxDocument
+    @State private var isDownloading = false
+    @State private var downloadError: String?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -648,14 +718,48 @@ struct TaxDocumentRow: View {
             Spacer()
 
             Button(action: {
-                // Download or view document
+                Task { await downloadDocument() }
             }) {
-                Image(systemName: "arrow.down.circle")
-                    .font(.title2)
-                    .foregroundColor(.blue)
+                if isDownloading {
+                    ProgressView()
+                } else {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                }
             }
+            .disabled(isDownloading)
         }
         .padding(.vertical, 8)
+        .alert("エラー", isPresented: Binding(
+            get: { downloadError != nil },
+            set: { if !$0 { downloadError = nil } }
+        )) {
+            Button("OK") { downloadError = nil }
+        } message: {
+            Text(downloadError ?? "")
+        }
+    }
+
+    private func downloadDocument() async {
+        if let urlString = document.documentUrl, let url = URL(string: urlString) {
+            await MainActor.run {
+                UIApplication.shared.open(url)
+            }
+            return
+        }
+        isDownloading = true
+        do {
+            let response = try await APIClient.shared.downloadTaxDocument(documentId: document.id)
+            if let urlString = response.downloadUrl, let url = URL(string: urlString) {
+                await MainActor.run {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } catch {
+            downloadError = "ダウンロードに失敗しました"
+        }
+        isDownloading = false
     }
 
     private func formatDate(_ dateString: String) -> String {
@@ -674,6 +778,7 @@ struct TaxDocumentRow: View {
 class TaxDocumentsViewModel: ObservableObject {
     @Published var documents: [TaxDocument] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -682,7 +787,7 @@ class TaxDocumentsViewModel: ObservableObject {
         do {
             documents = try await api.getTaxDocuments()
         } catch {
-            print("Failed to load tax documents: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -695,6 +800,12 @@ struct UpcomingWorkView: View {
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -719,7 +830,9 @@ struct UpcomingWorkView: View {
                 ForEach(viewModel.groupedWork, id: \.date) { group in
                     Section(header: Text(formatSectionDate(group.date))) {
                         ForEach(group.items) { work in
-                            UpcomingWorkRow(work: work)
+                            UpcomingWorkRow(work: work) { _ in
+                                await viewModel.loadUpcomingWork()
+                            }
                         }
                     }
                 }
@@ -757,6 +870,9 @@ struct UpcomingWorkView: View {
 
 struct UpcomingWorkRow: View {
     let work: UpcomingWorkItem
+    var onCheckIn: ((String) async -> Void)?
+    @State private var isCheckingIn = false
+    @State private var checkInError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -791,14 +907,36 @@ struct UpcomingWorkRow: View {
                 .font(.caption)
                 .foregroundColor(.blue)
 
+            if let error = checkInError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if work.canCheckIn {
                 HStack {
                     Spacer()
                     Button(action: {
-                        // Check-in action
+                        Task {
+                            isCheckingIn = true
+                            checkInError = nil
+                            do {
+                                _ = try await APIClient.shared.checkIn(applicationId: work.applicationId)
+                                await onCheckIn?(work.applicationId)
+                            } catch {
+                                checkInError = "チェックインに失敗しました"
+                            }
+                            isCheckingIn = false
+                        }
                     }) {
                         HStack {
-                            Image(systemName: "clock.badge.checkmark")
+                            if isCheckingIn {
+                                ProgressView()
+                                    .tint(.white)
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "clock.badge.checkmark")
+                            }
                             Text("チェックイン")
                         }
                         .font(.caption)
@@ -809,6 +947,7 @@ struct UpcomingWorkRow: View {
                         .foregroundColor(.white)
                         .clipShape(Capsule())
                     }
+                    .disabled(isCheckingIn)
                 }
             }
         }
@@ -849,6 +988,7 @@ struct WorkDateGroup {
 class UpcomingWorkViewModel: ObservableObject {
     @Published var upcomingWork: [UpcomingWorkItem] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     var groupedWork: [WorkDateGroup] {
         let grouped = Dictionary(grouping: upcomingWork, by: { $0.workDate })
@@ -863,7 +1003,7 @@ class UpcomingWorkViewModel: ObservableObject {
         do {
             upcomingWork = try await api.getUpcomingWork()
         } catch {
-            print("Failed to load upcoming work: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -881,70 +1021,64 @@ struct BugReportView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text("カテゴリ")) {
-                    Picker("報告種別", selection: $category) {
-                        Text("バグ報告").tag("bug")
-                        Text("機能リクエスト").tag("feature")
-                        Text("改善提案").tag("improvement")
-                        Text("その他").tag("other")
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
+        Form {
+            Section(header: Text("カテゴリ")) {
+                Picker("報告種別", selection: $category) {
+                    Text("バグ報告").tag("bug")
+                    Text("機能リクエスト").tag("feature")
+                    Text("改善提案").tag("improvement")
+                    Text("その他").tag("other")
+                }
+                .pickerStyle(SegmentedPickerStyle())
+            }
+
+            Section(header: Text("タイトル")) {
+                TextField("問題の概要を入力", text: $title)
+            }
+
+            Section(header: Text("詳細")) {
+                TextEditor(text: $description)
+                    .frame(height: 150)
+            }
+
+            Section(footer: Text("アプリのバージョンとデバイス情報は自動的に送信されます")) {
+                HStack {
+                    Text("デバイス")
+                    Spacer()
+                    Text(UIDevice.current.model)
+                        .foregroundColor(.gray)
                 }
 
-                Section(header: Text("タイトル")) {
-                    TextField("問題の概要を入力", text: $title)
-                }
-
-                Section(header: Text("詳細")) {
-                    TextEditor(text: $description)
-                        .frame(height: 150)
-                }
-
-                Section(footer: Text("アプリのバージョンとデバイス情報は自動的に送信されます")) {
-                    // Device info display
-                    HStack {
-                        Text("デバイス")
-                        Spacer()
-                        Text(UIDevice.current.model)
-                            .foregroundColor(.gray)
-                    }
-
-                    HStack {
-                        Text("iOS バージョン")
-                        Spacer()
-                        Text(UIDevice.current.systemVersion)
-                            .foregroundColor(.gray)
-                    }
-                }
-
-                if let error = errorMessage {
-                    Section {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
+                HStack {
+                    Text("iOS バージョン")
+                    Spacer()
+                    Text(UIDevice.current.systemVersion)
+                        .foregroundColor(.gray)
                 }
             }
-            .navigationTitle("バグ報告・機能リクエスト")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("送信") {
-                        Task { await submitReport() }
-                    }
-                    .disabled(title.isEmpty || description.isEmpty || isSubmitting)
+
+            if let error = errorMessage {
+                Section {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.caption)
                 }
             }
-            .alert("送信完了", isPresented: $showSuccess) {
-                Button("OK") { dismiss() }
-            } message: {
-                Text("フィードバックをお送りいただきありがとうございます。")
+
+            Section {
+                Button("送信") {
+                    Task { await submitReport() }
+                }
+                .frame(maxWidth: .infinity)
+                .disabled(title.isEmpty || description.isEmpty || isSubmitting)
             }
+        }
+        .navigationTitle("バグ報告・機能リクエスト")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("送信完了", isPresented: $showSuccess) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text("フィードバックをお送りいただきありがとうございます。")
         }
     }
 
@@ -971,49 +1105,10 @@ struct BugReportView: View {
 
 struct TermsOfServiceView: View {
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("利用規約")
-                    .font(.title)
-                    .fontWeight(.bold)
-
-                Text("最終更新日: 2024年1月1日")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                Group {
-                    Text("第1条（適用）")
-                        .font(.headline)
-                    Text("本規約は、本サービスの利用に関する条件を、本サービスを利用する全てのユーザーと当社との間で定めるものです。")
-
-                    Text("第2条（定義）")
-                        .font(.headline)
-                    Text("「本サービス」とは、当社が提供する短期アルバイトマッチングサービス「Byters」をいいます。")
-
-                    Text("第3条（利用登録）")
-                        .font(.headline)
-                    Text("本サービスの利用を希望する者は、当社の定める方法により利用登録を行うものとします。")
-
-                    Text("第4条（禁止事項）")
-                        .font(.headline)
-                    Text("""
-                    ユーザーは、本サービスの利用にあたり、以下の行為をしてはなりません。
-                    - 法令または公序良俗に違反する行為
-                    - 犯罪行為に関連する行為
-                    - 当社のサーバーまたはネットワークの機能を破壊したり、妨害したりする行為
-                    - 他のユーザーに成りすます行為
-                    - 本サービスの運営を妨害する行為
-                    """)
-                }
-
-                Text("第5条（免責事項）")
-                    .font(.headline)
-                Text("当社は、本サービスに関連してユーザーに生じた損害について、一切の責任を負いません。")
-            }
-            .padding()
-        }
-        .navigationTitle("利用規約")
-        .navigationBarTitleDisplayMode(.inline)
+        WebPageView(
+            url: URL(string: "\(StripeConfig.apiBaseURL.replacingOccurrences(of: "/api", with: ""))/terms")!,
+            title: "利用規約"
+        )
     }
 }
 
@@ -1021,54 +1116,93 @@ struct TermsOfServiceView: View {
 
 struct PrivacyPolicyView: View {
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("プライバシーポリシー")
-                    .font(.title)
-                    .fontWeight(.bold)
+        WebPageView(
+            url: URL(string: "\(StripeConfig.apiBaseURL.replacingOccurrences(of: "/api", with: ""))/privacy")!,
+            title: "プライバシーポリシー"
+        )
+    }
+}
 
-                Text("最終更新日: 2024年1月1日")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+// MARK: - WebPage View
 
-                Group {
-                    Text("1. 収集する情報")
-                        .font(.headline)
-                    Text("""
-                    当社は、以下の情報を収集する場合があります：
-                    - 氏名、メールアドレス、電話番号などの個人情報
-                    - 本人確認書類の画像
-                    - 位置情報
-                    - デバイス情報
-                    """)
+import WebKit
 
-                    Text("2. 情報の利用目的")
-                        .font(.headline)
-                    Text("""
-                    収集した情報は、以下の目的で利用します：
-                    - 本サービスの提供・運営
-                    - ユーザーからのお問い合わせへの対応
-                    - 本サービスの改善
-                    - 新機能やキャンペーンのお知らせ
-                    """)
+struct WebPageView: View {
+    let url: URL
+    let title: String
 
-                    Text("3. 情報の第三者提供")
-                        .font(.headline)
-                    Text("当社は、法令に基づく場合を除き、ユーザーの同意なく個人情報を第三者に提供しません。")
+    @State private var isLoading = true
+    @State private var loadFailed = false
 
-                    Text("4. 情報の管理")
-                        .font(.headline)
-                    Text("当社は、個人情報の漏洩、紛失、破損を防止するため、適切なセキュリティ対策を講じます。")
+    var body: some View {
+        Group {
+            if loadFailed {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        Image(systemName: "wifi.slash")
+                            .font(.system(size: 48))
+                            .foregroundColor(.gray)
+                        Text("ページを読み込めませんでした")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                        Text("インターネット接続を確認してください")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.top, 80)
                 }
-
-                Text("5. お問い合わせ")
-                    .font(.headline)
-                Text("プライバシーポリシーに関するお問い合わせは、アプリ内のお問い合わせフォームよりお願いします。")
+            } else {
+                WebViewRepresentable(url: url, isLoading: $isLoading, loadFailed: $loadFailed)
+                    .overlay {
+                        if isLoading {
+                            ProgressView("読み込み中...")
+                        }
+                    }
             }
-            .padding()
         }
-        .navigationTitle("プライバシーポリシー")
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct WebViewRepresentable: UIViewRepresentable {
+    let url: URL
+    @Binding var isLoading: Bool
+    @Binding var loadFailed: Bool
+
+    func makeUIView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.navigationDelegate = context.coordinator
+        webView.load(URLRequest(url: url))
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    class Coordinator: NSObject, WKNavigationDelegate {
+        let parent: WebViewRepresentable
+
+        init(parent: WebViewRepresentable) {
+            self.parent = parent
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            parent.isLoading = false
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            parent.isLoading = false
+            parent.loadFailed = true
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            parent.isLoading = false
+            parent.loadFailed = true
+        }
     }
 }
 

@@ -11,6 +11,23 @@ struct EmployerDashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
+                    if let error = viewModel.errorMessage {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                            Spacer()
+                            Button("再試行") {
+                                Task { await viewModel.loadData() }
+                            }
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        }
+                        .padding(.horizontal)
+                    }
+
                     // Stats Cards
                     LazyVGrid(columns: [
                         GridItem(.flexible()),
@@ -71,10 +88,10 @@ struct EmployerDashboardView: View {
 
                         HStack(spacing: 16) {
                             NavigationLink(destination: JobCreateView()) {
-                                EmployerQuickActionButton(title: "求人作成", icon: "plus.circle.fill", color: .blue) {}
+                                EmployerQuickActionButton(title: "求人作成", icon: "plus.circle.fill", color: .blue)
                             }
                             NavigationLink(destination: EmployerApplicationsView()) {
-                                EmployerQuickActionButton(title: "応募確認", icon: "bell.fill", color: .orange) {}
+                                EmployerQuickActionButton(title: "応募確認", icon: "bell.fill", color: .orange)
                             }
                         }
                         .padding(.horizontal)
@@ -156,7 +173,7 @@ struct EmployerJobCard: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -166,6 +183,7 @@ class EmployerDashboardViewModel: ObservableObject {
     @Published var stats: EmployerStats?
     @Published var recentJobs: [Job] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -175,7 +193,7 @@ class EmployerDashboardViewModel: ObservableObject {
             stats = try await api.getEmployerStats()
             recentJobs = try await api.getEmployerJobs()
         } catch {
-            print("Error loading employer data: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -185,7 +203,6 @@ struct EmployerQuickActionButton: View {
     let title: String
     let icon: String
     let color: Color
-    let action: () -> Void
 
     var body: some View {
         VStack(spacing: 12) {
@@ -199,7 +216,7 @@ struct EmployerQuickActionButton: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
@@ -294,6 +311,7 @@ struct EmployerJobsView: View {
                 Button(action: { showingCreateSheet = true }) {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel("新しい求人を作成")
             }
         }
         .sheet(isPresented: $showingCreateSheet) {
@@ -303,6 +321,9 @@ struct EmployerJobsView: View {
         }
         .sheet(item: $selectedJobForQR) { job in
             JobQRCodeView(job: job)
+        }
+        .refreshable {
+            await viewModel.loadData()
         }
         .task {
             await viewModel.loadData()
@@ -334,7 +355,7 @@ struct JobQRCodeView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 250, height: 250)
-                        .background(Color.white)
+                        .background(Color(.systemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .shadow(radius: 10)
                 } else {
@@ -416,6 +437,7 @@ class JobQRCodeViewModel: ObservableObject {
     @Published var qrImage: UIImage?
     @Published var checkInToken: String?
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -426,9 +448,8 @@ class JobQRCodeViewModel: ObservableObject {
             checkInToken = response.token
             qrImage = generateQRCode(from: "\(jobId)|\(response.token)")
         } catch {
-            print("Failed to load QR: \(error)")
-            // Generate a fallback QR with just the job ID
             qrImage = generateQRCode(from: jobId)
+            errorMessage = "QRコードの取得に失敗しました。再生成してください。"
         }
         isLoading = false
     }
@@ -440,7 +461,7 @@ class JobQRCodeViewModel: ObservableObject {
             checkInToken = response.token
             qrImage = generateQRCode(from: "\(jobId)|\(response.token)")
         } catch {
-            print("Failed to regenerate QR: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -520,6 +541,7 @@ struct EmployerJobRow: View {
 class EmployerJobsViewModel: ObservableObject {
     @Published var jobs: [Job] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -528,7 +550,7 @@ class EmployerJobsViewModel: ObservableObject {
         do {
             jobs = try await api.getEmployerJobs()
         } catch {
-            print("Error loading jobs: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -559,6 +581,8 @@ struct JobCreateView: View {
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var selectedImages: [UIImage] = []
     @State private var thumbnailIndex: Int = 0
+    @State private var showImageValidationAlert = false
+    @State private var imageValidationMessage = ""
 
     var body: some View {
         NavigationStack {
@@ -672,8 +696,22 @@ struct JobCreateView: View {
                     Task {
                         selectedImages = []
                         for item in newItems {
-                            if let data = try? await item.loadTransferable(type: Data.self),
-                               let image = UIImage(data: data) {
+                            if let data = try? await item.loadTransferable(type: Data.self) {
+                                // Validate file size (max 10MB)
+                                let maxSize = 10 * 1024 * 1024 // 10MB in bytes
+                                if data.count > maxSize {
+                                    imageValidationMessage = "画像サイズが大きすぎます。最大10MBまでです。"
+                                    showImageValidationAlert = true
+                                    continue
+                                }
+
+                                // Validate file format (JPEG, PNG)
+                                guard let image = UIImage(data: data) else {
+                                    imageValidationMessage = "サポートされていない画像形式です。JPEG、PNGのみ対応しています。"
+                                    showImageValidationAlert = true
+                                    continue
+                                }
+
                                 selectedImages.append(image)
                             }
                         }
@@ -708,6 +746,7 @@ struct JobCreateView: View {
                         Text("開始時間")
                         Spacer()
                         TextField("09:00", text: $startTime)
+                            .keyboardType(.numbersAndPunctuation)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 60)
                     }
@@ -716,6 +755,7 @@ struct JobCreateView: View {
                         Text("終了時間")
                         Spacer()
                         TextField("18:00", text: $endTime)
+                            .keyboardType(.numbersAndPunctuation)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 60)
                     }
@@ -767,6 +807,11 @@ struct JobCreateView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル") { dismiss() }
                 }
+            }
+            .alert("画像エラー", isPresented: $showImageValidationAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(imageValidationMessage)
             }
         }
     }
@@ -831,6 +876,8 @@ struct JobEditView: View {
     @State private var title: String
     @State private var description: String
     @State private var isLoading = false
+    @State private var errorMessage: String?
+    @State private var showDeleteConfirmation = false
 
     init(job: Job) {
         self.job = job
@@ -855,45 +902,92 @@ struct JobEditView: View {
                 }
             }
 
+            if let error = errorMessage {
+                Section {
+                    Text(error)
+                        .foregroundColor(.red)
+                }
+            }
+
             if job.status == "draft" {
                 Section {
                     Button("公開する") {
                         publishJob()
                     }
                     .foregroundColor(.green)
+                    .disabled(isLoading)
                 }
             }
 
             Section {
                 Button("削除", role: .destructive) {
-                    deleteJob()
+                    showDeleteConfirmation = true
                 }
+                .disabled(isLoading)
             }
         }
         .navigationTitle("求人編集")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("保存") {
+                    saveJob()
+                }
+                .disabled(isLoading || title.isEmpty)
+            }
+        }
+        .alert("求人を削除", isPresented: $showDeleteConfirmation) {
+            Button("キャンセル", role: .cancel) {}
+            Button("削除する", role: .destructive) {
+                deleteJob()
+            }
+        } message: {
+            Text("この求人を削除しますか？この操作は取り消せません。")
+        }
+    }
+
+    func saveJob() {
+        isLoading = true
+        errorMessage = nil
+        Task {
+            do {
+                var updates: [String: Any] = ["title": title]
+                if !description.isEmpty {
+                    updates["description"] = description
+                }
+                _ = try await APIClient.shared.updateJob(jobId: job.id, updates: updates)
+                dismiss()
+            } catch {
+                errorMessage = "保存に失敗しました: \(error.localizedDescription)"
+            }
+            isLoading = false
+        }
     }
 
     func publishJob() {
         isLoading = true
+        errorMessage = nil
         Task {
             do {
                 _ = try await APIClient.shared.publishJob(jobId: job.id)
                 dismiss()
             } catch {
-                print("Error publishing job: \(error)")
+                errorMessage = "公開に失敗しました: \(error.localizedDescription)"
             }
             isLoading = false
         }
     }
 
     func deleteJob() {
+        isLoading = true
+        errorMessage = nil
         Task {
             do {
                 _ = try await APIClient.shared.deleteJob(jobId: job.id)
                 dismiss()
             } catch {
-                print("Error deleting job: \(error)")
+                errorMessage = "削除に失敗しました: \(error.localizedDescription)"
             }
+            isLoading = false
         }
     }
 }
@@ -1096,6 +1190,7 @@ struct ApplicationInfoRow: View {
 class EmployerApplicationsViewModel: ObservableObject {
     @Published var applications: [Application] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -1104,7 +1199,7 @@ class EmployerApplicationsViewModel: ObservableObject {
         do {
             applications = try await api.getEmployerApplications()
         } catch {
-            print("Error loading applications: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -1112,18 +1207,22 @@ class EmployerApplicationsViewModel: ObservableObject {
     func approve(_ application: Application) async {
         do {
             _ = try await api.approveApplication(applicationId: application.id)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             await loadData()
         } catch {
-            print("Error approving application: \(error)")
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            errorMessage = error.localizedDescription
         }
     }
 
     func reject(_ application: Application) async {
         do {
             _ = try await api.rejectApplication(applicationId: application.id, reason: nil)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             await loadData()
         } catch {
-            print("Error rejecting application: \(error)")
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -1132,6 +1231,9 @@ class EmployerApplicationsViewModel: ObservableObject {
 
 struct EmployerSettingsView: View {
     @EnvironmentObject var authManager: AuthManager
+    @State private var showDeleteAccountAlert = false
+    @State private var showDeleteAccountFinalConfirm = false
+    @State private var deleteErrorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -1188,9 +1290,67 @@ struct EmployerSettingsView: View {
                         }
                     }
                 }
+
+                Section {
+                    Button(action: { showDeleteAccountAlert = true }) {
+                        HStack {
+                            Spacer()
+                            Text("アカウントを削除する")
+                                .foregroundColor(.red)
+                                .font(.footnote)
+                            Spacer()
+                        }
+                    }
+                }
+
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 2) {
+                            Text("Byters for Business")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                                .font(.caption2)
+                                .foregroundColor(.gray.opacity(0.7))
+                        }
+                        Spacer()
+                    }
+                }
             }
             .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.large)
+            .alert("アカウント削除", isPresented: $showDeleteAccountAlert) {
+                Button("キャンセル", role: .cancel) {}
+                Button("削除する", role: .destructive) {
+                    showDeleteAccountFinalConfirm = true
+                }
+            } message: {
+                Text("アカウントを削除すると、すべてのデータが完全に削除され、元に戻すことはできません。本当に削除しますか？")
+            }
+            .alert("最終確認", isPresented: $showDeleteAccountFinalConfirm) {
+                Button("キャンセル", role: .cancel) {}
+                Button("完全に削除する", role: .destructive) {
+                    Task {
+                        do {
+                            _ = try await APIClient.shared.deleteMyAccount()
+                            authManager.logout()
+                        } catch {
+                            deleteErrorMessage = "アカウント削除に失敗しました: \(error.localizedDescription)"
+                        }
+                    }
+                }
+            } message: {
+                Text("この操作は取り消せません。アカウントに関連するすべてのデータ（求人、応募者情報、決済情報等）が削除されます。")
+            }
+            .alert("エラー", isPresented: Binding(
+                get: { deleteErrorMessage != nil },
+                set: { if !$0 { deleteErrorMessage = nil } }
+            )) {
+                Button("OK") { deleteErrorMessage = nil }
+            } message: {
+                Text(deleteErrorMessage ?? "")
+            }
         }
     }
 }
@@ -1217,14 +1377,18 @@ struct CompanyProfileEditView: View {
                     }
                 }
                 TextField("市区町村", text: $viewModel.city)
+                    .textContentType(.addressCity)
                 TextField("詳細住所", text: $viewModel.address)
+                    .textContentType(.streetAddressLine1)
             }
 
             Section("連絡先") {
                 TextField("電話番号", text: $viewModel.contactPhone)
                     .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
                 TextField("メールアドレス", text: $viewModel.contactEmail)
                     .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
             }
 
             Section {
@@ -1265,6 +1429,7 @@ class CompanyProfileViewModel: ObservableObject {
     @Published var contactPhone = ""
     @Published var contactEmail = ""
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -1279,7 +1444,7 @@ class CompanyProfileViewModel: ObservableObject {
             contactPhone = profile.contactPhone ?? ""
             contactEmail = profile.contactEmail ?? ""
         } catch {
-            print("Error loading profile: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -1296,7 +1461,7 @@ class CompanyProfileViewModel: ObservableObject {
                 contactEmail: contactEmail.isEmpty ? nil : contactEmail
             )
         } catch {
-            print("Error saving profile: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -1433,7 +1598,7 @@ class PaymentMethodsViewModel: ObservableObject {
         do {
             methods = try await api.getPaymentMethods()
         } catch {
-            print("Error loading payment methods: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -1581,6 +1746,11 @@ struct AddCardView: View {
     }
 
     private func addCard() {
+        guard stripeService.isConfigured else {
+            errorMessage = "決済システムが現在利用できません。しばらくしてからお試しください。"
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
@@ -1695,6 +1865,7 @@ struct PaymentHistoryView: View {
 class PaymentHistoryViewModel: ObservableObject {
     @Published var transactions: [Transaction] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -1705,7 +1876,7 @@ class PaymentHistoryViewModel: ObservableObject {
             let allTransactions = try await api.getTransactions()
             transactions = allTransactions.filter { $0.type == "payment" || $0.type == "charge" }
         } catch {
-            print("Error loading payment history: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -1784,7 +1955,7 @@ struct EmployerFinanceReportView: View {
                     .padding(.top, 20)
                 }
                 .padding()
-                .background(Color.white)
+                .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal)
 
@@ -1806,7 +1977,7 @@ struct EmployerFinanceReportView: View {
                     }
                 }
                 .padding(.vertical)
-                .background(Color.white)
+                .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal)
             }
@@ -1855,7 +2026,7 @@ struct FinanceStatCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -1911,13 +2082,14 @@ class EmployerFinanceViewModel: ObservableObject {
     @Published var monthlyData: [MonthlyFinanceData] = []
     @Published var recentTransactions: [EmployerTransaction] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
     func loadData() async {
         isLoading = true
 
-        // Generate mock monthly data for now
+        // Initialize monthly labels with calendar-based data
         let calendar = Calendar.current
         let now = Date()
         var data: [MonthlyFinanceData] = []
@@ -1938,7 +2110,7 @@ class EmployerFinanceViewModel: ObservableObject {
         }
         monthlyData = data
 
-        // Load actual data from API
+        // Load data from API
         do {
             let stats = try await api.getEmployerFinanceStats()
             thisMonthTotal = stats.thisMonthTotal
@@ -1967,7 +2139,7 @@ class EmployerFinanceViewModel: ObservableObject {
                 )
             }
         } catch {
-            print("Failed to load finance stats: \(error)")
+            errorMessage = error.localizedDescription
         }
 
         isLoading = false
@@ -2124,6 +2296,7 @@ struct TimesheetEntry: Identifiable {
 class EmployerTimesheetViewModel: ObservableObject {
     @Published var timesheets: [TimesheetEntry] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -2144,7 +2317,7 @@ class EmployerTimesheetViewModel: ObservableObject {
                 )
             }
         } catch {
-            print("Failed to load timesheets: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -2154,7 +2327,7 @@ class EmployerTimesheetViewModel: ObservableObject {
             _ = try await api.updateTimesheet(timesheetId: id, approved: approved)
             await loadTimesheets()
         } catch {
-            print("Failed to update timesheet: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -2257,7 +2430,7 @@ struct EmployerPlanView: View {
                         }
                     }
                     .padding()
-                    .background(Color.white)
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
                     .padding(.horizontal)
@@ -2413,7 +2586,7 @@ struct PlanComparisonRow: View {
             }
         }
         .padding()
-        .background(isHighlighted ? Color.blue.opacity(0.1) : Color.white)
+        .background(isHighlighted ? Color.blue.opacity(0.1) : Color(.systemBackground))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(isHighlighted ? Color.blue : Color.clear, lineWidth: 2)
@@ -2510,7 +2683,7 @@ struct PlanSelectionCard: View {
                     .foregroundColor(isSelected ? .blue : .gray)
             }
             .padding()
-            .background(isSelected ? Color.blue.opacity(0.1) : Color.white)
+            .background(isSelected ? Color.blue.opacity(0.1) : Color(.systemBackground))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
@@ -2533,17 +2706,19 @@ class EmployerPlanViewModel: ObservableObject {
         do {
             currentPlan = try await api.getEmployerPlan()
         } catch {
-            print("Failed to load employer plan: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
 
     func upgradePlan(planId: String) async {
         do {
-            currentPlan = try await api.upgradeEmployerPlan(planId: planId, paymentMethodId: nil)
+            // Get default payment method for upgrade
+            let methods = try await api.getPaymentMethods()
+            let defaultMethod = methods.first(where: { $0.isDefault == true }) ?? methods.first
+            currentPlan = try await api.upgradeEmployerPlan(planId: planId, paymentMethodId: defaultMethod?.id)
         } catch {
-            errorMessage = "アップグレードに失敗しました"
-            print("Failed to upgrade plan: \(error)")
+            errorMessage = "アップグレードに失敗しました。クレジットカードを登録してください。"
         }
     }
 
@@ -2553,12 +2728,11 @@ class EmployerPlanViewModel: ObservableObject {
             await loadPlan()
         } catch {
             errorMessage = "解約に失敗しました"
-            print("Failed to cancel plan: \(error)")
         }
     }
 }
 
 #Preview {
     EmployerDashboardView()
-        .environmentObject(AuthManager())
+        .environmentObject(AuthManager.shared)
 }

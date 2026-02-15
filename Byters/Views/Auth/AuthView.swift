@@ -75,7 +75,7 @@ struct AuthView: View {
                         }
                     }
                     .padding(24)
-                    .background(Color.white)
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
                     .padding(.horizontal, 20)
@@ -135,6 +135,7 @@ struct SecretAdminLoginView: View {
 
     @State private var email = ""
     @State private var password = ""
+    @State private var showPasswordReset = false
     @Binding var isLoading: Bool
     @Binding var errorMessage: String?
 
@@ -201,6 +202,15 @@ struct SecretAdminLoginView: View {
                     }
                     .disabled(email.isEmpty || password.isEmpty || isLoading)
                 }
+
+                Section {
+                    Button(action: { showPasswordReset = true }) {
+                        Text("パスワードを忘れた場合")
+                            .font(.footnote)
+                            .foregroundColor(.blue)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -210,6 +220,9 @@ struct SecretAdminLoginView: View {
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showPasswordReset) {
+                PasswordResetView()
             }
         }
     }
@@ -223,8 +236,8 @@ struct SecretAdminLoginView: View {
                 let response = try await APIClient.shared.adminLogin(email: email, password: password)
 
                 await MainActor.run {
-                    UserDefaults.standard.set(response.accessToken, forKey: "auth_token")
-                    UserDefaults.standard.set(true, forKey: "is_admin")
+                    KeychainHelper.save(key: "auth_token", value: response.accessToken)
+                    KeychainHelper.save(key: "is_admin", value: "true")
                     authManager.currentUser = response.user
                     authManager.isAuthenticated = true
                     appState.onLoginSuccess()
@@ -363,6 +376,9 @@ struct SocialLoginView: View {
     let onBack: () -> Void
 
     @State private var webAuthSession: ASWebAuthenticationSession?
+    @State private var agreedToTerms = false
+    @State private var showTerms = false
+    @State private var showPrivacy = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -390,7 +406,7 @@ struct SocialLoginView: View {
 
             VStack(spacing: 12) {
                 // LINE Login Button - Primary
-                Button(action: { startOAuthFlow(provider: "line") }) {
+                Button(action: { if agreedToTerms { startOAuthFlow(provider: "line") } }) {
                     HStack(spacing: 12) {
                         Image(systemName: "message.fill")
                             .font(.title2)
@@ -411,10 +427,13 @@ struct SocialLoginView: View {
                     .background(Color(red: 0, green: 0.72, blue: 0))
                     .foregroundColor(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .opacity(agreedToTerms ? 1.0 : 0.5)
                 }
+                .accessibilityLabel("LINEでログイン")
+                .accessibilityHint(agreedToTerms ? "LINEアカウントでログインします" : "先に利用規約に同意してください")
 
                 // Google Login Button
-                Button(action: { startOAuthFlow(provider: "google") }) {
+                Button(action: { if agreedToTerms { startOAuthFlow(provider: "google") } }) {
                     HStack(spacing: 12) {
                         // Google Logo
                         ZStack {
@@ -439,14 +458,17 @@ struct SocialLoginView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .padding(.horizontal, 20)
-                    .background(Color.white)
-                    .foregroundColor(.black)
+                    .background(Color(.systemBackground))
+                    .foregroundColor(.primary)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                     )
+                    .opacity(agreedToTerms ? 1.0 : 0.5)
                 }
+                .accessibilityLabel("Googleでログイン")
+                .accessibilityHint(agreedToTerms ? "Googleアカウントでログインします" : "先に利用規約に同意してください")
             }
 
             if let error = errorMessage {
@@ -462,26 +484,58 @@ struct SocialLoginView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
-            // Terms
-            VStack(spacing: 4) {
-                Text("続けることで")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-                HStack(spacing: 4) {
-                    Text("利用規約")
-                        .underline()
-                    Text("と")
-                    Text("プライバシーポリシー")
-                        .underline()
+            // Terms Agreement
+            VStack(spacing: 8) {
+                HStack(alignment: .top, spacing: 8) {
+                    Button(action: { agreedToTerms.toggle() }) {
+                        Image(systemName: agreedToTerms ? "checkmark.square.fill" : "square")
+                            .foregroundColor(agreedToTerms ? .blue : .gray)
+                            .font(.title3)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Button(action: { showTerms = true }) {
+                                Text("利用規約")
+                                    .underline()
+                                    .foregroundColor(.blue)
+                            }
+                            Text("と")
+                                .foregroundColor(.gray)
+                            Button(action: { showPrivacy = true }) {
+                                Text("プライバシーポリシー")
+                                    .underline()
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        .font(.caption)
+                        Text("に同意します")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
                 }
-                .font(.caption2)
-                .foregroundColor(.blue)
-                Text("に同意したものとみなされます")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
             }
-            .multilineTextAlignment(.center)
             .padding(.top, 8)
+            .sheet(isPresented: $showTerms) {
+                NavigationStack {
+                    TermsOfServiceView()
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("閉じる") { showTerms = false }
+                            }
+                        }
+                }
+            }
+            .sheet(isPresented: $showPrivacy) {
+                NavigationStack {
+                    PrivacyPolicyView()
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("閉じる") { showPrivacy = false }
+                            }
+                        }
+                }
+            }
         }
     }
 
@@ -515,17 +569,17 @@ struct SocialLoginView: View {
             } catch {
                 await MainActor.run {
                     isLoading = false
-                    errorMessage = "認証の準備に失敗しました"
+                    errorMessage = "認証の準備に失敗しました: \(error.localizedDescription)"
                 }
             }
         }
     }
 
     private func getOAuthURL(provider: String) async throws -> URL {
-        let baseURL = "https://byters.jp/api"
-        let callbackURL = "byters://auth/callback"
+        let baseURL = StripeConfig.apiBaseURL
 
-        let urlString = "\(baseURL)/auth/\(provider)/url?front_url=\(callbackURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&user_type=\(userType.rawValue)"
+        // Use mobile-specific endpoints that redirect back to byters:// scheme
+        let urlString = "\(baseURL)/auth/mobile/\(provider)/url?user_type=\(userType.rawValue)"
 
         guard let url = URL(string: urlString) else {
             throw URLError(.badURL)
@@ -533,9 +587,17 @@ struct SocialLoginView: View {
 
         let (data, response) = try await URLSession.shared.data(from: url)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw NSError(
+                domain: "OAuthError",
+                code: httpResponse.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: "サーバーエラー(\(httpResponse.statusCode)): \(body)"]
+            )
         }
 
         let oauthResponse = try JSONDecoder().decode(OAuthURLResponse.self, from: data)
@@ -551,8 +613,11 @@ struct SocialLoginView: View {
         if let error = error {
             DispatchQueue.main.async {
                 isLoading = false
-                if (error as NSError).code != ASWebAuthenticationSessionError.canceledLogin.rawValue {
-                    errorMessage = "認証がキャンセルされました"
+                let nsError = error as NSError
+                if nsError.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                    // User cancelled - no error message needed
+                } else {
+                    errorMessage = "認証エラー: \(error.localizedDescription)"
                 }
             }
             return
@@ -569,24 +634,33 @@ struct SocialLoginView: View {
         // Parse callback URL
         let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
 
-        // Check for direct token (some OAuth flows return token directly)
+        // Check for error from backend
+        if let errorParam = components?.queryItems?.first(where: { $0.name == "error" })?.value {
+            let message = components?.queryItems?.first(where: { $0.name == "message" })?.value ?? errorParam
+            DispatchQueue.main.async {
+                isLoading = false
+                errorMessage = "認証エラー: \(message)"
+            }
+            return
+        }
+
+        // Check for direct token (mobile OAuth flow returns token directly)
         if let token = components?.queryItems?.first(where: { $0.name == "token" })?.value {
             completeLoginWithToken(token)
             return
         }
 
-        // Check for code to exchange
-        guard let code = components?.queryItems?.first(where: { $0.name == "code" })?.value else {
-            DispatchQueue.main.async {
-                isLoading = false
-                errorMessage = "認証コードを取得できませんでした"
+        // Fallback: Check for code to exchange (legacy flow)
+        if let code = components?.queryItems?.first(where: { $0.name == "code" })?.value {
+            Task {
+                await exchangeCodeForToken(provider: provider, code: code)
             }
             return
         }
 
-        // Exchange code for token
-        Task {
-            await exchangeCodeForToken(provider: provider, code: code)
+        DispatchQueue.main.async {
+            isLoading = false
+            errorMessage = "認証コードを取得できませんでした"
         }
     }
 
@@ -597,7 +671,7 @@ struct SocialLoginView: View {
                 let user = try await fetchUserWithToken(token)
 
                 await MainActor.run {
-                    UserDefaults.standard.set(token, forKey: "auth_token")
+                    KeychainHelper.save(key: "auth_token", value: token)
                     authManager.currentUser = user
                     authManager.isAuthenticated = true
                     appState.onLoginSuccess()  // Navigate to MyPage after login
@@ -613,7 +687,7 @@ struct SocialLoginView: View {
     }
 
     private func fetchUserWithToken(_ token: String) async throws -> User {
-        let baseURL = "https://byters.jp/api"
+        let baseURL = StripeConfig.apiBaseURL
         guard let url = URL(string: "\(baseURL)/auth/me") else {
             throw URLError(.badURL)
         }
@@ -629,7 +703,7 @@ struct SocialLoginView: View {
     }
 
     private func exchangeCodeForToken(provider: String, code: String) async {
-        let baseURL = "https://byters.jp/api"
+        let baseURL = StripeConfig.apiBaseURL
         guard let url = URL(string: "\(baseURL)/auth/\(provider)/callback") else {
             await MainActor.run {
                 isLoading = false
@@ -661,7 +735,7 @@ struct SocialLoginView: View {
                 let loginResponse = try decoder.decode(LoginResponse.self, from: data)
 
                 await MainActor.run {
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "auth_token")
+                    KeychainHelper.save(key: "auth_token", value: loginResponse.accessToken)
                     authManager.currentUser = loginResponse.user
                     authManager.isAuthenticated = true
                     appState.onLoginSuccess()  // Navigate to MyPage after login
@@ -685,6 +759,120 @@ struct SocialLoginView: View {
             await MainActor.run {
                 isLoading = false
                 errorMessage = "認証処理中にエラーが発生しました"
+            }
+        }
+    }
+}
+
+// MARK: - Password Reset
+
+struct PasswordResetView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var email = ""
+    @State private var isLoading = false
+    @State private var successMessage: String?
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    VStack(spacing: 12) {
+                        Image(systemName: "key.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.blue)
+
+                        Text("パスワードリセット")
+                            .font(.title3)
+                            .fontWeight(.bold)
+
+                        Text("登録メールアドレスにパスワードリセットのリンクを送信します")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+
+                Section("メールアドレス") {
+                    TextField("example@email.com", text: $email)
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
+                        .autocorrectionDisabled()
+                }
+
+                if let success = successMessage {
+                    Section {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text(success)
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                    }
+                }
+
+                if let error = errorMessage {
+                    Section {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                }
+
+                Section {
+                    Button(action: sendResetEmail) {
+                        if isLoading {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                Spacer()
+                            }
+                        } else {
+                            HStack {
+                                Spacer()
+                                Text("リセットメールを送信")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
+                        }
+                    }
+                    .disabled(email.isEmpty || isLoading)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func sendResetEmail() {
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+
+        Task {
+            do {
+                _ = try await APIClient.shared.requestPasswordReset(email: email)
+                await MainActor.run {
+                    isLoading = false
+                    successMessage = "リセットメールを送信しました。メールをご確認ください。"
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = "送信に失敗しました。メールアドレスをご確認ください。"
+                }
             }
         }
     }
@@ -716,6 +904,6 @@ struct ErrorResponse: Codable {
 
 #Preview {
     AuthView()
-        .environmentObject(AuthManager())
+        .environmentObject(AuthManager.shared)
         .environmentObject(AppState())
 }

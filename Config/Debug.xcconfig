@@ -3,7 +3,8 @@
 // ========================================
 
 // Stripe API Keys (Test)
-STRIPE_PUBLISHABLE_KEY = pk_test_YOUR_TEST_PUBLISHABLE_KEY
+// テスト用Stripeキーを設定してください（pk_test_で始まるキー）
+STRIPE_PUBLISHABLE_KEY = pk_test_CONFIGURE_YOUR_TEST_KEY_HERE
 
 // API Base URL
 API_BASE_URL = https://byters.jp/api

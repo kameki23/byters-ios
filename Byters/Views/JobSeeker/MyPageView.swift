@@ -1,14 +1,46 @@
 import SwiftUI
 import PhotosUI
 
+// MARK: - Character Extension for Katakana
+
+private extension Character {
+    var isKatakana: Bool {
+        guard let scalar = unicodeScalars.first else { return false }
+        return (0x30A0...0x30FF).contains(scalar.value)
+    }
+}
+
 struct MyPageView: View {
     @EnvironmentObject var authManager: AuthManager
     @StateObject private var viewModel = MyPageViewModel()
+    @State private var showDeleteAccountAlert = false
+    @State private var showDeleteAccountFinalConfirm = false
+    @State private var isDeletingAccount = false
+
+    private func deleteMyAccount() async {
+        isDeletingAccount = true
+        do {
+            _ = try await APIClient.shared.deleteMyAccount()
+            authManager.logout()
+        } catch {
+            viewModel.errorMessage = error.localizedDescription
+            isDeletingAccount = false
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
+                    // Error Display
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                    }
+
                     // Profile Header
                     ProfileHeaderView(user: authManager.currentUser)
                         .padding(.bottom, 16)
@@ -179,6 +211,15 @@ struct MyPageView: View {
                                     showChevron: true
                                 )
                             }
+
+                            NavigationLink(destination: ChangePasswordView()) {
+                                MenuRow(
+                                    icon: "lock.fill",
+                                    iconColor: .gray,
+                                    title: "パスワード変更",
+                                    showChevron: true
+                                )
+                            }
                         }
 
                         // Settings Section
@@ -280,6 +321,21 @@ struct MyPageView: View {
                             }
                         }
 
+                        // App Version
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 2) {
+                                Text("Byters")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray.opacity(0.7))
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+
                         // Logout
                         Button(action: { authManager.logout() }) {
                             HStack {
@@ -290,11 +346,42 @@ struct MyPageView: View {
                                 Spacer()
                             }
                             .padding()
-                            .background(Color.white)
+                            .background(Color(.systemBackground))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                         .padding(.horizontal)
                         .padding(.top, 8)
+
+                        // Account Deletion
+                        Button(action: { showDeleteAccountAlert = true }) {
+                            HStack {
+                                Spacer()
+                                Text("アカウントを削除する")
+                                    .foregroundColor(.red)
+                                    .font(.footnote)
+                                Spacer()
+                            }
+                            .padding(.vertical, 12)
+                        }
+                        .padding(.horizontal)
+                        .alert("アカウント削除", isPresented: $showDeleteAccountAlert) {
+                            Button("キャンセル", role: .cancel) {}
+                            Button("削除する", role: .destructive) {
+                                showDeleteAccountFinalConfirm = true
+                            }
+                        } message: {
+                            Text("アカウントを削除すると、すべてのデータが完全に削除され、元に戻すことはできません。本当に削除しますか？")
+                        }
+                        .alert("最終確認", isPresented: $showDeleteAccountFinalConfirm) {
+                            Button("キャンセル", role: .cancel) {}
+                            Button("完全に削除する", role: .destructive) {
+                                Task {
+                                    await deleteMyAccount()
+                                }
+                            }
+                        } message: {
+                            Text("この操作は取り消せません。アカウントに関連するすべてのデータ（応募履歴、ウォレット、チャット等）が削除されます。")
+                        }
                     }
                 }
                 .padding(.vertical)
@@ -302,6 +389,9 @@ struct MyPageView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("マイページ")
             .navigationBarTitleDisplayMode(.large)
+            .refreshable {
+                await viewModel.loadData()
+            }
         }
         .task {
             await viewModel.loadData()
@@ -314,16 +404,50 @@ struct MyPageView: View {
 struct ProfileHeaderView: View {
     let user: User?
 
+    private var profileCompletion: (percentage: Int, missing: [String]) {
+        var filled = 0
+        let total = 6
+        var missing: [String] = []
+
+        if let name = user?.name, !name.isEmpty { filled += 1 } else { missing.append("名前") }
+        if let phone = user?.phone, !phone.isEmpty { filled += 1 } else { missing.append("電話番号") }
+        if let bio = user?.bio, !bio.isEmpty { filled += 1 } else { missing.append("自己紹介") }
+        if let pref = user?.prefecture, !pref.isEmpty { filled += 1 } else { missing.append("都道府県") }
+        if user?.profileImageUrl != nil { filled += 1 } else { missing.append("プロフィール画像") }
+        if user?.isIdentityVerified == true { filled += 1 } else { missing.append("本人確認") }
+
+        return (percentage: Int(Double(filled) / Double(total) * 100), missing: missing)
+    }
+
     var body: some View {
         VStack(spacing: 12) {
-            Circle()
-                .fill(Color.blue.opacity(0.2))
-                .frame(width: 80, height: 80)
-                .overlay(
-                    Image(systemName: "person.fill")
-                        .font(.title)
-                        .foregroundColor(.blue)
-                )
+            if let imageUrl = user?.profileImageUrl, let url = URL(string: imageUrl) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
+                } placeholder: {
+                    Circle()
+                        .fill(Color.blue.opacity(0.2))
+                        .frame(width: 80, height: 80)
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.title)
+                                .foregroundColor(.blue)
+                        )
+                }
+            } else {
+                Circle()
+                    .fill(Color.blue.opacity(0.2))
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.title)
+                            .foregroundColor(.blue)
+                    )
+            }
 
             VStack(spacing: 4) {
                 Text(user?.displayName ?? "ユーザー")
@@ -348,10 +472,48 @@ struct ProfileHeaderView: View {
                 .background(Color.blue.opacity(0.1))
                 .clipShape(Capsule())
             }
+
+            // Profile Completion
+            let completion = profileCompletion
+            if completion.percentage < 100 {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("プロフィール完成度")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Spacer()
+                        Text("\(completion.percentage)%")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(completion.percentage >= 80 ? .green : .orange)
+                    }
+
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.gray.opacity(0.2))
+                                .frame(height: 6)
+
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(completion.percentage >= 80 ? Color.green : Color.orange)
+                                .frame(width: geometry.size.width * CGFloat(completion.percentage) / 100, height: 6)
+                        }
+                    }
+                    .frame(height: 6)
+
+                    if !completion.missing.isEmpty {
+                        Text("未設定: \(completion.missing.prefix(3).joined(separator: "、"))")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 4)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }
 
@@ -372,7 +534,7 @@ struct MenuSection<Content: View>: View {
             VStack(spacing: 0) {
                 content
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal)
         }
@@ -421,6 +583,7 @@ struct MenuRow: View {
 class MyPageViewModel: ObservableObject {
     @Published var walletBalance: Int = 0
     @Published var pendingReviewCount: Int = 0
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -429,14 +592,14 @@ class MyPageViewModel: ObservableObject {
             let wallet = try await api.getWallet()
             walletBalance = wallet.balance
         } catch {
-            print("Failed to load wallet: \(error)")
+            errorMessage = error.localizedDescription
         }
 
         do {
             let pendingReviews = try await api.getPendingReviews()
             pendingReviewCount = pendingReviews.count
         } catch {
-            print("Failed to load pending reviews: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -449,6 +612,13 @@ struct WalletDetailView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+
                 // Balance Card
                 VStack(spacing: 8) {
                     Text("現在の残高")
@@ -476,6 +646,27 @@ struct WalletDetailView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal)
+
+                // Earnings Summary
+                if let stats = viewModel.earningsStats {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("収入サマリー")
+                            .font(.headline)
+                            .padding(.horizontal)
+
+                        HStack(spacing: 0) {
+                            EarningsSummaryCard(title: "今月", amount: stats.thisMonthEarnings, color: .blue)
+                            Divider().frame(height: 40)
+                            EarningsSummaryCard(title: "先月", amount: stats.lastMonthEarnings, color: .gray)
+                            Divider().frame(height: 40)
+                            EarningsSummaryCard(title: "累計", amount: stats.totalEarnings, color: .green)
+                        }
+                        .padding()
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal)
+                    }
+                }
 
                 // Quick Actions
                 HStack(spacing: 16) {
@@ -538,8 +729,27 @@ struct QuickActionCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+struct EarningsSummaryCard: View {
+    let title: String
+    let amount: Int
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.gray)
+            Text("¥\(amount.formatted())")
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -547,6 +757,8 @@ struct QuickActionCard: View {
 class WalletDetailViewModel: ObservableObject {
     @Published var wallet: Wallet?
     @Published var transactions: [Transaction] = []
+    @Published var earningsStats: EarningsStats?
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -555,7 +767,13 @@ class WalletDetailViewModel: ObservableObject {
             wallet = try await api.getWallet()
             transactions = try await api.getTransactions()
         } catch {
-            print("Error loading wallet data: \(error)")
+            errorMessage = error.localizedDescription
+        }
+
+        do {
+            earningsStats = try await api.getEarningsStats()
+        } catch {
+            // Earnings stats are supplementary, don't show error
         }
     }
 }
@@ -567,6 +785,12 @@ struct TransactionHistoryView: View {
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -624,6 +848,7 @@ struct TransactionRow: View {
 class TransactionHistoryViewModel: ObservableObject {
     @Published var transactions: [Transaction] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -632,7 +857,7 @@ class TransactionHistoryViewModel: ObservableObject {
         do {
             transactions = try await api.getTransactions()
         } catch {
-            print("Error loading transactions: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -643,9 +868,17 @@ class TransactionHistoryViewModel: ObservableObject {
 struct BankAccountListView: View {
     @StateObject private var viewModel = BankAccountViewModel()
     @State private var showingAddSheet = false
+    @State private var accountToDelete: BankAccount?
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -668,11 +901,14 @@ struct BankAccountListView: View {
             } else {
                 ForEach(viewModel.accounts) { account in
                     BankAccountRow(account: account)
-                }
-                .onDelete { indexSet in
-                    Task {
-                        await viewModel.deleteAccount(at: indexSet)
-                    }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                accountToDelete = account
+                                showDeleteConfirm = true
+                            } label: {
+                                Label("削除", systemImage: "trash")
+                            }
+                        }
                 }
             }
         }
@@ -683,12 +919,27 @@ struct BankAccountListView: View {
                 Button(action: { showingAddSheet = true }) {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel("銀行口座を追加")
             }
         }
         .sheet(isPresented: $showingAddSheet) {
             AddBankAccountView(onSuccess: {
                 Task { await viewModel.loadData() }
             })
+        }
+        .alert("口座を削除", isPresented: $showDeleteConfirm) {
+            Button("削除する", role: .destructive) {
+                if let account = accountToDelete {
+                    Task { await viewModel.deleteAccountById(account.id) }
+                }
+            }
+            Button("キャンセル", role: .cancel) {
+                accountToDelete = nil
+            }
+        } message: {
+            if let account = accountToDelete {
+                Text("\(account.bankName) \(account.branchName)の口座を削除しますか？この操作は取り消せません。")
+            }
         }
         .task {
             await viewModel.loadData()
@@ -736,6 +987,7 @@ struct BankAccountRow: View {
 class BankAccountViewModel: ObservableObject {
     @Published var accounts: [BankAccount] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -744,20 +996,17 @@ class BankAccountViewModel: ObservableObject {
         do {
             accounts = try await api.getBankAccounts()
         } catch {
-            print("Error loading bank accounts: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
 
-    func deleteAccount(at indexSet: IndexSet) async {
-        for index in indexSet {
-            let account = accounts[index]
-            do {
-                _ = try await api.deleteBankAccount(accountId: account.id)
-                accounts.remove(at: index)
-            } catch {
-                print("Error deleting account: \(error)")
-            }
+    func deleteAccountById(_ accountId: String) async {
+        do {
+            _ = try await api.deleteBankAccount(accountId: accountId)
+            accounts.removeAll { $0.id == accountId }
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -785,9 +1034,15 @@ struct AddBankAccountView: View {
                     TextField("銀行名", text: $bankName)
                     TextField("銀行コード（4桁）", text: $bankCode)
                         .keyboardType(.numberPad)
+                        .onChange(of: bankCode) { _, newValue in
+                            bankCode = String(newValue.filter { $0.isNumber }.prefix(4))
+                        }
                     TextField("支店名", text: $branchName)
                     TextField("支店コード（3桁）", text: $branchCode)
                         .keyboardType(.numberPad)
+                        .onChange(of: branchCode) { _, newValue in
+                            branchCode = String(newValue.filter { $0.isNumber }.prefix(3))
+                        }
                 }
 
                 Section("口座情報") {
@@ -798,8 +1053,24 @@ struct AddBankAccountView: View {
 
                     TextField("口座番号（7桁）", text: $accountNumber)
                         .keyboardType(.numberPad)
+                        .onChange(of: accountNumber) { _, newValue in
+                            accountNumber = String(newValue.filter { $0.isNumber }.prefix(7))
+                        }
 
                     TextField("口座名義（カタカナ）", text: $accountHolderName)
+                        .textContentType(.name)
+                        .onChange(of: accountHolderName) { _, newValue in
+                            // 全角スペースとカタカナのみ許可
+                            accountHolderName = newValue.filter { char in
+                                char.isKatakana || char == "　" || char == " " || char == "ー"
+                            }
+                        }
+
+                    if !accountHolderName.isEmpty && !isValidKatakana(accountHolderName) {
+                        Text("口座名義はカタカナで入力してください")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
 
                 if let error = errorMessage {
@@ -838,7 +1109,14 @@ struct AddBankAccountView: View {
         !branchName.isEmpty &&
         branchCode.count == 3 &&
         accountNumber.count == 7 &&
-        !accountHolderName.isEmpty
+        !accountHolderName.isEmpty &&
+        isValidKatakana(accountHolderName)
+    }
+
+    private func isValidKatakana(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return false }
+        return trimmed.allSatisfy { $0.isKatakana || $0 == "　" || $0 == " " || $0 == "ー" }
     }
 
     func addAccount() {
@@ -963,7 +1241,8 @@ struct WithdrawalView: View {
         .alert("出金の確認", isPresented: $showingConfirmation) {
             Button("キャンセル", role: .cancel) {}
             Button("申請する") {
-                Task { await viewModel.requestWithdrawal(accountId: selectedAccountId!, amount: Int(amount)!) }
+                guard let accountId = selectedAccountId, let amountInt = Int(amount) else { return }
+                Task { await viewModel.requestWithdrawal(accountId: accountId, amount: amountInt) }
             }
         } message: {
             Text("¥\(amount)を出金申請しますか？\n処理には1〜3営業日かかります。")
@@ -999,7 +1278,7 @@ class WithdrawalViewModel: ObservableObject {
             accounts = try await api.getBankAccounts()
             withdrawals = try await api.getWithdrawalHistory()
         } catch {
-            print("Error loading data: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -1008,9 +1287,18 @@ class WithdrawalViewModel: ObservableObject {
         errorMessage = nil
 
         do {
+            // 出金前に最新の残高を再取得して検証
+            let latestWallet = try await api.getWallet()
+            wallet = latestWallet
+            guard amount <= latestWallet.balance else {
+                errorMessage = "残高不足です。現在の出金可能額: ¥\(latestWallet.balance)"
+                isLoading = false
+                return
+            }
+
             let request = try await api.requestWithdrawal(bankAccountId: accountId, amount: amount)
             withdrawals.insert(request, at: 0)
-            await loadData() // Refresh wallet balance
+            await loadData()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -1022,77 +1310,213 @@ class WithdrawalViewModel: ObservableObject {
 
 struct ApplicationHistoryView: View {
     @StateObject private var viewModel = ApplicationHistoryViewModel()
+    @State private var selectedFilter: ApplicationFilter = .all
+
+    enum ApplicationFilter: String, CaseIterable {
+        case all = "すべて"
+        case pending = "審査中"
+        case accepted = "承認済み"
+        case completed = "完了"
+        case rejected = "不採用"
+    }
+
+    var filteredApplications: [Application] {
+        switch selectedFilter {
+        case .all: return viewModel.applications
+        case .pending: return viewModel.applications.filter { $0.status == "pending" }
+        case .accepted: return viewModel.applications.filter { $0.status == "accepted" || $0.status == "checked_in" }
+        case .completed: return viewModel.applications.filter { $0.status == "completed" }
+        case .rejected: return viewModel.applications.filter { $0.status == "rejected" || $0.status == "canceled" }
+        }
+    }
 
     var body: some View {
-        List {
-            if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-            } else if viewModel.applications.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "doc.text")
-                        .font(.largeTitle)
-                        .foregroundColor(.gray)
-                    Text("応募履歴はありません")
-                        .foregroundColor(.gray)
+        VStack(spacing: 0) {
+            // Filter chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(ApplicationFilter.allCases, id: \.self) { filter in
+                        Button(action: { selectedFilter = filter }) {
+                            Text(filter.rawValue)
+                                .font(.subheadline)
+                                .fontWeight(selectedFilter == filter ? .semibold : .regular)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(selectedFilter == filter ? Color.blue : Color(.systemGray6))
+                                .foregroundColor(selectedFilter == filter ? .white : .primary)
+                                .clipShape(Capsule())
+                        }
+                        .accessibilityLabel("\(filter.rawValue)でフィルター")
+                    }
                 }
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal)
+                .padding(.vertical, 12)
+            }
+
+            if viewModel.isLoading {
+                Spacer()
+                ProgressView("読み込み中...")
+                Spacer()
+            } else if let error = viewModel.errorMessage {
+                Spacer()
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("再試行") { Task { await viewModel.loadData() } }
+                        .buttonStyle(.bordered)
+                }
                 .padding()
+                Spacer()
+            } else if filteredApplications.isEmpty {
+                Spacer()
+                EmptyStateView(
+                    icon: "doc.text",
+                    title: selectedFilter == .all ? "応募履歴はありません" : "\(selectedFilter.rawValue)の応募はありません",
+                    message: selectedFilter == .all ? "求人に応募すると、ここに履歴が表示されます" : "フィルターを変更してみてください"
+                )
+                Spacer()
             } else {
-                ForEach(viewModel.applications) { application in
-                    ApplicationRow(application: application)
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredApplications) { application in
+                            ApplicationTimelineRow(application: application)
+                        }
+                    }
+                    .padding(.horizontal)
                 }
             }
         }
-        .listStyle(.insetGrouped)
         .navigationTitle("応募履歴")
-        .task {
-            await viewModel.loadData()
-        }
+        .refreshable { await viewModel.loadData() }
+        .task { await viewModel.loadData() }
     }
 }
 
-struct ApplicationRow: View {
+struct ApplicationTimelineRow: View {
     let application: Application
 
     var statusColor: Color {
         switch application.status {
         case "pending": return .orange
-        case "accepted": return .green
+        case "accepted", "checked_in": return .green
         case "rejected": return .red
+        case "canceled": return .gray
         case "completed": return .blue
         default: return .gray
         }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(application.jobTitle ?? "求人")
-                    .font(.headline)
-                Spacer()
-                Text(application.statusDisplay)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(statusColor.opacity(0.1))
-                    .foregroundColor(statusColor)
-                    .clipShape(Capsule())
-            }
-
-            if let employer = application.employerName {
-                Text(employer)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-            }
-
-            if let date = application.createdAt {
-                Text("応募日: \(date)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
+    var statusIcon: String {
+        switch application.status {
+        case "pending": return "clock.fill"
+        case "accepted", "checked_in": return "checkmark.circle.fill"
+        case "rejected": return "xmark.circle.fill"
+        case "canceled": return "minus.circle.fill"
+        case "completed": return "star.circle.fill"
+        default: return "circle.fill"
         }
-        .padding(.vertical, 4)
+    }
+
+    // Timeline step indicators
+    private var timelineSteps: [(label: String, isActive: Bool, isCompleted: Bool)] {
+        switch application.status {
+        case "pending":
+            return [("応募", true, true), ("審査中", true, false), ("結果", false, false)]
+        case "accepted", "checked_in":
+            return [("応募", true, true), ("承認", true, true), ("勤務", application.status == "checked_in", application.status == "checked_in")]
+        case "completed":
+            return [("応募", true, true), ("承認", true, true), ("完了", true, true)]
+        case "rejected":
+            return [("応募", true, true), ("不採用", true, true)]
+        case "canceled":
+            return [("応募", true, true), ("キャンセル", true, true)]
+        default:
+            return [("応募", true, true)]
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Header with status badge
+                HStack(alignment: .top) {
+                    Image(systemName: statusIcon)
+                        .font(.title3)
+                        .foregroundColor(statusColor)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(application.jobTitle ?? "求人")
+                            .font(.headline)
+                            .lineLimit(2)
+
+                        if let employer = application.employerName {
+                            Text(employer)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    Text(application.statusDisplay)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(statusColor.opacity(0.12))
+                        .foregroundColor(statusColor)
+                        .clipShape(Capsule())
+                }
+
+                // Timeline progress bar
+                HStack(spacing: 0) {
+                    ForEach(Array(timelineSteps.enumerated()), id: \.offset) { index, step in
+                        if index > 0 {
+                            Rectangle()
+                                .fill(step.isCompleted ? statusColor : Color(.systemGray4))
+                                .frame(height: 2)
+                        }
+                        VStack(spacing: 4) {
+                            Circle()
+                                .fill(step.isActive ? statusColor : Color(.systemGray4))
+                                .frame(width: 10, height: 10)
+                            Text(step.label)
+                                .font(.system(size: 10))
+                                .foregroundColor(step.isActive ? statusColor : .secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+
+                // Footer info
+                HStack {
+                    if let date = application.createdAt {
+                        Label(date, systemImage: "calendar")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    if let wage = application.hourlyWage {
+                        Text("¥\(wage)/時間")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
+            .padding(.vertical, 6)
+        }
     }
 }
 
@@ -1100,6 +1524,7 @@ struct ApplicationRow: View {
 class ApplicationHistoryViewModel: ObservableObject {
     @Published var applications: [Application] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -1108,7 +1533,7 @@ class ApplicationHistoryViewModel: ObservableObject {
         do {
             applications = try await api.getMyApplications()
         } catch {
-            print("Error loading applications: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -1121,6 +1546,12 @@ struct WorkHistoryView: View {
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -1188,6 +1619,7 @@ struct WorkHistoryRow: View {
 class WorkHistoryViewModel: ObservableObject {
     @Published var workHistory: [WorkHistory] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -1196,7 +1628,7 @@ class WorkHistoryViewModel: ObservableObject {
         do {
             workHistory = try await api.getWorkHistory()
         } catch {
-            print("Error loading work history: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -1213,13 +1645,62 @@ struct ProfileEditView: View {
     @State private var city = ""
     @State private var isLoading = false
     @State private var showingSaved = false
+    @State private var saveError: String?
+    @State private var showImagePicker = false
+    @State private var selectedImage: UIImage?
+    @State private var isUploadingImage = false
 
     var body: some View {
         Form {
+            if let error = saveError {
+                Section {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                }
+            }
+
+            Section("プロフィール画像") {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 8) {
+                        if let image = selectedImage {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 80, height: 80)
+                                .clipShape(Circle())
+                        } else if let imageUrl = authManager.currentUser?.profileImageUrl,
+                                  let url = URL(string: imageUrl) {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 80, height: 80)
+                                    .clipShape(Circle())
+                            } placeholder: {
+                                defaultAvatar
+                            }
+                        } else {
+                            defaultAvatar
+                        }
+
+                        Button(isUploadingImage ? "アップロード中..." : "画像を変更") {
+                            showImagePicker = true
+                        }
+                        .font(.caption)
+                        .disabled(isUploadingImage)
+                    }
+                    Spacer()
+                }
+            }
+
             Section("基本情報") {
                 TextField("名前", text: $name)
+                    .textContentType(.name)
                 TextField("電話番号", text: $phone)
                     .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
             }
 
             Section("自己紹介") {
@@ -1263,10 +1744,38 @@ struct ProfileEditView: View {
                 city = user.city ?? ""
             }
         }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePicker(image: $selectedImage)
+        }
+        .onChange(of: selectedImage) { _, newImage in
+            if let image = newImage {
+                Task { await uploadImage(image) }
+            }
+        }
+    }
+
+    private var defaultAvatar: some View {
+        Image(systemName: "person.circle.fill")
+            .resizable()
+            .frame(width: 80, height: 80)
+            .foregroundColor(.gray.opacity(0.5))
+    }
+
+    private func uploadImage(_ image: UIImage) async {
+        guard let imageData = image.jpegData(compressionQuality: 0.7) else { return }
+        isUploadingImage = true
+        do {
+            _ = try await APIClient.shared.uploadProfileImage(imageData: imageData)
+            await authManager.checkAuthStatus()
+        } catch {
+            saveError = "画像のアップロードに失敗しました"
+        }
+        isUploadingImage = false
     }
 
     func saveProfile() {
         isLoading = true
+        saveError = nil
         Task {
             do {
                 let updated = try await APIClient.shared.updateProfile(
@@ -1279,7 +1788,7 @@ struct ProfileEditView: View {
                 authManager.currentUser = updated
                 showingSaved = true
             } catch {
-                print("Error saving profile: \(error)")
+                saveError = "プロフィールの保存に失敗しました。もう一度お試しください。"
             }
             isLoading = false
         }
@@ -1296,6 +1805,14 @@ struct IdentityVerificationView: View {
 
     var body: some View {
         Form {
+            if let error = viewModel.errorMessage {
+                Section {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
+
             Section("現在のステータス") {
                 HStack {
                     Text("本人確認")
@@ -1383,6 +1900,7 @@ struct IdentityVerificationView: View {
 class IdentityVerificationViewModel: ObservableObject {
     @Published var verification: IdentityVerification?
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -1390,7 +1908,7 @@ class IdentityVerificationViewModel: ObservableObject {
         do {
             verification = try await api.getIdentityVerificationStatus()
         } catch {
-            print("Error loading verification status: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -1400,7 +1918,7 @@ class IdentityVerificationViewModel: ObservableObject {
             _ = try await api.submitIdentityVerification(documentType: documentType, frontImageData: frontImage, backImageData: nil)
             await loadData()
         } catch {
-            print("Error submitting verification: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -1448,21 +1966,37 @@ struct ImagePicker: UIViewControllerRepresentable {
 // MARK: - FAQ View
 
 struct FAQView: View {
-    let faqs = [
-        ("報酬はいつ受け取れますか？", "勤務完了後、事業者が承認すると即座にウォレットに反映されます。出金申請から1〜3営業日で銀行口座に振り込まれます。"),
-        ("本人確認は必須ですか？", "お仕事に応募するには本人確認が必要です。運転免許証、マイナンバーカード、パスポートのいずれかをご準備ください。"),
-        ("キャンセルはできますか？", "勤務日の前日までキャンセル可能です。当日キャンセルは評価に影響する場合があります。"),
-        ("出金手数料はかかりますか？", "出金手数料は無料です。"),
+    let faqSections: [(String, [(String, String)])] = [
+        ("お仕事について", [
+            ("どんなお仕事がありますか？", "飲食店、イベントスタッフ、軽作業など様々な短期のお仕事があります。アプリの検索機能でエリアや職種を絞り込んで探せます。"),
+            ("応募してからどれくらいで結果がわかりますか？", "事業者によって異なりますが、通常1〜3日以内に結果がチャットで通知されます。"),
+            ("キャンセルはできますか？", "勤務日の前日までキャンセル可能です。当日キャンセルは評価に影響する場合があります。"),
+            ("出勤・退勤はどうやって記録しますか？", "勤務先に設置されたQRコードをアプリで読み取ることで出退勤を記録できます。"),
+        ]),
+        ("報酬・出金について", [
+            ("報酬はいつ受け取れますか？", "勤務完了後、事業者が承認すると即座にウォレットに反映されます。出金申請から1〜3営業日で銀行口座に振り込まれます。"),
+            ("出金手数料はかかりますか？", "出金手数料は無料です。"),
+            ("最低出金額はありますか？", "最低出金額は1,000円からとなっています。"),
+        ]),
+        ("アカウントについて", [
+            ("本人確認は必須ですか？", "お仕事に応募するには本人確認が必要です。運転免許証、マイナンバーカード、パスポートのいずれかをご準備ください。"),
+            ("退会するにはどうすればいいですか？", "マイページの「設定」>「アカウント削除」から退会手続きが可能です。未出金の報酬がある場合は先に出金をお願いします。"),
+            ("パスワードを忘れました", "ログイン画面の「パスワードを忘れた方」からメールアドレスを入力してパスワードリセットが可能です。"),
+        ]),
     ]
 
     var body: some View {
         List {
-            ForEach(faqs, id: \.0) { faq in
-                DisclosureGroup(faq.0) {
-                    Text(faq.1)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .padding(.vertical, 4)
+            ForEach(faqSections, id: \.0) { section in
+                Section(header: Text(section.0)) {
+                    ForEach(section.1, id: \.0) { faq in
+                        DisclosureGroup(faq.0) {
+                            Text(faq.1)
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                                .padding(.vertical, 4)
+                        }
+                    }
                 }
             }
         }
@@ -1585,6 +2119,12 @@ struct PendingReviewsView: View {
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -1647,6 +2187,7 @@ struct PendingReviewRow: View {
 class PendingReviewsViewModel: ObservableObject {
     @Published var pendingReviews: [PendingReview] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -1655,7 +2196,7 @@ class PendingReviewsViewModel: ObservableObject {
         do {
             pendingReviews = try await api.getPendingReviews()
         } catch {
-            print("Error loading pending reviews: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
@@ -1787,6 +2328,12 @@ struct MyReviewsView: View {
 
     var body: some View {
         List {
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
             if viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -1864,6 +2411,7 @@ struct MyReviewRow: View {
 class MyReviewsViewModel: ObservableObject {
     @Published var reviews: [Review] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -1872,13 +2420,100 @@ class MyReviewsViewModel: ObservableObject {
         do {
             reviews = try await api.getMyReviews()
         } catch {
-            print("Error loading reviews: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
 }
 
+// MARK: - Change Password View
+
+struct ChangePasswordView: View {
+    @State private var currentPassword = ""
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    @State private var showSuccess = false
+    @Environment(\.dismiss) private var dismiss
+
+    private var isValid: Bool {
+        !currentPassword.isEmpty &&
+        newPassword.count >= 8 &&
+        newPassword == confirmPassword
+    }
+
+    var body: some View {
+        Form {
+            Section(header: Text("現在のパスワード")) {
+                SecureField("現在のパスワード", text: $currentPassword)
+            }
+
+            Section(header: Text("新しいパスワード"), footer: Text("8文字以上で入力してください")) {
+                SecureField("新しいパスワード", text: $newPassword)
+                SecureField("新しいパスワード（確認）", text: $confirmPassword)
+            }
+
+            if newPassword != confirmPassword && !confirmPassword.isEmpty {
+                Section {
+                    Text("パスワードが一致しません")
+                        .foregroundColor(.red)
+                        .font(.caption)
+                }
+            }
+
+            if let error = errorMessage {
+                Section {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                }
+            }
+
+            Section {
+                Button(action: changePassword) {
+                    if isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text("パスワードを変更")
+                            .frame(maxWidth: .infinity)
+                            .fontWeight(.medium)
+                    }
+                }
+                .disabled(!isValid || isLoading)
+            }
+        }
+        .navigationTitle("パスワード変更")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("パスワード変更完了", isPresented: $showSuccess) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text("パスワードが正常に変更されました。")
+        }
+    }
+
+    private func changePassword() {
+        isLoading = true
+        errorMessage = nil
+        Task {
+            do {
+                _ = try await APIClient.shared.changePassword(
+                    currentPassword: currentPassword,
+                    newPassword: newPassword
+                )
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+                showSuccess = true
+            } catch {
+                errorMessage = "パスワードの変更に失敗しました: \(error.localizedDescription)"
+            }
+            isLoading = false
+        }
+    }
+}
+
 #Preview {
     MyPageView()
-        .environmentObject(AuthManager())
+        .environmentObject(AuthManager.shared)
 }

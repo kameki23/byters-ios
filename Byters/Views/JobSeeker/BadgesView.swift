@@ -12,6 +12,18 @@ struct BadgesView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 24) {
+                        if let error = viewModel.loadError {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.caption)
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal)
+                        }
+
                         // Stats Header
                         BadgeStatsHeader(
                             earnedCount: viewModel.earnedBadges.count,
@@ -80,7 +92,7 @@ struct BadgeStatsHeader: View {
             .frame(height: 8)
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -195,19 +207,20 @@ class BadgesViewModel: ObservableObject {
     @Published var earnedBadges: [Badge] = []
     @Published var unearnedBadges: [Badge] = []
     @Published var isLoading = true
+    @Published var loadError: String?
 
     private let api = APIClient.shared
 
     func loadBadges() async {
         isLoading = true
+        loadError = nil
         do {
             let result = try await api.getBadges()
             allBadges = result
             earnedBadges = result.filter { $0.earnedAt != nil }
             unearnedBadges = result.filter { $0.earnedAt == nil }
         } catch {
-            print("Failed to load badges: \(error)")
-            // Fallback with default badges
+            loadError = "バッジの読み込みに失敗しました"
             allBadges = Badge.defaultBadges
             unearnedBadges = allBadges
         }

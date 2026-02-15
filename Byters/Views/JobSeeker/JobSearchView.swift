@@ -102,15 +102,16 @@ struct JobSearchView: View {
                     .padding(.vertical, 8)
                 }
 
-                // Active Filters Display
-                if viewModel.hasActiveFilters {
-                    HStack {
-                        Text("\(viewModel.jobs.count)件の求人")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                // Results Count & Active Filters Display
+                HStack {
+                    Text("\(viewModel.jobs.count)件の求人")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
 
-                        Spacer()
+                    Spacer()
 
+                    if viewModel.hasActiveFilters {
                         Button(action: {
                             viewModel.clearFilters()
                             Task { await viewModel.search() }
@@ -120,9 +121,9 @@ struct JobSearchView: View {
                                 .foregroundColor(.blue)
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
                 }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
 
                 Divider()
 
@@ -163,11 +164,34 @@ struct JobSearchView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
 
+                // Error Display
+                if let error = viewModel.errorMessage {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                        Spacer()
+                        Button("再試行") {
+                            Task { await viewModel.search() }
+                        }
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    }
+                    .padding(.horizontal)
+                }
+
                 // Results
                 if viewModel.isLoading {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(0..<5, id: \.self) { _ in
+                                JobSkeletonRow()
+                            }
+                        }
+                        .padding()
+                    }
                 } else if viewModel.jobs.isEmpty {
                     Spacer()
                     EmptyStateView(
@@ -187,6 +211,8 @@ struct JobSearchView: View {
                                         job: job,
                                         isFavorite: viewModel.favoriteJobIds.contains(job.id),
                                         onFavoriteToggle: {
+                                            let generator = UIImpactFeedbackGenerator(style: .light)
+                                            generator.impactOccurred()
                                             Task {
                                                 await viewModel.toggleFavorite(jobId: job.id)
                                             }
@@ -198,6 +224,9 @@ struct JobSearchView: View {
                         }
                         .padding()
                     }
+                    .refreshable {
+                        await viewModel.search()
+                    }
                 }
             }
             .navigationTitle("求人検索")
@@ -208,6 +237,7 @@ struct JobSearchView: View {
                         Image(systemName: "heart.fill")
                             .foregroundColor(.red)
                     }
+                    .accessibilityLabel("お気に入り一覧")
                 }
             }
             .sheet(isPresented: $showFilters) {
@@ -330,11 +360,18 @@ class JobSearchViewModel: ObservableObject {
     @Published var selectedDateFilter: DateFilter?
     @Published var selectedWageRange: WageRange?
     @Published var selectedDistanceFilter: DistanceFilter?
-    @Published var sortBy: SortOption = .newest
+    @Published var sortBy: SortOption = .newest {
+        didSet {
+            if sortBy != oldValue {
+                jobs = sortJobs(jobs)
+            }
+        }
+    }
     @Published var favoriteJobIds: Set<String> = []
     @Published var categories: [JobCategory] = []
     @Published var userLocation: CLLocationCoordinate2D?
     @Published var locationError: String?
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
     private let locationManager = LocationManager()
@@ -364,7 +401,7 @@ class JobSearchViewModel: ObservableObject {
             jobs = try await api.getJobs()
             categories = try await api.getCategories()
         } catch {
-            print("Failed to load jobs: \(error)")
+            errorMessage = "求人の読み込みに失敗しました"
         }
         isLoading = false
     }
@@ -374,7 +411,7 @@ class JobSearchViewModel: ObservableObject {
             let favorites = try await api.getFavoriteJobs()
             favoriteJobIds = Set(favorites.map { $0.id })
         } catch {
-            print("Failed to load favorites: \(error)")
+            // Non-critical - favorites just won't show
         }
     }
 
@@ -399,6 +436,7 @@ class JobSearchViewModel: ObservableObject {
                 allJobs = try await api.getJobs(
                     search: keyword.isEmpty ? nil : keyword,
                     prefecture: selectedPrefecture,
+                    city: selectedCity,
                     category: selectedCategory
                 )
             }
@@ -438,7 +476,7 @@ class JobSearchViewModel: ObservableObject {
             // Apply sorting
             jobs = sortJobs(allJobs)
         } catch {
-            print("Failed to search jobs: \(error)")
+            errorMessage = "検索に失敗しました"
         }
         isLoading = false
     }
@@ -469,14 +507,14 @@ class JobSearchViewModel: ObservableObject {
     func toggleFavorite(jobId: String) async {
         do {
             if favoriteJobIds.contains(jobId) {
-                try await api.removeFavoriteJob(jobId: jobId)
+                _ = try await api.removeFavoriteJob(jobId: jobId)
                 favoriteJobIds.remove(jobId)
             } else {
-                try await api.addFavoriteJob(jobId: jobId)
+                _ = try await api.addFavoriteJob(jobId: jobId)
                 favoriteJobIds.insert(jobId)
             }
         } catch {
-            print("Failed to toggle favorite: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -623,29 +661,21 @@ struct FilterSheetView: View {
 
 struct JobMapView: View {
     let jobs: [Job]
-    @State private var region = MKCoordinateRegion(
+    private let region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 35.6762, longitude: 139.6503),
         span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
     )
 
     var body: some View {
-        Map(coordinateRegion: $region, annotationItems: jobAnnotations) { item in
-            MapAnnotation(coordinate: item.coordinate) {
-                NavigationLink(destination: JobDetailView(jobId: item.job.id)) {
-                    VStack {
+        Map(initialPosition: .region(region)) {
+            ForEach(jobAnnotations) { item in
+                Annotation(item.job.wageDisplay, coordinate: item.coordinate) {
+                    NavigationLink(destination: JobDetailView(jobId: item.job.id)) {
                         Image(systemName: "briefcase.fill")
                             .foregroundColor(.white)
                             .padding(8)
                             .background(Color.blue)
                             .clipShape(Circle())
-
-                        Text(item.job.wageDisplay)
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(Color.white)
-                            .clipShape(Capsule())
                             .shadow(radius: 2)
                     }
                 }
@@ -654,12 +684,11 @@ struct JobMapView: View {
     }
 
     var jobAnnotations: [JobAnnotation] {
-        // In a real app, jobs would have lat/lng coordinates
-        // For now, generate random positions around Tokyo
-        jobs.enumerated().map { index, job in
-            let lat = 35.6762 + Double.random(in: -0.2...0.2)
-            let lng = 139.6503 + Double.random(in: -0.2...0.2)
-            return JobAnnotation(job: job, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng))
+        jobs.compactMap { job in
+            if let lat = job.latitude, let lng = job.longitude {
+                return JobAnnotation(job: job, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng))
+            }
+            return nil
         }
     }
 }
@@ -679,6 +708,15 @@ struct FavoriteJobsView: View {
     var body: some View {
         NavigationStack {
             Group {
+                if let error = viewModel.errorMessage {
+                    VStack {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .padding(.horizontal)
+                    }
+                }
+
                 if viewModel.isLoading {
                     ProgressView()
                 } else if viewModel.jobs.isEmpty {
@@ -734,6 +772,7 @@ struct FavoriteJobsView: View {
 class FavoriteJobsViewModel: ObservableObject {
     @Published var jobs: [Job] = []
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
@@ -742,17 +781,17 @@ class FavoriteJobsViewModel: ObservableObject {
         do {
             jobs = try await api.getFavoriteJobs()
         } catch {
-            print("Failed to load favorites: \(error)")
+            errorMessage = error.localizedDescription
         }
         isLoading = false
     }
 
     func removeFavorite(jobId: String) async {
         do {
-            try await api.removeFavoriteJob(jobId: jobId)
+            _ = try await api.removeFavoriteJob(jobId: jobId)
             jobs.removeAll { $0.id == jobId }
         } catch {
-            print("Failed to remove favorite: \(error)")
+            errorMessage = error.localizedDescription
         }
     }
 }
@@ -890,7 +929,7 @@ struct JobListRow: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
     }
@@ -947,6 +986,49 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         locationContinuation?.resume(throwing: error)
         locationContinuation = nil
+    }
+}
+
+// MARK: - Skeleton Loading
+
+struct JobSkeletonRow: View {
+    @State private var isAnimating = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(.systemGray5))
+                        .frame(width: 120, height: 12)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(.systemGray5))
+                        .frame(width: 200, height: 16)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(.systemGray5))
+                        .frame(width: 150, height: 12)
+                }
+                Spacer()
+                Circle()
+                    .fill(Color(.systemGray5))
+                    .frame(width: 32, height: 32)
+            }
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 80, height: 12)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 60, height: 12)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
+        .opacity(isAnimating ? 0.6 : 1.0)
+        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isAnimating)
+        .onAppear { isAnimating = true }
     }
 }
 

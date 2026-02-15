@@ -9,6 +9,8 @@ enum UserType: String, Codable {
 
 @MainActor
 class AuthManager: ObservableObject {
+    static let shared = AuthManager()
+
     @Published var currentUser: User?
     @Published var isAuthenticated = false
     @Published var isLoading = true
@@ -22,13 +24,22 @@ class AuthManager: ObservableObject {
     }
 
     init() {
+        migrateTokenFromUserDefaults()
         Task {
             await checkAuthStatus()
         }
     }
 
+    /// Migrate auth_token from UserDefaults to Keychain (one-time)
+    private func migrateTokenFromUserDefaults() {
+        if let oldToken = UserDefaults.standard.string(forKey: "auth_token") {
+            KeychainHelper.save(key: "auth_token", value: oldToken)
+            UserDefaults.standard.removeObject(forKey: "auth_token")
+        }
+    }
+
     func checkAuthStatus() async {
-        guard UserDefaults.standard.string(forKey: "auth_token") != nil else {
+        guard KeychainHelper.load(key: "auth_token") != nil else {
             isLoading = false
             return
         }
@@ -50,7 +61,7 @@ class AuthManager: ObservableObject {
 
         do {
             let response = try await api.login(email: email, password: password)
-            UserDefaults.standard.set(response.accessToken, forKey: "auth_token")
+            KeychainHelper.save(key: "auth_token", value: response.accessToken)
             self.currentUser = response.user
             self.isAuthenticated = true
             return true
@@ -75,7 +86,7 @@ class AuthManager: ObservableObject {
             )
 
             if let token = response.accessToken, let user = response.user {
-                UserDefaults.standard.set(token, forKey: "auth_token")
+                KeychainHelper.save(key: "auth_token", value: token)
                 self.currentUser = user
                 self.isAuthenticated = true
                 return true
@@ -93,13 +104,21 @@ class AuthManager: ObservableObject {
     }
 
     func logout() {
+        KeychainHelper.delete(key: "auth_token")
+        KeychainHelper.delete(key: "is_admin")
         UserDefaults.standard.removeObject(forKey: "auth_token")
         UserDefaults.standard.removeObject(forKey: "is_admin")
         currentUser = nil
         isAuthenticated = false
     }
 
+    /// Called when API returns 401 - force logout and redirect to login
+    func handleUnauthorized() {
+        guard isAuthenticated else { return }
+        logout()
+    }
+
     var isAdmin: Bool {
-        return currentUser?.userType == "admin" || UserDefaults.standard.bool(forKey: "is_admin")
+        return currentUser?.userType == "admin"
     }
 }

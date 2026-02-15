@@ -65,13 +65,9 @@ struct NotificationListView: View {
     private func loadNotifications() async {
         isLoading = true
         errorMessage = nil
-        do {
-            await notificationManager.loadUnreadCount()
-            isLoading = false
-        } catch {
-            errorMessage = "通知の取得に失敗しました"
-            isLoading = false
-        }
+        await notificationManager.loadUnreadCount()
+        errorMessage = notificationManager.loadError
+        isLoading = false
     }
 }
 
@@ -232,24 +228,92 @@ struct NotificationRow: View {
 // MARK: - Quick Notification Settings
 
 struct QuickNotificationSettingsView: View {
-    @State private var jobNotifications = true
-    @State private var chatNotifications = true
-    @State private var paymentNotifications = true
+    @StateObject private var viewModel = QuickNotificationSettingsViewModel()
 
     var body: some View {
         Form {
-            Section("通知設定") {
-                Toggle("新着求人の通知", isOn: $jobNotifications)
-                Toggle("チャットメッセージ", isOn: $chatNotifications)
-                Toggle("決済・出金の通知", isOn: $paymentNotifications)
-            }
+            if viewModel.isLoading {
+                Section {
+                    ProgressView("読み込み中...")
+                }
+            } else {
+                Section("通知設定") {
+                    Toggle("新着求人の通知", isOn: $viewModel.jobNotifications)
+                    Toggle("チャットメッセージ", isOn: $viewModel.chatNotifications)
+                    Toggle("リマインダー", isOn: $viewModel.reminders)
+                }
 
-            Section {
-                Text("通知設定はデバイスの設定からも変更できます")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                Section {
+                    Button("設定を保存") {
+                        Task { await viewModel.saveSettings() }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .foregroundColor(.blue)
+                    .disabled(viewModel.isSaving)
+                }
+
+                if let message = viewModel.message {
+                    Section {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundColor(viewModel.isError ? .red : .green)
+                    }
+                }
+
+                Section {
+                    Text("通知設定はデバイスの設定からも変更できます")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
             }
         }
         .navigationTitle("通知設定")
+        .task {
+            await viewModel.loadSettings()
+        }
+    }
+}
+
+@MainActor
+class QuickNotificationSettingsViewModel: ObservableObject {
+    @Published var jobNotifications = true
+    @Published var chatNotifications = true
+    @Published var reminders = true
+    @Published var isLoading = true
+    @Published var isSaving = false
+    @Published var message: String?
+    @Published var isError = false
+
+    private let api = APIClient.shared
+
+    func loadSettings() async {
+        isLoading = true
+        do {
+            let settings = try await api.getNotificationSettings()
+            jobNotifications = settings.jobMatches
+            chatNotifications = settings.chatMessages
+            reminders = settings.reminders
+        } catch {
+            // Use defaults on failure
+        }
+        isLoading = false
+    }
+
+    func saveSettings() async {
+        isSaving = true
+        message = nil
+        do {
+            _ = try await api.updateNotificationSettings(settings: [
+                "job_matches": jobNotifications,
+                "chat_messages": chatNotifications,
+                "reminders": reminders
+            ])
+            message = "保存しました"
+            isError = false
+        } catch {
+            message = "保存に失敗しました"
+            isError = true
+        }
+        isSaving = false
     }
 }
