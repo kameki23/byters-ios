@@ -6,4 +6,10 @@
 STRIPE_PUBLISHABLE_KEY = pk_live_51MRPhyDHUqifxNa843bDtU6nVmSpTjl23Nap27hjmBpCYGJPFxgYLG3Ao4WOjBQtymA7xmT4ZX4bXohJ03VOhxKo00NnKXbxux
 
 // API Base URL
-API_BASE_URL = https://byters.jp/api
+API_BASE_URL = https:/$()/byters.jp/api
+
+// Google Sign-In Client ID (iOS)
+GOOGLE_CLIENT_ID = CONFIGURE_YOUR_GOOGLE_CLIENT_ID_HERE
+
+// LINE Login Channel ID
+LINE_CHANNEL_ID = 2008814279

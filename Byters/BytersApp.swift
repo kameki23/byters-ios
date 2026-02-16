@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import GoogleSignIn
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(
@@ -7,6 +8,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+
+        // Setup social auth SDKs (LINE)
+        SocialAuthService.shared.setupSDKs()
+
         return true
     }
 
@@ -90,6 +95,11 @@ struct BytersApp: App {
     }
 
     private func handleDeepLink(_ url: URL) {
+        // Let social auth SDKs handle their URLs first
+        if SocialAuthService.shared.handleURL(url) {
+            return
+        }
+
         guard url.scheme == "byters" else { return }
         if url.host == "job", let jobId = url.pathComponents.dropFirst().first {
             appState.navigateToJobDetail(jobId: jobId)

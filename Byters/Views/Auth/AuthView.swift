@@ -406,7 +406,13 @@ struct SocialLoginView: View {
 
             VStack(spacing: 12) {
                 // LINE Login Button - Primary
-                Button(action: { if agreedToTerms { startOAuthFlow(provider: "line") } }) {
+                Button(action: {
+                    if agreedToTerms {
+                        startNativeAuth(provider: .line)
+                    } else {
+                        errorMessage = "利用規約とプライバシーポリシーに同意してください"
+                    }
+                }) {
                     HStack(spacing: 12) {
                         Image(systemName: "message.fill")
                             .font(.title2)
@@ -432,10 +438,48 @@ struct SocialLoginView: View {
                 .accessibilityLabel("LINEでログイン")
                 .accessibilityHint(agreedToTerms ? "LINEアカウントでログインします" : "先に利用規約に同意してください")
 
-                // Google Login Button
-                Button(action: { if agreedToTerms { startOAuthFlow(provider: "google") } }) {
+                // Apple Sign In Button
+                Button(action: {
+                    if agreedToTerms {
+                        startNativeAuth(provider: .apple)
+                    } else {
+                        errorMessage = "利用規約とプライバシーポリシーに同意してください"
+                    }
+                }) {
                     HStack(spacing: 12) {
-                        // Google Logo
+                        Image(systemName: "apple.logo")
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Appleで続ける")
+                                .fontWeight(.semibold)
+                            Text("Apple IDでログイン")
+                                .font(.caption)
+                                .opacity(0.7)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 20)
+                    .background(Color.black)
+                    .foregroundColor(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .opacity(agreedToTerms ? 1.0 : 0.5)
+                }
+                .accessibilityLabel("Appleでログイン")
+                .accessibilityHint(agreedToTerms ? "Apple IDでログインします" : "先に利用規約に同意してください")
+
+                // Google Login Button
+                Button(action: {
+                    if agreedToTerms {
+                        startNativeAuth(provider: .google)
+                    } else {
+                        errorMessage = "利用規約とプライバシーポリシーに同意してください"
+                    }
+                }) {
+                    HStack(spacing: 12) {
                         ZStack {
                             Circle()
                                 .fill(Color.white)
@@ -539,6 +583,119 @@ struct SocialLoginView: View {
         }
     }
 
+    // MARK: - Native SDK Auth
+
+    private func startNativeAuth(provider: SocialAuthProvider) {
+        isLoading = true
+        errorMessage = nil
+
+        Task {
+            do {
+                let result: SocialAuthResult
+
+                switch provider {
+                case .google:
+                    guard let vc = getPresentingViewController() else {
+                        isLoading = false
+                        errorMessage = "画面の取得に失敗しました"
+                        return
+                    }
+                    result = try await SocialAuthService.shared.signInWithGoogle(presentingVC: vc)
+
+                case .line:
+                    guard let vc = getPresentingViewController() else {
+                        isLoading = false
+                        errorMessage = "画面の取得に失敗しました"
+                        return
+                    }
+                    result = try await SocialAuthService.shared.signInWithLINE(presentingVC: vc)
+
+                case .apple:
+                    result = try await SocialAuthService.shared.signInWithApple()
+                }
+
+                // Send token to backend
+                let loginResponse: LoginResponse
+                switch result.provider {
+                case .google:
+                    guard let idToken = result.idToken else { throw SocialAuthError.noToken }
+                    loginResponse = try await APIClient.shared.socialLoginGoogle(
+                        idToken: idToken,
+                        userType: userType.rawValue
+                    )
+                case .line:
+                    guard let accessToken = result.accessToken else { throw SocialAuthError.noToken }
+                    loginResponse = try await APIClient.shared.socialLoginLine(
+                        accessToken: accessToken,
+                        idToken: result.idToken,
+                        userType: userType.rawValue
+                    )
+                case .apple:
+                    guard let identityToken = result.identityToken else { throw SocialAuthError.noToken }
+                    loginResponse = try await APIClient.shared.socialLoginApple(
+                        identityToken: identityToken,
+                        userType: userType.rawValue,
+                        name: result.name,
+                        email: result.email
+                    )
+                }
+
+                KeychainHelper.save(key: "auth_token", value: loginResponse.accessToken)
+                authManager.currentUser = loginResponse.user
+                authManager.isAuthenticated = true
+                appState.onLoginSuccess()
+                isLoading = false
+
+            } catch let error as SocialAuthError {
+                isLoading = false
+                switch error {
+                case .cancelled:
+                    break // User cancelled - no error message
+                case .notConfigured:
+                    // Fallback to web-based OAuth (Apple has no web fallback)
+                    if provider != .apple {
+                        fallbackToWebAuth(provider: provider)
+                    } else {
+                        errorMessage = error.errorDescription
+                    }
+                default:
+                    // For SDK errors on Google/LINE, try web fallback
+                    if provider != .apple {
+                        fallbackToWebAuth(provider: provider)
+                    } else {
+                        errorMessage = error.errorDescription
+                    }
+                }
+            } catch {
+                isLoading = false
+                if provider != .apple {
+                    fallbackToWebAuth(provider: provider)
+                } else {
+                    errorMessage = "認証に失敗しました: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func getPresentingViewController() -> UIViewController? {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = scene.windows.first,
+              let rootVC = window.rootViewController else {
+            return nil
+        }
+        var vc = rootVC
+        while let presented = vc.presentedViewController {
+            vc = presented
+        }
+        return vc
+    }
+
+    // MARK: - Web OAuth Fallback
+
+    private func fallbackToWebAuth(provider: SocialAuthProvider) {
+        startOAuthFlow(provider: provider.rawValue)
+    }
+
     private func startOAuthFlow(provider: String) {
         isLoading = true
         errorMessage = nil
@@ -556,7 +713,6 @@ struct SocialLoginView: View {
                     }
 
                     session.presentationContextProvider = WebAuthContextProvider.shared
-                    // Use ephemeral for fresh login each time
                     session.prefersEphemeralWebBrowserSession = false
 
                     self.webAuthSession = session
@@ -578,7 +734,6 @@ struct SocialLoginView: View {
     private func getOAuthURL(provider: String) async throws -> URL {
         let baseURL = StripeConfig.apiBaseURL
 
-        // Use mobile-specific endpoints that redirect back to byters:// scheme
         let urlString = "\(baseURL)/auth/mobile/\(provider)/url?user_type=\(userType.rawValue)"
 
         guard let url = URL(string: urlString) else {
@@ -631,10 +786,8 @@ struct SocialLoginView: View {
             return
         }
 
-        // Parse callback URL
         let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
 
-        // Check for error from backend
         if let errorParam = components?.queryItems?.first(where: { $0.name == "error" })?.value {
             let message = components?.queryItems?.first(where: { $0.name == "message" })?.value ?? errorParam
             DispatchQueue.main.async {
@@ -644,13 +797,11 @@ struct SocialLoginView: View {
             return
         }
 
-        // Check for direct token (mobile OAuth flow returns token directly)
         if let token = components?.queryItems?.first(where: { $0.name == "token" })?.value {
             completeLoginWithToken(token)
             return
         }
 
-        // Fallback: Check for code to exchange (legacy flow)
         if let code = components?.queryItems?.first(where: { $0.name == "code" })?.value {
             Task {
                 await exchangeCodeForToken(provider: provider, code: code)
@@ -667,14 +818,13 @@ struct SocialLoginView: View {
     private func completeLoginWithToken(_ token: String) {
         Task {
             do {
-                // Fetch user info with token
                 let user = try await fetchUserWithToken(token)
 
                 await MainActor.run {
                     KeychainHelper.save(key: "auth_token", value: token)
                     authManager.currentUser = user
                     authManager.isAuthenticated = true
-                    appState.onLoginSuccess()  // Navigate to MyPage after login
+                    appState.onLoginSuccess()
                     isLoading = false
                 }
             } catch {
@@ -704,7 +854,7 @@ struct SocialLoginView: View {
 
     private func exchangeCodeForToken(provider: String, code: String) async {
         let baseURL = StripeConfig.apiBaseURL
-        guard let url = URL(string: "\(baseURL)/auth/\(provider)/callback") else {
+        guard let url = URL(string: "\(baseURL)/auth/mobile/\(provider)/callback") else {
             await MainActor.run {
                 isLoading = false
                 errorMessage = "URLエラー"
@@ -738,11 +888,10 @@ struct SocialLoginView: View {
                     KeychainHelper.save(key: "auth_token", value: loginResponse.accessToken)
                     authManager.currentUser = loginResponse.user
                     authManager.isAuthenticated = true
-                    appState.onLoginSuccess()  // Navigate to MyPage after login
+                    appState.onLoginSuccess()
                     isLoading = false
                 }
             } else {
-                // Try to parse error
                 if let errorData = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                     await MainActor.run {
                         isLoading = false

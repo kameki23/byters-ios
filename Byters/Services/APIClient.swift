@@ -204,6 +204,51 @@ class APIClient {
         return try await request(endpoint: "/auth/me")
     }
 
+    // MARK: - Social Auth (Native SDK)
+
+    func socialLoginGoogle(idToken: String, userType: String) async throws -> LoginResponse {
+        return try await request(
+            endpoint: "/auth/social/google",
+            method: "POST",
+            body: [
+                "id_token": idToken,
+                "user_type": userType
+            ],
+            requiresAuth: false
+        )
+    }
+
+    func socialLoginLine(accessToken: String, idToken: String?, userType: String) async throws -> LoginResponse {
+        var body: [String: Any] = [
+            "access_token": accessToken,
+            "user_type": userType
+        ]
+        if let idToken = idToken { body["id_token"] = idToken }
+
+        return try await request(
+            endpoint: "/auth/social/line",
+            method: "POST",
+            body: body,
+            requiresAuth: false
+        )
+    }
+
+    func socialLoginApple(identityToken: String, userType: String, name: String?, email: String?) async throws -> LoginResponse {
+        var body: [String: Any] = [
+            "identity_token": identityToken,
+            "user_type": userType
+        ]
+        if let name = name { body["name"] = name }
+        if let email = email { body["email"] = email }
+
+        return try await request(
+            endpoint: "/auth/social/apple",
+            method: "POST",
+            body: body,
+            requiresAuth: false
+        )
+    }
+
     func updateProfile(name: String?, phone: String?, bio: String?, prefecture: String?, city: String?) async throws -> User {
         var body: [String: Any] = [:]
         if let name = name { body["name"] = name }
@@ -1252,7 +1297,7 @@ struct TransactionData: Codable {
 
 // MARK: - Timesheet Model
 
-struct TimesheetData: Codable {
+struct TimesheetData: Codable, Identifiable {
     let id: String
     let workerName: String
     let jobTitle: String
@@ -2172,4 +2217,114 @@ extension APIClient {
         }
         return try await request(endpoint: endpoint)
     }
+}
+
+// MARK: - Worker Score & Penalties
+
+extension APIClient {
+    func getWorkerScore() async throws -> WorkerScore {
+        return try await request(endpoint: "/worker/score")
+    }
+
+    func getPenalties() async throws -> [Penalty] {
+        return try await request(endpoint: "/worker/penalties")
+    }
+
+    func getProfileCompletion() async throws -> ProfileCompletion {
+        return try await request(endpoint: "/worker/profile-completion")
+    }
+
+    func getMonthlySummary(month: String? = nil) async throws -> MonthlySummary {
+        var endpoint = "/worker/monthly-summary"
+        if let month = month { endpoint += "?month=\(month)" }
+        return try await request(endpoint: endpoint)
+    }
+
+    func getMonthlySummaries() async throws -> [MonthlySummary] {
+        return try await request(endpoint: "/worker/monthly-summaries")
+    }
+}
+
+// MARK: - Banners
+
+extension APIClient {
+    func getHomeBanners() async throws -> [HomeBanner] {
+        return try await request(endpoint: "/banners", requiresAuth: false)
+    }
+}
+
+// MARK: - Job Templates
+
+extension APIClient {
+    func getJobTemplates() async throws -> [JobTemplate] {
+        return try await request(endpoint: "/employer/job-templates")
+    }
+
+    func saveJobTemplate(name: String, jobData: [String: Any]) async throws -> JobTemplate {
+        var body = jobData
+        body["name"] = name
+        return try await request(
+            endpoint: "/employer/job-templates",
+            method: "POST",
+            body: body
+        )
+    }
+
+    func deleteJobTemplate(templateId: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/employer/job-templates/\(templateId)",
+            method: "DELETE"
+        )
+    }
+
+    func createJobFromTemplate(templateId: String, workDate: String, requiredPeople: Int?) async throws -> Job {
+        var body: [String: Any] = ["work_date": workDate]
+        if let people = requiredPeople { body["required_people"] = people }
+        return try await request(
+            endpoint: "/employer/job-templates/\(templateId)/create-job",
+            method: "POST",
+            body: body
+        )
+    }
+}
+
+// MARK: - Employer Timesheets (Bulk)
+
+extension APIClient {
+    func bulkApproveTimesheets(timesheetIds: [String]) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/employer/timesheets/bulk-approve",
+            method: "POST",
+            body: ["timesheet_ids": timesheetIds]
+        )
+    }
+
+    func getEmployerTimesheetsByJob(jobId: String) async throws -> [TimesheetData] {
+        return try await request(endpoint: "/employer/jobs/\(jobId)/timesheets")
+    }
+}
+
+// MARK: - Worker Re-invite
+
+extension APIClient {
+    func reinviteWorker(workerId: String, jobId: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/employer/reinvite",
+            method: "POST",
+            body: ["worker_id": workerId, "job_id": jobId]
+        )
+    }
+
+    func getReliableWorkers() async throws -> [ReliableWorker] {
+        return try await request(endpoint: "/employer/reliable-workers")
+    }
+}
+
+struct ReliableWorker: Codable, Identifiable {
+    let id: String
+    let name: String
+    let completedJobs: Int
+    let goodRate: Int
+    let lastWorkedAt: String?
+    let categories: [String]?
 }

@@ -58,6 +58,10 @@
     <string>$(STRIPE_PUBLISHABLE_KEY)</string>
     <key>APIBaseURL</key>
     <string>$(API_BASE_URL)</string>
+    <key>GIDClientID</key>
+    <string>$(GOOGLE_CLIENT_ID)</string>
+    <key>LineChannelID</key>
+    <string>$(LINE_CHANNEL_ID)</string>
     <key>CFBundleIconName</key>
     <string>AppIcon</string>
     <key>CFBundleURLTypes</key>
@@ -72,6 +76,30 @@
                 <string>byters</string>
             </array>
         </dict>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLName</key>
+            <string>com.google.GIDSignIn</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>$(GOOGLE_CLIENT_ID)</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLName</key>
+            <string>line3rdp.jp.byters.app</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>line3rdp.jp.byters.app</string>
+            </array>
+        </dict>
+    </array>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>lineauth2</string>
     </array>
 </dict>
 </plist>

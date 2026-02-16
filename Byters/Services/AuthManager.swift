@@ -108,6 +108,7 @@ class AuthManager: ObservableObject {
         KeychainHelper.delete(key: "is_admin")
         UserDefaults.standard.removeObject(forKey: "auth_token")
         UserDefaults.standard.removeObject(forKey: "is_admin")
+        SocialAuthService.shared.signOut()
         currentUser = nil
         isAuthenticated = false
     }
