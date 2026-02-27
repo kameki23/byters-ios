@@ -1,5 +1,13 @@
 import Foundation
 
+private extension Data {
+    mutating func appendString(_ string: String) {
+        if let data = string.data(using: .utf8) {
+            append(data)
+        }
+    }
+}
+
 enum APIError: Error, LocalizedError {
     case invalidURL
     case noData
@@ -7,6 +15,9 @@ enum APIError: Error, LocalizedError {
     case serverError(String)
     case unauthorized
     case networkError(Error)
+    case offline
+    case rateLimited
+    case maintenance
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +27,9 @@ enum APIError: Error, LocalizedError {
         case .serverError(let message): return message
         case .unauthorized: return "認証が必要です"
         case .networkError(let error): return error.localizedDescription
+        case .offline: return "オフラインです。ネットワーク接続を確認してください。"
+        case .rateLimited: return "リクエストが多すぎます。しばらくしてからお試しください。"
+        case .maintenance: return "現在メンテナンス中です。しばらくお待ちください。"
         }
     }
 }
@@ -52,6 +66,10 @@ class APIClient {
         body: [String: Any]? = nil,
         requiresAuth: Bool = true
     ) async throws -> T {
+        guard await NetworkMonitor.shared.isConnected else {
+            throw APIError.offline
+        }
+
         guard let url = URL(string: "\(baseURL)\(endpoint)") else {
             throw APIError.invalidURL
         }
@@ -85,8 +103,26 @@ class APIClient {
                 }
 
                 if httpResponse.statusCode == 401 {
-                    notifyUnauthorized()
+                    // Only force-logout for token validation endpoint (/auth/me)
+                    // Other 401s may be from broken/mismatched backend, not invalid tokens
+                    if endpoint == "/auth/me" {
+                        notifyUnauthorized()
+                    }
                     throw APIError.unauthorized
+                }
+
+                if httpResponse.statusCode == 429 {
+                    if attempt < maxRetries {
+                        let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
+                        let delay = UInt64(Double(retryAfter ?? "") ?? 3.0)
+                        try await Task.sleep(nanoseconds: delay * 1_000_000_000)
+                        continue
+                    }
+                    throw APIError.rateLimited
+                }
+
+                if httpResponse.statusCode == 503 {
+                    throw APIError.maintenance
                 }
 
                 if httpResponse.statusCode >= 500 && isIdempotent && attempt < maxRetries {
@@ -107,6 +143,7 @@ class APIClient {
                 return try decoder.decode(T.self, from: data)
             } catch let error as APIError {
                 if case .unauthorized = error { throw error }
+                if case .maintenance = error { throw error }
                 lastError = error
                 if !isIdempotent || attempt >= maxRetries { throw error }
             } catch is CancellationError {
@@ -150,8 +187,12 @@ class APIClient {
         }
 
         if httpResponse.statusCode == 401 {
-            notifyUnauthorized()
+            // Don't force-logout from file upload 401s
             throw APIError.unauthorized
+        }
+
+        if httpResponse.statusCode == 503 {
+            throw APIError.maintenance
         }
 
         if httpResponse.statusCode >= 400 {
@@ -249,6 +290,30 @@ class APIClient {
         )
     }
 
+    // MARK: - Phone (SMS) Authentication
+
+    func sendPhoneOTP(phoneNumber: String) async throws -> GenericAPIResponse {
+        return try await request(
+            endpoint: "/auth/phone/send-otp",
+            method: "POST",
+            body: ["phone_number": phoneNumber],
+            requiresAuth: false
+        )
+    }
+
+    func verifyPhoneOTP(phoneNumber: String, code: String, userType: String) async throws -> LoginResponse {
+        return try await request(
+            endpoint: "/auth/phone/verify",
+            method: "POST",
+            body: [
+                "phone_number": phoneNumber,
+                "code": code,
+                "user_type": userType
+            ],
+            requiresAuth: false
+        )
+    }
+
     func updateProfile(name: String?, phone: String?, bio: String?, prefecture: String?, city: String?) async throws -> User {
         var body: [String: Any] = [:]
         if let name = name { body["name"] = name }
@@ -267,11 +332,11 @@ class APIClient {
     func uploadProfileImage(imageData: Data) async throws -> SimpleResponse {
         let boundary = UUID().uuidString
         var body = Data()
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"image\"; filename=\"profile.jpg\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.appendString("--\(boundary)\r\n")
+        body.appendString("Content-Disposition: form-data; name=\"image\"; filename=\"profile.jpg\"\r\n")
+        body.appendString("Content-Type: image/jpeg\r\n\r\n")
         body.append(imageData)
-        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        body.appendString("\r\n--\(boundary)--\r\n")
 
         return try await requestData(
             endpoint: "/auth/profile/image",
@@ -280,9 +345,25 @@ class APIClient {
         )
     }
 
+    func uploadEmployerLogo(imageData: Data) async throws -> SimpleResponse {
+        let boundary = UUID().uuidString
+        var body = Data()
+        body.appendString("--\(boundary)\r\n")
+        body.appendString("Content-Disposition: form-data; name=\"image\"; filename=\"logo.jpg\"\r\n")
+        body.appendString("Content-Type: image/jpeg\r\n\r\n")
+        body.append(imageData)
+        body.appendString("\r\n--\(boundary)--\r\n")
+
+        return try await requestData(
+            endpoint: "/employer/profile/image",
+            formData: body,
+            contentType: "multipart/form-data; boundary=\(boundary)"
+        )
+    }
+
     // MARK: - Jobs Endpoints
 
-    func getJobs(search: String? = nil, prefecture: String? = nil, city: String? = nil, category: String? = nil) async throws -> [Job] {
+    func getJobs(search: String? = nil, prefecture: String? = nil, city: String? = nil, category: String? = nil, page: Int = 1, limit: Int = 20) async throws -> [Job] {
         var queryParams: [String] = []
         if let search = search, !search.isEmpty {
             queryParams.append("keyword=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")
@@ -296,6 +377,8 @@ class APIClient {
         if let category = category, !category.isEmpty {
             queryParams.append("category=\(category.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")
         }
+        queryParams.append("page=\(page)")
+        queryParams.append("limit=\(limit)")
 
         let endpoint = "/search/jobs-enhanced?" + queryParams.joined(separator: "&")
         return try await request(endpoint: endpoint, requiresAuth: false)
@@ -437,27 +520,27 @@ class APIClient {
         var body = Data()
 
         // Document type
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"document_type\"\r\n\r\n".data(using: .utf8)!)
-        body.append("\(documentType)\r\n".data(using: .utf8)!)
+        body.appendString("--\(boundary)\r\n")
+        body.appendString("Content-Disposition: form-data; name=\"document_type\"\r\n\r\n")
+        body.appendString("\(documentType)\r\n")
 
         // Front image
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"front_image\"; filename=\"front.jpg\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.appendString("--\(boundary)\r\n")
+        body.appendString("Content-Disposition: form-data; name=\"front_image\"; filename=\"front.jpg\"\r\n")
+        body.appendString("Content-Type: image/jpeg\r\n\r\n")
         body.append(frontImageData)
-        body.append("\r\n".data(using: .utf8)!)
+        body.appendString("\r\n")
 
         // Back image (optional)
         if let backData = backImageData {
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"back_image\"; filename=\"back.jpg\"\r\n".data(using: .utf8)!)
-            body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+            body.appendString("--\(boundary)\r\n")
+            body.appendString("Content-Disposition: form-data; name=\"back_image\"; filename=\"back.jpg\"\r\n")
+            body.appendString("Content-Type: image/jpeg\r\n\r\n")
             body.append(backData)
-            body.append("\r\n".data(using: .utf8)!)
+            body.appendString("\r\n")
         }
 
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        body.appendString("--\(boundary)--\r\n")
 
         return try await requestData(
             endpoint: "/identity/submit",
@@ -484,6 +567,27 @@ class APIClient {
 
     func getWorkHistory() async throws -> [WorkHistory] {
         return try await request(endpoint: "/mypage/work-history")
+    }
+
+    func getWorkCertificates() async throws -> [WorkCertificate] {
+        let response: WorkCertificateListResponse = try await request(endpoint: "/mypage/work-certificates")
+        return response.certificates
+    }
+
+    func downloadWorkCertificatePDF(certificateId: String) async throws -> Data {
+        let baseURL = StripeConfig.apiBaseURL
+        guard let url = URL(string: "\(baseURL)/mypage/work-certificates/\(certificateId)/pdf") else {
+            throw APIError.invalidURL
+        }
+        var urlRequest = URLRequest(url: url)
+        if let token = KeychainHelper.load(key: "auth_token") {
+            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError("PDFのダウンロードに失敗しました")
+        }
+        return data
     }
 
     func checkIn(workHistoryId: String) async throws -> WorkHistory {
@@ -517,17 +621,43 @@ class APIClient {
     }
 
     // Check-out with location
-    func checkOutWithLocation(applicationId: String, latitude: Double?, longitude: Double?, deviceTime: String) async throws -> CheckOutResponse {
+    func checkOutWithLocation(applicationId: String, latitude: Double?, longitude: Double?, deviceTime: String, breakMinutes: Int? = nil) async throws -> CheckOutResponse {
         var body: [String: Any] = [
             "device_time": deviceTime
         ]
         if let lat = latitude { body["latitude"] = lat }
         if let lng = longitude { body["longitude"] = lng }
+        if let breakMin = breakMinutes { body["break_minutes"] = breakMin }
 
         return try await request(
             endpoint: "/attendance/\(applicationId)/check-out",
             method: "POST",
             body: body
+        )
+    }
+
+    // MARK: - Break Tracking
+
+    func startBreak(applicationId: String) async throws -> GenericAPIResponse {
+        return try await request(
+            endpoint: "/attendance/\(applicationId)/break/start",
+            method: "POST"
+        )
+    }
+
+    func endBreak(applicationId: String) async throws -> GenericAPIResponse {
+        return try await request(
+            endpoint: "/attendance/\(applicationId)/break/end",
+            method: "POST"
+        )
+    }
+
+    // MARK: - Instant Payment (Checkout → Charge → Wallet)
+
+    func requestInstantPayment(applicationId: String) async throws -> InstantPaymentResponse {
+        return try await request(
+            endpoint: "/payments/instant/\(applicationId)",
+            method: "POST"
         )
     }
 
@@ -543,7 +673,7 @@ class APIClient {
 
     func sendMessage(roomId: String, content: String) async throws -> ChatMessage {
         return try await request(
-            endpoint: "/chat/rooms/\(roomId)/messages",
+            endpoint: "/chat/rooms/\(roomId)/send",
             method: "POST",
             body: ["content": content]
         )
@@ -558,7 +688,7 @@ class APIClient {
             body["content"] = content
         }
         return try await request(
-            endpoint: "/chat/rooms/\(roomId)/messages",
+            endpoint: "/chat/rooms/\(roomId)/send",
             method: "POST",
             body: body
         )
@@ -574,7 +704,7 @@ class APIClient {
             body["content"] = content
         }
         return try await request(
-            endpoint: "/chat/rooms/\(roomId)/messages",
+            endpoint: "/chat/rooms/\(roomId)/send",
             method: "POST",
             body: body
         )
@@ -590,6 +720,10 @@ class APIClient {
         return try await request(endpoint: "/employer/profile")
     }
 
+    func getPublicEmployerProfile(employerId: String) async throws -> EmployerProfile {
+        return try await request(endpoint: "/employers/\(employerId)/profile")
+    }
+
     func updateEmployerProfile(
         businessName: String?,
         description: String?,
@@ -600,13 +734,13 @@ class APIClient {
         contactEmail: String?
     ) async throws -> EmployerProfile {
         var body: [String: Any] = [:]
-        if let businessName = businessName { body["business_name"] = businessName }
+        if let businessName = businessName { body["company_name"] = businessName }
         if let description = description { body["description"] = description }
         if let prefecture = prefecture { body["prefecture"] = prefecture }
         if let city = city { body["city"] = city }
         if let address = address { body["address"] = address }
-        if let contactPhone = contactPhone { body["contact_phone"] = contactPhone }
-        if let contactEmail = contactEmail { body["contact_email"] = contactEmail }
+        if let contactPhone = contactPhone { body["phone"] = contactPhone }
+        if let contactEmail = contactEmail { body["email"] = contactEmail }
 
         return try await request(
             endpoint: "/employer/profile",
@@ -628,12 +762,14 @@ class APIClient {
         hourlyWage: Int?,
         dailyWage: Int?,
         workDate: String?,
+        workDateEnd: String? = nil,
         startTime: String,
         endTime: String,
         requiredPeople: Int,
         categories: [String]?,
         requirements: String?,
-        benefits: String?
+        benefits: String?,
+        paymentType: String? = nil
     ) async throws -> Job {
         var body: [String: Any] = [
             "title": title,
@@ -648,9 +784,11 @@ class APIClient {
         if let hourlyWage = hourlyWage { body["hourly_wage"] = hourlyWage }
         if let dailyWage = dailyWage { body["daily_wage"] = dailyWage }
         if let workDate = workDate { body["work_date"] = workDate }
+        if let workDateEnd = workDateEnd { body["work_date_end"] = workDateEnd }
         if let categories = categories { body["categories"] = categories }
         if let requirements = requirements { body["requirements"] = requirements }
         if let benefits = benefits { body["benefits"] = benefits }
+        if let paymentType = paymentType { body["payment_type"] = paymentType }
 
         return try await request(
             endpoint: "/employer/jobs",
@@ -668,6 +806,7 @@ class APIClient {
         hourlyWage: Int?,
         dailyWage: Int?,
         workDate: String?,
+        workDateEnd: String? = nil,
         startTime: String,
         endTime: String,
         requiredPeople: Int,
@@ -675,7 +814,8 @@ class APIClient {
         requirements: String?,
         benefits: String?,
         images: [String],
-        thumbnailIndex: Int
+        thumbnailIndex: Int,
+        paymentType: String? = nil
     ) async throws -> Job {
         var body: [String: Any] = [
             "title": title,
@@ -690,9 +830,11 @@ class APIClient {
         if let hourlyWage = hourlyWage { body["hourly_wage"] = hourlyWage }
         if let dailyWage = dailyWage { body["daily_wage"] = dailyWage }
         if let workDate = workDate { body["work_date"] = workDate }
+        if let workDateEnd = workDateEnd { body["work_date_end"] = workDateEnd }
         if let categories = categories { body["categories"] = categories }
         if let requirements = requirements { body["requirements"] = requirements }
         if let benefits = benefits { body["benefits"] = benefits }
+        if let paymentType = paymentType { body["payment_type"] = paymentType }
 
         // Add images as base64
         if !images.isEmpty {
@@ -769,6 +911,13 @@ class APIClient {
         )
     }
 
+    func reportNoShow(applicationId: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/employer/applications/\(applicationId)/no-show",
+            method: "POST"
+        )
+    }
+
     // MARK: - Payment Endpoints (Stripe)
 
     func getPaymentMethods() async throws -> [PaymentMethod] {
@@ -784,7 +933,7 @@ class APIClient {
 
     func attachPaymentMethod(paymentMethodId: String) async throws -> PaymentMethod {
         return try await request(
-            endpoint: "/payment/methods",
+            endpoint: "/payment/methods/add",
             method: "POST",
             body: ["payment_method_id": paymentMethodId]
         )
@@ -843,6 +992,33 @@ class APIClient {
         return try await request(
             endpoint: "/payment/checkout-payment/\(applicationId)",
             method: "POST"
+        )
+    }
+
+    // Manual payment for manual settlement jobs
+    func submitManualPayment(
+        timesheetId: String,
+        basePay: Int,
+        transportationFee: Int,
+        overtimeMinutes: Int,
+        overtimePay: Int,
+        totalAmount: Int,
+        paymentMethodId: String,
+        idempotencyKey: String
+    ) async throws -> ManualPaymentResponse {
+        return try await request(
+            endpoint: "/payment/manual",
+            method: "POST",
+            body: [
+                "timesheet_id": timesheetId,
+                "base_pay": basePay,
+                "transportation_fee": transportationFee,
+                "overtime_minutes": overtimeMinutes,
+                "overtime_pay": overtimePay,
+                "total_amount": totalAmount,
+                "payment_method_id": paymentMethodId,
+                "idempotency_key": idempotencyKey
+            ]
         )
     }
 
@@ -1299,6 +1475,8 @@ struct TransactionData: Codable {
 
 struct TimesheetData: Codable, Identifiable {
     let id: String
+    let workerId: String?
+    let jobId: String?
     let workerName: String
     let jobTitle: String
     let date: String
@@ -1306,6 +1484,12 @@ struct TimesheetData: Codable, Identifiable {
     let checkOut: String
     let amount: Int
     let status: String
+    let paymentType: String?
+    let hourlyWage: Int?
+    let scheduledHours: Double?
+    let transportationFee: Int?
+    let overtimeMinutes: Int?
+    let overtimePay: Int?
 }
 
 // Note: ErrorResponse is defined in AuthView.swift
@@ -1748,6 +1932,30 @@ extension APIClient {
     func getAdminReportStats() async throws -> AdminReportStats {
         return try await request(endpoint: "/admin/reports/stats")
     }
+
+    // MARK: - Admin Disputes
+
+    func getAdminDisputes(status: String? = nil) async throws -> [Dispute] {
+        var endpoint = "/admin/disputes"
+        if let s = status { endpoint += "?status=\(s)" }
+        return try await request(endpoint: endpoint)
+    }
+
+    func updateAdminDispute(disputeId: String, status: String, resolution: String?, adminNote: String?, resolvedAmount: Int?) async throws -> SimpleResponse {
+        var body: [String: Any] = ["status": status]
+        if let resolution = resolution { body["resolution"] = resolution }
+        if let note = adminNote { body["admin_note"] = note }
+        if let amount = resolvedAmount { body["resolved_amount"] = amount }
+        return try await request(endpoint: "/admin/disputes/\(disputeId)", method: "PUT", body: body)
+    }
+
+    func escalateDispute(disputeId: String, note: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/admin/disputes/\(disputeId)/escalate",
+            method: "POST",
+            body: ["note": note]
+        )
+    }
 }
 
 // MARK: - Admin CMS Content
@@ -1965,6 +2173,10 @@ extension APIClient {
     func getHealthStatus() async throws -> HealthStatus {
         return try await request(endpoint: "/health", requiresAuth: false)
     }
+
+    func getAppSettings() async throws -> AppSettings {
+        return try await request(endpoint: "/settings", requiresAuth: false)
+    }
 }
 
 // MARK: - Additional Models
@@ -1990,6 +2202,22 @@ struct DataExportResponse: Codable {
     let downloadUrl: String?
     let recordCount: Int
     let format: String
+}
+
+struct AppSettings: Codable {
+    let minimumAppVersion: String?
+    let maintenanceMode: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case minimumAppVersion = "minimum_app_version"
+        case maintenanceMode = "maintenance_mode"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        minimumAppVersion = try container.decodeIfPresent(String.self, forKey: .minimumAppVersion)
+        maintenanceMode = try container.decodeIfPresent(Bool.self, forKey: .maintenanceMode)
+    }
 }
 
 struct AdminAnalytics: Codable {

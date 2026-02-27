@@ -1,12 +1,22 @@
 import SwiftUI
+import MapKit
 
 struct JobDetailView: View {
     let jobId: String
 
+    @EnvironmentObject var authManager: AuthManager
     @StateObject private var viewModel = JobDetailViewModel()
     @State private var showApplySheet = false
+    @State private var showApplyConfirmation = false
     @State private var showEligibilityError = false
+    @State private var showProfileIncompleteAlert = false
     @State private var eligibilityMessage = ""
+    @State private var showReportSheet = false
+    @State private var showScheduleConflict = false
+    @State private var scheduleConflicts: [ScheduleConflict] = []
+    @State private var showPendingReviewBlock = false
+    @State private var pendingReviewCount = 0
+    @State private var showReviewSheet = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -48,33 +58,29 @@ struct JobDetailView: View {
                 .padding(.top, 100)
             } else if let job = viewModel.job {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Job Image
-                    if let imageUrl = job.imageUrl, let url = URL(string: imageUrl) {
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(height: 200)
-                                .clipped()
-                        } placeholder: {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 200)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.gray)
-                                )
-                        }
-                    }
+                    // Job Image(s)
+                    JobImageCarousel(job: job)
 
                     // Header with Favorite Button
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(job.employerName ?? "企業名")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
+                                if let employerId = job.employerId {
+                                    NavigationLink(destination: EmployerPublicProfileView(employerId: employerId)) {
+                                        HStack(spacing: 4) {
+                                            Text(job.employerName ?? "企業名")
+                                                .font(.subheadline)
+                                                .foregroundColor(.blue)
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption2)
+                                                .foregroundColor(.blue)
+                                        }
+                                    }
+                                } else {
+                                    Text(job.employerName ?? "企業名")
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                }
 
                                 Text(job.title)
                                     .font(.title2)
@@ -116,6 +122,43 @@ struct JobDetailView: View {
                                 }
                             }
                         }
+
+                        // Perk Tags
+                        let perks = job.perkTags
+                        if !perks.isEmpty {
+                            HStack(spacing: 8) {
+                                ForEach(perks, id: \.rawValue) { perk in
+                                    HStack(spacing: 4) {
+                                        Image(systemName: perk.icon)
+                                            .font(.caption2)
+                                        Text(perk.rawValue)
+                                            .font(.caption)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(detailPerkColor(perk).opacity(0.1))
+                                    .foregroundColor(detailPerkColor(perk))
+                                    .clipShape(Capsule())
+                                }
+                            }
+                        }
+
+                        // Employer Rating
+                        if let goodRate = job.employerGoodRate ?? job.goodRate, goodRate > 0 {
+                            HStack(spacing: 6) {
+                                Image(systemName: "hand.thumbsup.fill")
+                                    .font(.caption)
+                                    .foregroundColor(goodRate >= 80 ? .green : goodRate >= 50 ? .orange : .red)
+                                Text("事業者評価 \(goodRate)%")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                if let count = job.reviewCount, count > 0 {
+                                    Text("(\(count)件)")
+                                        .font(.caption2)
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        }
                     }
                     .padding(.horizontal)
 
@@ -144,6 +187,13 @@ struct JobDetailView: View {
                             Text(job.locationDisplay)
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
+                        }
+
+                        // Embedded Map
+                        if let lat = job.latitude, let lng = job.longitude {
+                            JobLocationMapView(latitude: lat, longitude: lng, title: job.title)
+                                .frame(height: 180)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
                     .padding(.horizontal)
@@ -193,6 +243,52 @@ struct JobDetailView: View {
                         }
                         .padding(.horizontal)
                     }
+
+                    // Payment Type Notice (manual only)
+                    if job.resolvedPaymentType == .manual {
+                        Divider()
+                            .padding(.horizontal)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "pencil.and.list.clipboard")
+                                    .foregroundColor(.orange)
+                                Text("実績精算")
+                                    .font(.headline)
+                            }
+                            Text("この求人は実績精算方式です。チェックアウト後、事業者が実績を確認してから交通費・残業代を含めた精算が行われます。")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Divider()
+                        .padding(.horizontal)
+
+                    // Cancellation Policy
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "exclamationmark.shield.fill")
+                                .foregroundColor(.orange)
+                            Text("キャンセルポリシー")
+                                .font(.headline)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            PolicyInfoRow(time: "72時間前まで", penalty: "ペナルティなし", color: .green)
+                            PolicyInfoRow(time: "24〜72時間前", penalty: "注意", color: .yellow)
+                            PolicyInfoRow(time: "6〜24時間前", penalty: "軽度ペナルティ", color: .orange)
+                            PolicyInfoRow(time: "6時間以内", penalty: "重度ペナルティ", color: .red)
+                        }
+
+                        Text("無断キャンセルは信頼度に大きく影響します")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("キャンセルポリシー。72時間前まではペナルティなし、24時間前までは注意、6時間以内は重度ペナルティ")
 
                     Divider()
                         .padding(.horizontal)
@@ -283,12 +379,23 @@ struct JobDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    shareJob()
-                }) {
-                    Image(systemName: "square.and.arrow.up")
+                HStack(spacing: 16) {
+                    Button(action: { showReportSheet = true }) {
+                        Image(systemName: "flag")
+                            .foregroundColor(.orange)
+                    }
+                    Button(action: { shareJob() }) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
                 }
             }
+        }
+        .sheet(isPresented: $showReportSheet) {
+            ReportContentView(
+                targetType: "job",
+                targetId: jobId,
+                targetTitle: viewModel.job?.title
+            )
         }
         .overlay(alignment: .bottom) {
             if viewModel.job != nil {
@@ -298,14 +405,45 @@ struct JobDetailView: View {
                     isLoading: viewModel.isCheckingEligibility
                 ) {
                     if !viewModel.isApplied {
+                        // 未レビューチェック
+                        if pendingReviewCount > 0 {
+                            showPendingReviewBlock = true
+                            return
+                        }
                         if viewModel.eligibility?.eligible == false {
                             eligibilityMessage = viewModel.eligibility?.message ?? "応募条件を満たしていません"
                             showEligibilityError = true
+                        } else if let user = authManager.currentUser,
+                                  (user.name == nil || user.name?.isEmpty == true) {
+                            showProfileIncompleteAlert = true
                         } else {
-                            showApplySheet = true
+                            // スケジュール重複チェック
+                            Task {
+                                let conflicts = await viewModel.checkScheduleConflicts()
+                                if !conflicts.isEmpty {
+                                    scheduleConflicts = conflicts
+                                    showScheduleConflict = true
+                                } else {
+                                    showApplyConfirmation = true
+                                }
+                            }
                         }
                     }
                 }
+            }
+        }
+        .confirmationDialog(
+            "この求人に応募しますか？",
+            isPresented: $showApplyConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("応募に進む") {
+                showApplySheet = true
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            if let job = viewModel.job {
+                Text(applyConfirmationMessage(job: job))
             }
         }
         .sheet(isPresented: $showApplySheet) {
@@ -323,10 +461,50 @@ struct JobDetailView: View {
         } message: {
             Text(eligibilityMessage)
         }
+        .alert("プロフィールを完成させてください", isPresented: $showProfileIncompleteAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("求人に応募するには、マイページからお名前を登録してください。")
+        }
+        .alert("レビューを先に完了してください", isPresented: $showPendingReviewBlock) {
+            Button("レビューを書く") {
+                showReviewSheet = true
+            }
+            Button("あとで", role: .cancel) {}
+        } message: {
+            Text("\(pendingReviewCount)件の未レビューがあります。レビューを完了すると応募できるようになります。")
+        }
+        .sheet(isPresented: $showReviewSheet) {
+            NavigationStack {
+                PendingReviewsView()
+            }
+        }
+        .sheet(isPresented: $showScheduleConflict) {
+            ScheduleConflictView(
+                conflicts: scheduleConflicts,
+                onProceed: {
+                    showScheduleConflict = false
+                    showApplyConfirmation = true
+                },
+                onCancel: {
+                    showScheduleConflict = false
+                }
+            )
+        }
         .task {
             await viewModel.loadJob(jobId: jobId)
             await viewModel.loadReviews(jobId: jobId)
             await viewModel.checkEligibility(jobId: jobId)
+            // 未レビュー数をチェック
+            await checkPendingReviews()
+        }
+    }
+
+    private func detailPerkColor(_ perk: JobPerk) -> Color {
+        switch perk {
+        case .transportation: return .blue
+        case .meal: return .orange
+        case .beginner: return .purple
         }
     }
 
@@ -334,6 +512,26 @@ struct JobDetailView: View {
         guard let required = job.requiredPeople else { return "未定" }
         let current = job.currentApplicants ?? 0
         return "\(required - current)名"
+    }
+
+    private func applyConfirmationMessage(job: Job) -> String {
+        var lines: [String] = []
+        lines.append("【\(job.title)】")
+        lines.append("給与: \(job.wageDisplay)")
+        if let date = job.workDate {
+            let timeInfo = job.timeDisplay.isEmpty ? "" : " \(job.timeDisplay)"
+            lines.append("勤務日: \(date)\(timeInfo)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func checkPendingReviews() async {
+        do {
+            let reviews = try await APIClient.shared.getPendingReviews()
+            pendingReviewCount = reviews.count
+        } catch {
+            pendingReviewCount = 0
+        }
     }
 
     private func shareJob() {
@@ -400,6 +598,55 @@ class JobDetailViewModel: ObservableObject {
             eligibility = nil
         }
         isCheckingEligibility = false
+    }
+
+    func checkScheduleConflicts() async -> [ScheduleConflict] {
+        guard let job = job else { return [] }
+        do {
+            let apps = try await api.getMyApplications()
+            let accepted = apps.filter { $0.status == "accepted" || $0.status == "checked_in" }
+
+            var conflicts: [ScheduleConflict] = []
+
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+
+            for existing in accepted {
+                // 同日チェック
+                if let existingDate = existing.workDate, let newDate = job.workDate, existingDate == newDate {
+                    // 時間重複チェック
+                    if let existStart = existing.startTime.flatMap({ formatter.date(from: $0) }),
+                       let existEnd = existing.endTime.flatMap({ formatter.date(from: $0) }),
+                       let newStart = job.startTime.flatMap({ formatter.date(from: $0) }),
+                       let newEnd = job.endTime.flatMap({ formatter.date(from: $0) }) {
+
+                        // 重複: 新しいジョブの開始 < 既存の終了 && 新しいジョブの終了 > 既存の開始
+                        if newStart < existEnd && newEnd > existStart {
+                            conflicts.append(ScheduleConflict(existingJob: existing, conflictType: .overlap))
+                            continue
+                        }
+
+                        // 1時間以内チェック
+                        let gapBefore = newStart.timeIntervalSince(existEnd)
+                        let gapAfter = existStart.timeIntervalSince(newEnd)
+                        if (gapBefore >= 0 && gapBefore < 3600) || (gapAfter >= 0 && gapAfter < 3600) {
+                            conflicts.append(ScheduleConflict(existingJob: existing, conflictType: .tooClose))
+                            continue
+                        }
+                    }
+
+                    // 時間情報なしでも同日警告
+                    conflicts.append(ScheduleConflict(existingJob: existing, conflictType: .sameDay))
+                }
+            }
+
+            return conflicts
+        } catch {
+            return []
+        }
     }
 
     func toggleFavorite() async {
@@ -646,6 +893,52 @@ struct ApplySheetView: View {
             }
             isLoading = false
         }
+    }
+}
+
+// MARK: - Policy Info Row
+
+struct PolicyInfoRow: View {
+    let time: String
+    let penalty: String
+    let color: Color
+
+    var body: some View {
+        HStack {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+
+            Text(time)
+                .font(.caption)
+                .frame(width: 100, alignment: .leading)
+
+            Text(penalty)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(color == .green ? .green : (color == .red ? .red : .primary))
+        }
+    }
+}
+
+// MARK: - Job Location Map View
+
+struct JobLocationMapView: View {
+    let latitude: Double
+    let longitude: Double
+    let title: String
+
+    var body: some View {
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        Map(initialPosition: .region(MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+        ))) {
+            Marker(title, coordinate: coordinate)
+                .tint(.red)
+        }
+        .mapStyle(.standard)
+        .allowsHitTesting(true)
     }
 }
 
