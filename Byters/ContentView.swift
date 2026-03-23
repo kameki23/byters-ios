@@ -53,6 +53,7 @@ struct ContentView: View {
             }
         }
         .offlineBanner()
+        .backendStatusBanner()
         .preferredColorScheme(appState.colorScheme)
         .animation(.easeInOut(duration: 0.25), value: authManager.isAuthenticated)
         .onChange(of: authManager.isAuthenticated) { _, newValue in

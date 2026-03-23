@@ -193,6 +193,8 @@ struct BytersApp: App {
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
             case .active:
+                // バックエンド接続監視を開始
+                BackendConnectionMonitor.shared.startMonitoring()
                 if authManager.isAuthenticated {
                     Task {
                         await NotificationManager.shared.loadUnreadCount()
@@ -207,6 +209,7 @@ struct BytersApp: App {
                 }
                 AnalyticsService.shared.track("app_foreground")
             case .background:
+                BackendConnectionMonitor.shared.stopMonitoring()
                 AnalyticsService.shared.endSession()
             default:
                 break

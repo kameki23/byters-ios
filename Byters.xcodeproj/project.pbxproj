@@ -70,6 +70,7 @@
 		B000000000000000000000091 /* SharedFormatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000092 /* SharedFormatters.swift */; };
 		B000000000000000000000093 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000094 /* ImageCache.swift */; };
 		B000000000000000000000095 /* ViewModelArchitecture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000096 /* ViewModelArchitecture.swift */; };
+		B000000000000000000000097 /* BackendConnectionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000098 /* BackendConnectionMonitor.swift */; };
 		D100000000000000000000001 /* WorkerAvailabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D200000000000000000000002 /* WorkerAvailabilityView.swift */; };
 		D100000000000000000000003 /* ShiftCancellationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D200000000000000000000004 /* ShiftCancellationView.swift */; };
 /* End PBXBuildFile section */
@@ -137,6 +138,7 @@
 		C000000000000000000000092 /* SharedFormatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedFormatters.swift; sourceTree = "<group>"; };
 		C000000000000000000000094 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		C000000000000000000000096 /* ViewModelArchitecture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelArchitecture.swift; sourceTree = "<group>"; };
+		C000000000000000000000098 /* BackendConnectionMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendConnectionMonitor.swift; sourceTree = "<group>"; };
 		D200000000000000000000002 /* WorkerAvailabilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkerAvailabilityView.swift; sourceTree = "<group>"; };
 		D200000000000000000000004 /* ShiftCancellationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShiftCancellationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -224,6 +226,7 @@
 				C000000000000000000000058 /* APIClient+Extensions.swift */,
 				C000000000000000000000060 /* AnalyticsService.swift */,
 				C000000000000000000000062 /* CacheService.swift */,
+				C000000000000000000000098 /* BackendConnectionMonitor.swift */,
 				A2000001234567890000004 /* APIClient.swift */,
 				A2000001234567890000005 /* AuthManager.swift */,
 				A2000001234567890000033 /* SocialAuthService.swift */,
@@ -442,6 +445,7 @@
 				B000000000000000000000057 /* APIClient+Extensions.swift in Sources */,
 				B000000000000000000000059 /* AnalyticsService.swift in Sources */,
 				B000000000000000000000061 /* CacheService.swift in Sources */,
+				B000000000000000000000097 /* BackendConnectionMonitor.swift in Sources */,
 				B000000000000000000000063 /* ReviewView.swift in Sources */,
 				B000000000000000000000065 /* CancellationPolicyView.swift in Sources */,
 				B000000000000000000000067 /* EmployerFollowView.swift in Sources */,
