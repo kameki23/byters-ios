@@ -100,6 +100,10 @@ class APIClient {
         config.timeoutIntervalForResource = 15
         config.urlCache = URLCache(memoryCapacity: 10 * 1024 * 1024, diskCapacity: 50 * 1024 * 1024)
         config.requestCachePolicy = .useProtocolCachePolicy
+        // 低速回線でも動作するようwaitsForConnectivityを有効化
+        config.waitsForConnectivity = true
+        config.allowsConstrainedNetworkAccess = true
+        config.allowsExpensiveNetworkAccess = true
         session = URLSession(configuration: config)
     }
 

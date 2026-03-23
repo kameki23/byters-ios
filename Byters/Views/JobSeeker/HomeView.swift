@@ -235,6 +235,14 @@ class HomeViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        // Cache-First: キャッシュがあれば即座に表示（電波状況が悪くてもUIが見える）
+        loadFromCache()
+
+        // キャッシュで表示できればローディングを即解除
+        if !featuredJobs.isEmpty {
+            isLoading = false
+        }
+
         // Phase 1: Critical data (visible immediately on screen)
         async let jobsTask: Void = loadJobs()
         async let applicationsTask: Void = loadApplications()
@@ -254,6 +262,40 @@ class HomeViewModel: ObservableObject {
         async let reviewsTask: Void = loadPendingReviewCount()
 
         _ = await (profileTask, bannersTask, categoriesTask, summaryTask, reviewsTask)
+    }
+
+    /// キャッシュからデータを即座にロード（ネットワーク不要）
+    private func loadFromCache() {
+        if let cached = CacheService.shared.load([Job].self, forKey: "jobs_page1") {
+            featuredJobs = cached
+            let today = DateFormatter.yyyyMMdd.string(from: Date())
+            todayJobs = cached.filter { $0.workDate == today && $0.status != "closed" && $0.status != "expired" }
+            let tomorrow = DateFormatter.yyyyMMdd.string(from: Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())
+            urgentJobs = cached.filter { filterUrgentJob($0, today: today, tomorrow: tomorrow) }
+            highWageJobs = cached.filter { ($0.hourlyWage ?? 0) >= 1500 }
+                .sorted { ($0.hourlyWage ?? 0) > ($1.hourlyWage ?? 0) }
+        }
+        if let cached = CacheService.shared.load([Application].self, forKey: "my_applications") {
+            recentApplications = cached
+            pendingApplications = cached.filter { $0.status == "pending" }.count
+            upcomingWork = cached.filter { $0.status == "accepted" }.count
+        }
+        if let cached = CacheService.shared.load(Wallet.self, forKey: "wallet") {
+            walletBalance = cached.balance
+        }
+        if let cached = CacheService.shared.load(WorkerScore.self, forKey: "worker_score") {
+            workerScore = cached
+        }
+        if let cached = CacheService.shared.load([JobCategory].self, forKey: "categories") {
+            categories = cached
+        }
+    }
+
+    private func filterUrgentJob(_ job: Job, today: String, tomorrow: String) -> Bool {
+        let isActive = job.status != "closed" && job.status != "expired"
+        let isSoon = job.workDate == today || job.workDate == tomorrow
+        let hasSlots = (job.requiredPeople ?? 0) - (job.currentApplicants ?? 0) > 0
+        return isActive && isSoon && hasSlots
     }
 
     func refresh() async {
