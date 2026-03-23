@@ -53,7 +53,6 @@ struct ContentView: View {
             }
         }
         .offlineBanner()
-        .backendStatusBanner()
         .preferredColorScheme(appState.colorScheme)
         .animation(.easeInOut(duration: 0.25), value: authManager.isAuthenticated)
         .onChange(of: authManager.isAuthenticated) { _, newValue in
@@ -62,9 +61,13 @@ struct ContentView: View {
             }
         }
         .task {
-            async let health: Void = checkAPIHealth()
-            async let update: Void = checkForceUpdate()
-            _ = await (health, update)
+            // バックグラウンドで非同期チェック（UIをブロックしない）
+            Task.detached(priority: .utility) {
+                await self.checkAPIHealth()
+            }
+            Task.detached(priority: .utility) {
+                await self.checkForceUpdate()
+            }
         }
         .alert("アップデートが必要です", isPresented: $showForceUpdate) {
             Button("App Storeを開く") {

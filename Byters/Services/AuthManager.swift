@@ -74,7 +74,8 @@ class AuthManager: ObservableObject {
     }
 
     private static func splashTimeout(manager: AuthManager) async {
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        // 500msでタイムアウト → スプラッシュを即座に解除してUIを表示
+        try? await Task.sleep(nanoseconds: 500_000_000)
         if manager.isLoading {
             manager.isLoading = false
         }

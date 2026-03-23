@@ -96,8 +96,8 @@ class APIClient {
 
     private init() {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 30
+        config.timeoutIntervalForRequest = 5
+        config.timeoutIntervalForResource = 15
         config.urlCache = URLCache(memoryCapacity: 10 * 1024 * 1024, diskCapacity: 50 * 1024 * 1024)
         config.requestCachePolicy = .useProtocolCachePolicy
         session = URLSession(configuration: config)
@@ -391,13 +391,15 @@ class APIClient {
         )
     }
 
-    func updateProfile(name: String?, phone: String?, bio: String?, prefecture: String?, city: String?) async throws -> User {
+    func updateProfile(name: String?, phone: String?, bio: String?, prefecture: String?, city: String?, birthDate: String? = nil, gender: String? = nil) async throws -> User {
         var body: [String: Any] = [:]
         if let name = name { body["name"] = name }
         if let phone = phone { body["phone"] = phone }
         if let bio = bio { body["bio"] = bio }
         if let prefecture = prefecture { body["prefecture"] = prefecture }
         if let city = city { body["city"] = city }
+        if let birthDate = birthDate { body["birth_date"] = birthDate }
+        if let gender = gender { body["gender"] = gender }
 
         let user: User = try await request(
             endpoint: "/auth/profile",
