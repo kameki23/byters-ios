@@ -5,8 +5,8 @@
 // Stripe API Keys (Live)
 STRIPE_PUBLISHABLE_KEY = pk_live_51MRPhyDHUqifxNa843bDtU6nVmSpTjl23Nap27hjmBpCYGJPFxgYLG3Ao4WOjBQtymA7xmT4ZX4bXohJ03VOhxKo00NnKXbxux
 
-// API Base URL
-API_BASE_URL = https://frontend-nine-pi-38.vercel.app/api
+// API Base URL (Railway direct - Vercel proxy bypass for speed)
+API_BASE_URL = https://byters2-production.up.railway.app/api
 
 // Google Sign-In Client ID (iOS)
 GOOGLE_CLIENT_ID = 676826520882-okcpk204tg6dp8nl4pihivq09m4rfd25.apps.googleusercontent.com
