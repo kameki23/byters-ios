@@ -42,6 +42,36 @@
 		AE000001234567890000005 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = AE000001234567890000006 /* GoogleSignIn */; };
 		AE000001234567890000007 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = AE000001234567890000008 /* GoogleSignInSwift */; };
 		AE000001234567890000009 /* LineSDK in Frameworks */ = {isa = PBXBuildFile; productRef = AE000001234567890000010 /* LineSDK */; };
+		B000000000000000000000041 /* WebSocketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000042 /* WebSocketManager.swift */; };
+		B000000000000000000000043 /* OfflineQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000044 /* OfflineQueueManager.swift */; };
+		B000000000000000000000045 /* GeofenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000046 /* GeofenceManager.swift */; };
+		B000000000000000000000047 /* KYCStatusTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000048 /* KYCStatusTracker.swift */; };
+		B000000000000000000000049 /* SearchHistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000050 /* SearchHistoryManager.swift */; };
+		B000000000000000000000051 /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000052 /* RecommendationEngine.swift */; };
+		B000000000000000000000053 /* SkillMatchingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000054 /* SkillMatchingService.swift */; };
+		B000000000000000000000055 /* BackgroundDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000056 /* BackgroundDownloadManager.swift */; };
+		B000000000000000000000057 /* APIClient+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000058 /* APIClient+Extensions.swift */; };
+		B000000000000000000000059 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000060 /* AnalyticsService.swift */; };
+		B000000000000000000000061 /* CacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000062 /* CacheService.swift */; };
+		B000000000000000000000063 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000064 /* ReviewView.swift */; };
+		B000000000000000000000065 /* CancellationPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000066 /* CancellationPolicyView.swift */; };
+		B000000000000000000000067 /* EmployerFollowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000068 /* EmployerFollowView.swift */; };
+		B000000000000000000000069 /* PDFPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000070 /* PDFPreviewView.swift */; };
+		B000000000000000000000071 /* TaxDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000072 /* TaxDocumentView.swift */; };
+		B000000000000000000000073 /* ImageCropperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000074 /* ImageCropperView.swift */; };
+		B000000000000000000000075 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000076 /* ErrorView.swift */; };
+		B000000000000000000000077 /* SkeletonViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000078 /* SkeletonViews.swift */; };
+		B000000000000000000000079 /* BankSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000080 /* BankSelectionView.swift */; };
+		B000000000000000000000081 /* MaintenanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000082 /* MaintenanceView.swift */; };
+		B000000000000000000000083 /* AdditionalFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000084 /* AdditionalFeatureViews.swift */; };
+		B000000000000000000000085 /* AccessibilityHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000086 /* AccessibilityHelpers.swift */; };
+		B000000000000000000000087 /* TrackingTransparency.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000088 /* TrackingTransparency.swift */; };
+		B000000000000000000000089 /* ValidationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000090 /* ValidationHelper.swift */; };
+		B000000000000000000000091 /* SharedFormatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000092 /* SharedFormatters.swift */; };
+		B000000000000000000000093 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000094 /* ImageCache.swift */; };
+		B000000000000000000000095 /* ViewModelArchitecture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C000000000000000000000096 /* ViewModelArchitecture.swift */; };
+		D100000000000000000000001 /* WorkerAvailabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D200000000000000000000002 /* WorkerAvailabilityView.swift */; };
+		D100000000000000000000003 /* ShiftCancellationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D200000000000000000000004 /* ShiftCancellationView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -79,6 +109,36 @@
 		A2000001234567890000032 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		A2000001234567890000033 /* SocialAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialAuthService.swift; sourceTree = "<group>"; };
 		A3000001234567890000001 /* Byters.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Byters.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C000000000000000000000042 /* WebSocketManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketManager.swift; sourceTree = "<group>"; };
+		C000000000000000000000044 /* OfflineQueueManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueueManager.swift; sourceTree = "<group>"; };
+		C000000000000000000000046 /* GeofenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeofenceManager.swift; sourceTree = "<group>"; };
+		C000000000000000000000048 /* KYCStatusTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KYCStatusTracker.swift; sourceTree = "<group>"; };
+		C000000000000000000000050 /* SearchHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchHistoryManager.swift; sourceTree = "<group>"; };
+		C000000000000000000000052 /* RecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationEngine.swift; sourceTree = "<group>"; };
+		C000000000000000000000054 /* SkillMatchingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillMatchingService.swift; sourceTree = "<group>"; };
+		C000000000000000000000056 /* BackgroundDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundDownloadManager.swift; sourceTree = "<group>"; };
+		C000000000000000000000058 /* APIClient+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APIClient+Extensions.swift"; sourceTree = "<group>"; };
+		C000000000000000000000060 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
+		C000000000000000000000062 /* CacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheService.swift; sourceTree = "<group>"; };
+		C000000000000000000000064 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
+		C000000000000000000000066 /* CancellationPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationPolicyView.swift; sourceTree = "<group>"; };
+		C000000000000000000000068 /* EmployerFollowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmployerFollowView.swift; sourceTree = "<group>"; };
+		C000000000000000000000070 /* PDFPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFPreviewView.swift; sourceTree = "<group>"; };
+		C000000000000000000000072 /* TaxDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxDocumentView.swift; sourceTree = "<group>"; };
+		C000000000000000000000074 /* ImageCropperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCropperView.swift; sourceTree = "<group>"; };
+		C000000000000000000000076 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
+		C000000000000000000000078 /* SkeletonViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonViews.swift; sourceTree = "<group>"; };
+		C000000000000000000000080 /* BankSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankSelectionView.swift; sourceTree = "<group>"; };
+		C000000000000000000000082 /* MaintenanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaintenanceView.swift; sourceTree = "<group>"; };
+		C000000000000000000000084 /* AdditionalFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdditionalFeatureViews.swift; sourceTree = "<group>"; };
+		C000000000000000000000086 /* AccessibilityHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelpers.swift; sourceTree = "<group>"; };
+		C000000000000000000000088 /* TrackingTransparency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingTransparency.swift; sourceTree = "<group>"; };
+		C000000000000000000000090 /* ValidationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationHelper.swift; sourceTree = "<group>"; };
+		C000000000000000000000092 /* SharedFormatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedFormatters.swift; sourceTree = "<group>"; };
+		C000000000000000000000094 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
+		C000000000000000000000096 /* ViewModelArchitecture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelArchitecture.swift; sourceTree = "<group>"; };
+		D200000000000000000000002 /* WorkerAvailabilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkerAvailabilityView.swift; sourceTree = "<group>"; };
+		D200000000000000000000004 /* ShiftCancellationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShiftCancellationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -153,6 +213,17 @@
 		A5000001234567890000005 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				C000000000000000000000042 /* WebSocketManager.swift */,
+				C000000000000000000000044 /* OfflineQueueManager.swift */,
+				C000000000000000000000046 /* GeofenceManager.swift */,
+				C000000000000000000000048 /* KYCStatusTracker.swift */,
+				C000000000000000000000050 /* SearchHistoryManager.swift */,
+				C000000000000000000000052 /* RecommendationEngine.swift */,
+				C000000000000000000000054 /* SkillMatchingService.swift */,
+				C000000000000000000000056 /* BackgroundDownloadManager.swift */,
+				C000000000000000000000058 /* APIClient+Extensions.swift */,
+				C000000000000000000000060 /* AnalyticsService.swift */,
+				C000000000000000000000062 /* CacheService.swift */,
 				A2000001234567890000004 /* APIClient.swift */,
 				A2000001234567890000005 /* AuthManager.swift */,
 				A2000001234567890000033 /* SocialAuthService.swift */,
@@ -165,6 +236,11 @@
 		A5000001234567890000006 /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				C000000000000000000000086 /* AccessibilityHelpers.swift */,
+				C000000000000000000000088 /* TrackingTransparency.swift */,
+				C000000000000000000000090 /* ValidationHelper.swift */,
+				C000000000000000000000092 /* SharedFormatters.swift */,
+				C000000000000000000000094 /* ImageCache.swift */,
 				A2000001234567890000006 /* AppState.swift */,
 				A2000001234567890000031 /* KeychainHelper.swift */,
 				A2000001234567890000032 /* NetworkMonitor.swift */,
@@ -195,6 +271,17 @@
 		A5000001234567890000009 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				C000000000000000000000064 /* ReviewView.swift */,
+				C000000000000000000000066 /* CancellationPolicyView.swift */,
+				C000000000000000000000068 /* EmployerFollowView.swift */,
+				C000000000000000000000070 /* PDFPreviewView.swift */,
+				C000000000000000000000072 /* TaxDocumentView.swift */,
+				C000000000000000000000074 /* ImageCropperView.swift */,
+				C000000000000000000000076 /* ErrorView.swift */,
+				C000000000000000000000078 /* SkeletonViews.swift */,
+				C000000000000000000000080 /* BankSelectionView.swift */,
+				C000000000000000000000082 /* MaintenanceView.swift */,
+				C000000000000000000000084 /* AdditionalFeatureViews.swift */,
 				A2000001234567890000008 /* MainTabView.swift */,
 				A2000001234567890000026 /* NotificationViews.swift */,
 			);
@@ -223,6 +310,8 @@
 			isa = PBXGroup;
 			children = (
 				A2000001234567890000015 /* EmployerViews.swift */,
+				D200000000000000000000002 /* WorkerAvailabilityView.swift */,
+				D200000000000000000000004 /* ShiftCancellationView.swift */,
 			);
 			path = Employer;
 			sourceTree = "<group>";
@@ -245,6 +334,7 @@
 		A5000001234567890000021 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				C000000000000000000000096 /* ViewModelArchitecture.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -341,6 +431,34 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B000000000000000000000041 /* WebSocketManager.swift in Sources */,
+				B000000000000000000000043 /* OfflineQueueManager.swift in Sources */,
+				B000000000000000000000045 /* GeofenceManager.swift in Sources */,
+				B000000000000000000000047 /* KYCStatusTracker.swift in Sources */,
+				B000000000000000000000049 /* SearchHistoryManager.swift in Sources */,
+				B000000000000000000000051 /* RecommendationEngine.swift in Sources */,
+				B000000000000000000000053 /* SkillMatchingService.swift in Sources */,
+				B000000000000000000000055 /* BackgroundDownloadManager.swift in Sources */,
+				B000000000000000000000057 /* APIClient+Extensions.swift in Sources */,
+				B000000000000000000000059 /* AnalyticsService.swift in Sources */,
+				B000000000000000000000061 /* CacheService.swift in Sources */,
+				B000000000000000000000063 /* ReviewView.swift in Sources */,
+				B000000000000000000000065 /* CancellationPolicyView.swift in Sources */,
+				B000000000000000000000067 /* EmployerFollowView.swift in Sources */,
+				B000000000000000000000069 /* PDFPreviewView.swift in Sources */,
+				B000000000000000000000071 /* TaxDocumentView.swift in Sources */,
+				B000000000000000000000073 /* ImageCropperView.swift in Sources */,
+				B000000000000000000000075 /* ErrorView.swift in Sources */,
+				B000000000000000000000077 /* SkeletonViews.swift in Sources */,
+				B000000000000000000000079 /* BankSelectionView.swift in Sources */,
+				B000000000000000000000081 /* MaintenanceView.swift in Sources */,
+				B000000000000000000000083 /* AdditionalFeatureViews.swift in Sources */,
+				B000000000000000000000085 /* AccessibilityHelpers.swift in Sources */,
+				B000000000000000000000087 /* TrackingTransparency.swift in Sources */,
+				B000000000000000000000089 /* ValidationHelper.swift in Sources */,
+				B000000000000000000000091 /* SharedFormatters.swift in Sources */,
+				B000000000000000000000093 /* ImageCache.swift in Sources */,
+				B000000000000000000000095 /* ViewModelArchitecture.swift in Sources */,
 				A1000001234567890000001 /* BytersApp.swift in Sources */,
 				A1000001234567890000002 /* ContentView.swift in Sources */,
 				A1000001234567890000003 /* Models.swift in Sources */,
@@ -356,6 +474,8 @@
 				A1000001234567890000013 /* ChatListView.swift in Sources */,
 				A1000001234567890000014 /* MyPageView.swift in Sources */,
 				A1000001234567890000015 /* EmployerViews.swift in Sources */,
+				D100000000000000000000001 /* WorkerAvailabilityView.swift in Sources */,
+				D100000000000000000000003 /* ShiftCancellationView.swift in Sources */,
 				A1000001234567890000016 /* AdminViews.swift in Sources */,
 				A1000001234567890000017 /* StripeService.swift in Sources */,
 				A1000001234567890000020 /* SettingsView.swift in Sources */,
@@ -609,7 +729,7 @@
 		};
 		AF000001234567890000003 /* XCRemoteSwiftPackageReference "line-sdk-ios-swift-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/nicklama/line-sdk-ios-swift-spm.git";
+			repositoryURL = "https://github.com/line/line-sdk-ios-swift.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 5.0.0;

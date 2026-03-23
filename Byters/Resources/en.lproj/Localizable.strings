@@ -1,0 +1,793 @@
+/*
+  Localizable.strings (English)
+  Byters
+
+  English localization for Byters iOS app.
+*/
+
+// =============================================================================
+// MARK: - Common Actions
+// =============================================================================
+
+"common.ok" = "OK";
+"common.cancel" = "Cancel";
+"common.close" = "Close";
+"common.save" = "Save";
+"common.delete" = "Delete";
+"common.edit" = "Edit";
+"common.retry" = "Retry";
+"common.send" = "Send";
+"common.confirm" = "Confirm";
+"common.back" = "Back";
+"common.next" = "Next";
+"common.skip" = "Skip";
+"common.done" = "Done";
+"common.apply" = "Apply";
+"common.search" = "Search";
+"common.filter" = "Filter";
+"common.sort" = "Sort";
+"common.all" = "All";
+"common.none" = "None";
+"common.loading" = "Loading...";
+"common.seeAll" = "See All";
+"common.openSettings" = "Open Settings";
+"common.continueAction" = "Continue";
+
+// =============================================================================
+// MARK: - Auth / Login
+// =============================================================================
+
+"auth.login" = "Log In";
+"auth.register" = "Sign Up";
+"auth.logout" = "Log Out";
+"auth.password" = "Password";
+"auth.email" = "Email Address";
+"auth.authenticating" = "Authenticating...";
+"auth.adminLogin" = "Admin Login";
+"auth.adminOnly" = "This page is for administrators only";
+"auth.credentials" = "Credentials";
+"auth.forgotPassword" = "Forgot Password?";
+"auth.passwordReset" = "Reset Password";
+"auth.passwordResetDescription" = "We will send a password reset link to your registered email address";
+"auth.sendResetEmail" = "Send Reset Email";
+"auth.resetEmailSent" = "Reset email sent. Please check your inbox.";
+"auth.resetEmailFailed" = "Failed to send. Please verify your email address.";
+"auth.adminAuthFailed" = "Admin authentication failed";
+"auth.getStarted" = "Get Started with Byters";
+"auth.selectTypeAndLogin" = "Select account type and log in";
+"auth.selectAccountType" = "Select Account Type";
+"auth.selectTypeDescription" = "Choose based on how you plan to use the app";
+"auth.termsRequired" = "You must agree to the terms to log in";
+"auth.agreeToTerms" = "I agree to the";
+"auth.and" = "and";
+
+// Social Login
+"auth.social.continueWithLine" = "Continue with LINE";
+"auth.social.continueWithApple" = "Continue with Apple";
+"auth.social.continueWithGoogle" = "Continue with Google";
+"auth.social.lineOneTap" = "Quick one-tap sign up";
+"auth.social.appleLogin" = "Sign in with Apple ID";
+"auth.social.googleLogin" = "Sign in with Google Account";
+
+// User Type
+"auth.userType.wantToWork" = "I want to work";
+"auth.userType.jobSeeker" = "Job Seeker";
+"auth.userType.jobSeekerDescription" = "No resume needed - apply for jobs instantly";
+"auth.userType.wantToHire" = "I want to hire";
+"auth.userType.employer" = "Employer";
+"auth.userType.employerDescription" = "Post a job and hire staff in as little as 3 minutes";
+
+// =============================================================================
+// MARK: - Tab Titles (Job Seeker)
+// =============================================================================
+
+"tab.home" = "Home";
+"tab.search" = "Search";
+"tab.work" = "Work";
+"tab.chat" = "Chat";
+"tab.mypage" = "My Page";
+
+// Tab Accessibility
+"tab.home.accessibility" = "Home tab";
+"tab.search.accessibility" = "Job search tab";
+"tab.work.accessibility" = "Work tab";
+"tab.chat.accessibility" = "Chat tab";
+"tab.mypage.accessibility" = "My Page tab";
+
+// =============================================================================
+// MARK: - Tab Titles (Employer)
+// =============================================================================
+
+"tab.employer.dashboard" = "Dashboard";
+"tab.employer.jobManagement" = "Job Management";
+"tab.employer.applicants" = "Applicants";
+"tab.employer.messages" = "Messages";
+"tab.employer.settings" = "Settings";
+
+// =============================================================================
+// MARK: - Tab Titles (Admin)
+// =============================================================================
+
+"tab.admin.dashboard" = "Dashboard";
+"tab.admin.users" = "Users";
+"tab.admin.jobs" = "Jobs";
+"tab.admin.notifications" = "Notifications";
+"tab.admin.settings" = "Settings";
+
+// =============================================================================
+// MARK: - Home View
+// =============================================================================
+
+"home.title" = "Home";
+"home.todayJobs" = "Jobs Available Today";
+"home.featuredJobs" = "Recommended Jobs";
+"home.highWageJobs" = "High Pay Jobs";
+"home.recentApplications" = "Recent Applications";
+"home.monthlySummary" = "Monthly Summary";
+"home.completeProfile" = "Complete Your Profile";
+"home.notSet" = "Not set";
+"home.noJobs" = "No jobs available";
+"home.noJobsMessage" = "Please wait for new jobs to be posted";
+"home.jobsLoadFailed" = "Failed to load jobs";
+
+// Quick Stats
+"home.stats.applying" = "Applied";
+"home.stats.scheduled" = "Upcoming";
+"home.stats.balance" = "Balance";
+
+// Monthly Summary
+"home.summary.income" = "Income";
+"home.summary.jobs" = "Jobs";
+"home.summary.hours" = "Hours";
+"home.summary.completionRate" = "Completion";
+
+// Categories
+"home.categories" = "Browse by Category";
+"home.category.food" = "Food & Dining";
+"home.category.lightWork" = "Light Work";
+"home.category.event" = "Events";
+"home.category.office" = "Office";
+"home.category.sales" = "Sales";
+"home.category.cleaning" = "Cleaning";
+"home.category.delivery" = "Delivery";
+"home.category.care" = "Care";
+
+// Worker Score
+"home.workerScore.completed" = "%d completed";
+"home.workerScore.reliability" = "Reliability %d";
+"home.workerScore.nextRank" = "%d more to next rank";
+
+// =============================================================================
+// MARK: - Job Search
+// =============================================================================
+
+"search.title" = "Job Search";
+"search.keyword" = "Search by keyword";
+"search.resultCount" = "%d jobs found";
+"search.clearFilters" = "Clear Filters";
+"search.noResults" = "No jobs found";
+"search.noResultsMessage" = "Try changing your search criteria";
+"search.searchFailed" = "Search failed";
+"search.favorites" = "Favorites";
+
+// Date Filters
+"search.filter.today" = "Today";
+"search.filter.tomorrow" = "Tomorrow";
+"search.filter.thisWeek" = "This Week";
+"search.filter.area" = "Area";
+"search.filter.wage" = "Hourly Pay";
+"search.filter.category" = "Category";
+"search.filter.workDate" = "Work Date";
+
+// Sort Options
+"search.sort.newest" = "Newest";
+"search.sort.wageHigh" = "Highest Pay First";
+"search.sort.wageLow" = "Lowest Pay First";
+"search.sort.dateNearest" = "Nearest Date First";
+"search.sort.wageHighShort" = "Highest Pay";
+"search.sort.wageLowShort" = "Lowest Pay";
+"search.sort.dateNearestShort" = "Nearest Date";
+
+// Filter Sheet
+"search.filterSheet.title" = "Filters";
+"search.filterSheet.area" = "Area";
+"search.filterSheet.prefecture" = "Prefecture";
+"search.filterSheet.allAreas" = "All";
+"search.filterSheet.nearMe" = "Search Near Me";
+"search.filterSheet.getLocation" = "Get Current Location";
+"search.filterSheet.distance" = "Distance";
+"search.filterSheet.hourlyWage" = "Hourly Pay";
+"search.filterSheet.minWage" = "Minimum Pay";
+"search.filterSheet.category" = "Category";
+"search.filterSheet.allCategories" = "All";
+"search.filterSheet.workDate" = "Work Date";
+
+// Wage Ranges
+"search.wage.any" = "Any";
+
+// Distance
+"search.distance.any" = "Any";
+"search.distance.within5km" = "Within 5 km";
+"search.distance.within10km" = "Within 10 km";
+"search.distance.within20km" = "Within 20 km";
+"search.distance.within30km" = "Within 30 km";
+"search.location.failed" = "Failed to get location";
+
+// =============================================================================
+// MARK: - Job Detail
+// =============================================================================
+
+"jobDetail.loading" = "Loading job details...";
+"jobDetail.loadFailed" = "Failed to load job details";
+"jobDetail.notFound" = "Job not found";
+"jobDetail.salary" = "Pay";
+"jobDetail.workDate" = "Work Date";
+"jobDetail.time" = "Hours";
+"jobDetail.remainingSlots" = "Open Slots";
+"jobDetail.tbd" = "TBD";
+"jobDetail.location" = "Work Location";
+"jobDetail.viewOnMap" = "View on Map";
+"jobDetail.description" = "Job Description";
+"jobDetail.noDescription" = "No details available";
+"jobDetail.requirements" = "Requirements";
+"jobDetail.benefits" = "Benefits & Perks";
+"jobDetail.reviews" = "Reviews";
+"jobDetail.allReviews" = "All Reviews";
+"jobDetail.seeAllReviews" = "See all reviews";
+"jobDetail.noReviews" = "No reviews yet";
+"jobDetail.employerRating" = "Employer Rating %d%%";
+"jobDetail.shareText" = "%@ - Find short-term jobs on Byters!";
+"jobDetail.addToFavorites" = "Add to Favorites";
+"jobDetail.removeFromFavorites" = "Remove from Favorites";
+
+// Eligibility
+"jobDetail.eligible" = "Eligible to Apply";
+"jobDetail.notEligible" = "Requirements not met";
+"jobDetail.eligibilityCheckFailed" = "Failed to check eligibility";
+
+// Apply
+"jobDetail.apply" = "Apply for this Job";
+"jobDetail.applied" = "Applied";
+"jobDetail.notEligibleButton" = "Requirements not met";
+"jobDetail.cannotApply" = "Cannot Apply";
+"jobDetail.completeProfile" = "Complete Your Profile";
+"jobDetail.completeProfileMessage" = "Please register your name from My Page to apply for jobs.";
+"jobDetail.applyMessage" = "Application Message (Optional)";
+"jobDetail.applyConfirm" = "Confirm Application";
+"jobDetail.applySubmit" = "Submit Application";
+"jobDetail.applyFailed" = "Application failed";
+
+// Job Status Labels
+"jobDetail.recruitmentClosed" = "Closed";
+"jobDetail.remainingPeople" = "%d left";
+"jobDetail.remainingPeopleAlt" = "%d spots left";
+"jobDetail.applicants" = "%d applicants";
+
+// =============================================================================
+// MARK: - Job Related
+// =============================================================================
+
+"job.job" = "Job";
+"job.application" = "Application";
+"job.hourlyWage" = "Hourly Pay";
+"job.dailyWage" = "Daily Pay";
+"job.workLocation" = "Work Location";
+"job.companyName" = "Company";
+"job.negotiable" = "Negotiable";
+"job.perHour" = "/hr";
+"job.perDay" = "/day";
+
+// Job Status
+"job.status.active" = "Recruiting";
+"job.status.draft" = "Draft";
+"job.status.closed" = "Closed";
+"job.status.expired" = "Expired";
+"job.status.pending" = "Under Review";
+
+// Application Status
+"job.applicationStatus.pending" = "Under Review";
+"job.applicationStatus.accepted" = "Accepted";
+"job.applicationStatus.rejected" = "Rejected";
+"job.applicationStatus.completed" = "Completed";
+
+// Perk Tags
+"job.perk.transportation" = "Transport Covered";
+"job.perk.meal" = "Meals Included";
+"job.perk.beginner" = "Beginners Welcome";
+
+// Date Display
+"job.date.today" = "Today";
+"job.date.tomorrow" = "Tomorrow";
+
+// =============================================================================
+// MARK: - Work View
+// =============================================================================
+
+"work.title" = "Work";
+"work.qrCheckIn" = "QR Code Check-In";
+"work.qrCheckInAccessibility" = "Scan QR code to check in";
+"work.currentlyWorking" = "Working Now";
+"work.upcomingWork" = "Upcoming Work";
+"work.noUpcoming" = "No upcoming work";
+"work.noUpcomingMessage" = "Accepted jobs will appear here";
+"work.history" = "Work History";
+"work.noHistory" = "No history yet";
+"work.elapsedTime" = "Elapsed Time";
+"work.estimatedEarnings" = "Estimated Earnings";
+
+// Check In / Out
+"work.checkIn" = "Check In";
+"work.checkOut" = "Check Out";
+"work.checkInProcessing" = "Checking in...";
+"work.checkOutProcessing" = "Processing check-out & payment...";
+"work.checkInSuccess" = "Checked in!";
+"work.checkInFailed" = "Check-in failed";
+"work.checkOutFailed" = "Check-out failed";
+"work.checkOutConfirm" = "End your shift?";
+"work.checkOutConfirmDetail" = "End your shift?\n\nElapsed: %d hours %d minutes\nEstimated pay: ¥%@";
+"work.workComplete" = "Great work!";
+"work.writeReview" = "Write a Review";
+"work.reviewRequest" = "Please leave a review for the employer";
+"work.canCheckIn" = "Ready to check in";
+"work.untilStart" = "Until start";
+"work.pastStartTime" = "Past start time";
+"work.minutesRemaining" = "%d min left";
+"work.hoursMinutesRemaining" = "%d hr %d min left";
+"work.daysRemaining" = "%d days left";
+
+// Cancel Application
+"work.cancelApplication" = "Cancel Application";
+"work.cancelApplicationConfirm" = "Cancel this application?\nSame-day cancellations may result in penalties.";
+"work.cancelApplicationButton" = "Cancel";
+"work.cancelSuccess" = "Application cancelled";
+"work.cancelFailed" = "Cancellation failed";
+
+// QR Scanner
+"work.qrScan" = "QR Scan";
+"work.qrScanTitle" = "Scan QR Code";
+"work.qrScanDescription" = "Use your camera to scan the QR code at your workplace";
+"work.manualEntry" = "Enter Manually";
+"work.manualEntryTitle" = "Enter Token Manually";
+"work.checkInCode" = "Check-in Code";
+"work.cameraAccessRequired" = "Camera Access Required";
+"work.cameraAccessDescription" = "Please allow camera access to scan QR codes";
+
+// Location
+"work.locationDisabled" = "Location Disabled";
+"work.locationDisabledMessage" = "Location access is disabled. Please enable it in Settings for accurate check-ins.";
+
+// =============================================================================
+// MARK: - Chat
+// =============================================================================
+
+"chat.title" = "Chat";
+"chat.noMessages" = "No Messages";
+"chat.noMessagesDescription" = "Chat will start when you apply for a job";
+"chat.inputPlaceholder" = "Type a message";
+"chat.fileSendFailed" = "Failed to send file";
+"chat.comingSoon" = "Coming Soon";
+"chat.callComingSoon" = "Voice call feature is coming soon.";
+
+// =============================================================================
+// MARK: - Wallet
+// =============================================================================
+
+"wallet.title" = "Wallet";
+"wallet.balance" = "Balance";
+"wallet.withdrawal" = "Withdraw";
+"wallet.bankAccount" = "Bank Account";
+"wallet.transactionHistory" = "Transaction History";
+"wallet.taxDocuments" = "Tax Documents";
+
+// =============================================================================
+// MARK: - My Page
+// =============================================================================
+
+"mypage.title" = "My Page";
+"mypage.user" = "User";
+
+// Wallet Section
+"mypage.wallet" = "Wallet";
+"mypage.wallet.balance" = "Balance";
+"mypage.wallet.bankAccount" = "Bank Account";
+"mypage.wallet.withdrawal" = "Withdrawal Request";
+"mypage.wallet.transactions" = "Transaction History";
+"mypage.wallet.taxDocuments" = "Tax Documents";
+
+// Work Section
+"mypage.work" = "Work";
+"mypage.work.upcoming" = "Upcoming Work";
+"mypage.work.applicationHistory" = "Application History";
+"mypage.work.workHistory" = "Work History";
+"mypage.work.favoriteJobs" = "Favorite Jobs";
+"mypage.work.favoriteEmployers" = "Favorite Employers";
+"mypage.work.writeReview" = "Write a Review";
+"mypage.work.reviewHistory" = "Review History";
+
+// Growth Section
+"mypage.growth" = "Skill Up";
+"mypage.growth.workerRank" = "Worker Rank & Reliability";
+"mypage.growth.penaltyHistory" = "Penalty History";
+"mypage.growth.monthlyReport" = "Monthly Report";
+"mypage.growth.earningsGoal" = "Earnings Goal";
+"mypage.growth.qualifications" = "Qualifications & Licenses";
+"mypage.growth.badges" = "Badges";
+
+// Account Section
+"mypage.account" = "Account";
+"mypage.account.editProfile" = "Edit Profile";
+"mypage.account.identityVerification" = "Identity Verification";
+"mypage.account.timesheetAdjustment" = "Timesheet Adjustment";
+"mypage.account.changePassword" = "Change Password";
+
+// Settings Section
+"mypage.settings" = "Settings";
+"mypage.settings.notificationList" = "Notifications";
+"mypage.settings.notificationSettings" = "Notification Settings";
+"mypage.settings.emailSettings" = "Email Settings";
+"mypage.settings.areaSettings" = "Area Settings";
+"mypage.settings.appearance" = "Appearance";
+"mypage.settings.muteManagement" = "Mute Management";
+
+// Support Section
+"mypage.support" = "Support";
+"mypage.support.faq" = "FAQ";
+"mypage.support.contact" = "Contact Us";
+"mypage.support.bugReport" = "Bug Report / Feature Request";
+"mypage.support.feedbackHistory" = "Feedback History";
+
+// Legal Section
+"mypage.legal" = "Legal";
+"mypage.legal.terms" = "Terms of Service";
+"mypage.legal.privacy" = "Privacy Policy";
+
+// Profile
+"mypage.profile.name" = "Name";
+"mypage.profile.phone" = "Phone Number";
+"mypage.profile.bio" = "Bio";
+"mypage.profile.prefecture" = "Prefecture";
+"mypage.profile.profileImage" = "Profile Photo";
+"mypage.profile.identityVerification" = "Identity Verification";
+"mypage.profile.identityVerified" = "Identity Verified";
+"mypage.profile.completionRate" = "Profile Completion";
+"mypage.profile.notSet" = "Not set";
+
+// Identity Verification Status
+"mypage.identity.pending" = "Under Review";
+"mypage.identity.approved" = "Verified";
+"mypage.identity.rejected" = "Rejected";
+"mypage.identity.notSubmitted" = "Not Submitted";
+
+// Account Deletion
+"mypage.deleteAccount" = "Delete Account";
+"mypage.deleteAccountTitle" = "Delete Account";
+"mypage.deleteAccountMessage" = "Deleting your account will permanently remove all your data and cannot be undone. Are you sure?";
+"mypage.deleteAccountFinalTitle" = "Final Confirmation";
+"mypage.deleteAccountFinalMessage" = "This action cannot be undone. All data associated with your account (application history, wallet, chats, etc.) will be deleted.";
+"mypage.deleteAccountConfirm" = "Delete";
+"mypage.deleteAccountFinalConfirm" = "Permanently Delete";
+
+// =============================================================================
+// MARK: - Favorites
+// =============================================================================
+
+"favorites.title" = "Favorites";
+"favorites.noFavorites" = "No Favorites";
+"favorites.addHint" = "Tap the heart icon on a job\nto add it to your favorites";
+
+// =============================================================================
+// MARK: - Settings (Appearance)
+// =============================================================================
+
+"settings.appearance.title" = "Appearance";
+"settings.appearance.theme" = "Theme";
+"settings.appearance.system" = "Follow System";
+"settings.appearance.light" = "Light Mode";
+"settings.appearance.dark" = "Dark Mode";
+"settings.appearance.systemDescription" = "Select \"Follow System\" to automatically switch based on your iPhone settings.";
+"settings.appearance.mode" = "Appearance Mode";
+
+// =============================================================================
+// MARK: - Settings (Notifications)
+// =============================================================================
+
+"settings.notifications.work" = "Work Related";
+"settings.notifications.recommendedJobs" = "Recommended Jobs";
+"settings.notifications.applicationUpdates" = "Application Updates";
+"settings.notifications.workReminder" = "Work Reminders";
+"settings.notifications.messages" = "Messages";
+"settings.notifications.chatMessages" = "Chat Messages";
+"settings.notifications.other" = "Other";
+"settings.notifications.marketing" = "Promotions & Campaigns";
+
+// =============================================================================
+// MARK: - Employer Views
+// =============================================================================
+
+"employer.dashboard" = "Dashboard";
+"employer.stats.active" = "Active";
+"employer.stats.applicants" = "Applicants";
+"employer.stats.monthlyHires" = "Hires This Month";
+"employer.stats.rating" = "Rating";
+"employer.pendingApplications" = "%d pending applications";
+"employer.quickActions" = "Quick Actions";
+"employer.createJob" = "Create Job";
+"employer.checkApplications" = "Review Applications";
+"employer.templates" = "Templates";
+"employer.bulkApproval" = "Bulk Attendance Approval";
+"employer.reliableWorkers" = "Reliable Workers";
+"employer.recentJobs" = "Recent Jobs";
+"employer.noJobs" = "No jobs yet";
+
+// =============================================================================
+// MARK: - Admin Views
+// =============================================================================
+
+"admin.dashboard" = "Admin Panel";
+"admin.overview" = "Overview";
+"admin.totalUsers" = "Total Users";
+"admin.totalJobs" = "Total Jobs";
+"admin.monthlyRevenue" = "Monthly Revenue";
+"admin.pendingWithdrawals" = "Pending Withdrawals";
+"admin.pendingIdentity" = "Pending Verifications";
+"admin.monthlyNewUsers" = "New Users This Month";
+"admin.quickActions" = "Quick Actions";
+"admin.withdrawalProcessing" = "Process Withdrawals";
+"admin.identityVerification" = "Identity Verification";
+"admin.jobReview" = "Job Review";
+"admin.recentActivity" = "Recent Activity";
+"admin.noActivity" = "No activity";
+
+// =============================================================================
+// MARK: - Error Messages
+// =============================================================================
+
+"error.title" = "Error";
+"error.generic" = "An error occurred";
+"error.networkError" = "Cannot connect to server. Please check your network.";
+"error.serverError" = "Server error: %@";
+"error.authFailed" = "Authentication failed. Please try again.";
+"error.loginFailed" = "Login failed: %@";
+"error.loginFailedWithCode" = "Login failed (%d)";
+"error.authError" = "Authentication error: %@";
+"error.authStartFailed" = "Could not start authentication";
+"error.authPreparationFailed" = "Failed to prepare authentication: %@";
+"error.authProcessingFailed" = "An error occurred during authentication";
+"error.authCodeFailed" = "Failed to obtain authentication code";
+"error.userInfoFailed" = "Failed to retrieve user information";
+"error.screenFailed" = "Failed to get screen";
+"error.urlError" = "URL Error";
+"error.unknownError" = "Unknown error";
+"error.serverErrorWithCode" = "Server error (%d): %@";
+
+// =============================================================================
+// MARK: - App Subtitle
+// =============================================================================
+
+"app.subtitle" = "Short-term Job Matching";
+
+// =============================================================================
+// MARK: - Withholding Tax
+// =============================================================================
+
+"tax.title" = "Withholding Tax Notice";
+"tax.description" = "Withholding tax applies as today's earnings exceed ¥9,800.";
+"tax.grossEarnings" = "Gross Earnings";
+"tax.taxableAmount" = "Taxable Amount";
+"tax.withholdingTax" = "Withholding Tax (3.102%)";
+"tax.netEarnings" = "Net Earnings";
+"tax.confirmed" = "Confirmed";
+"tax.info.threshold" = "No tax if daily earnings are ¥9,800 or less";
+"tax.info.download" = "Tax certificate available from My Page";
+"tax.info.refund" = "You may receive a refund through tax filing";
+"tax.detail" = "View withholding tax details";
+
+// =============================================================================
+// MARK: - Schedule Conflict
+// =============================================================================
+
+"conflict.title" = "Schedule Conflict";
+"conflict.warning" = "Schedule Check";
+"conflict.overlap" = "Time overlaps with an existing shift";
+"conflict.tooClose" = "Less than 1 hour between shifts (consider travel time)";
+"conflict.sameDay" = "You have another shift on the same day";
+"conflict.blocked" = "Cannot apply — time conflicts with an existing shift.";
+"conflict.proceedAnyway" = "Apply Anyway";
+
+// =============================================================================
+// MARK: - Mandatory Review
+// =============================================================================
+
+"review.mandatory.title" = "Please Write a Review";
+"review.mandatory.description" = "You have %d pending reviews.\nComplete them to apply for new jobs.";
+"review.mandatory.blocked" = "Please complete reviews first";
+"review.mandatory.blockedMessage" = "You have %d pending reviews. Complete them to unlock applications.";
+"review.writeNow" = "Write Review";
+"review.later" = "Later";
+
+// =============================================================================
+// MARK: - Bulk Message
+// =============================================================================
+
+"bulkMessage.title" = "Bulk Message";
+"bulkMessage.recipients" = "Recipients";
+"bulkMessage.selectAll" = "Select All";
+"bulkMessage.workers" = "%d workers";
+"bulkMessage.templates" = "Templates";
+"bulkMessage.message" = "Message";
+"bulkMessage.send" = "Send to %d workers";
+"bulkMessage.charLimit" = "%d/500";
+
+// =============================================================================
+// MARK: - CSV Export
+// =============================================================================
+
+"export.title" = "Data Export";
+"export.type" = "Export Type";
+"export.attendance" = "Attendance Data";
+"export.payment" = "Payment Data";
+"export.workers" = "Worker List";
+"export.period" = "Period";
+"export.startDate" = "Start Date";
+"export.endDate" = "End Date";
+"export.thisMonth" = "This Month";
+"export.lastMonth" = "Last Month";
+"export.threeMonths" = "3 Months";
+"export.doExport" = "Export CSV";
+"export.success" = "Export completed successfully";
+
+// =============================================================================
+// MARK: - Job Alert
+// =============================================================================
+
+"jobAlert.title" = "Job Alert Settings";
+"jobAlert.keyword" = "Keyword";
+"jobAlert.keywordPlaceholder" = "e.g. Café, Kitchen";
+"jobAlert.wage" = "Hourly Wage";
+"jobAlert.timeRange" = "Time Range";
+"jobAlert.morning" = "Morning";
+"jobAlert.afternoon" = "Afternoon";
+"jobAlert.evening" = "Evening";
+"jobAlert.night" = "Night";
+"jobAlert.dayOfWeek" = "Day of Week";
+"jobAlert.notification" = "Notifications";
+"jobAlert.enable" = "Enable Alerts";
+"jobAlert.save" = "Save";
+
+// =============================================================================
+// MARK: - Saved Search
+// =============================================================================
+
+"savedSearch.title" = "Saved Searches";
+"savedSearch.empty" = "No saved searches";
+"savedSearch.hint" = "Save search filters from the job search screen";
+"savedSearch.results" = "%d results";
+
+// =============================================================================
+// MARK: - Photo Check-in
+// =============================================================================
+
+"photoCheckin.title" = "Check-in Photo";
+"photoCheckin.description" = "Take a photo at the workplace to confirm arrival.";
+"photoCheckin.take" = "Take Photo";
+"photoCheckin.retake" = "Retake";
+"photoCheckin.confirm" = "Confirm Photo";
+"photoCheckin.skip" = "Skip";
+
+// =============================================================================
+// MARK: - Cancellation Policy
+// =============================================================================
+
+"cancellation.title" = "Cancellation Policy";
+"cancellation.72h" = "72+ hours before";
+"cancellation.24h" = "24-72 hours before";
+"cancellation.6h" = "6-24 hours before";
+"cancellation.0h" = "Less than 6 hours";
+"cancellation.noPenalty" = "No penalty";
+"cancellation.warning" = "Warning";
+"cancellation.mildPenalty" = "Mild penalty";
+"cancellation.severePenalty" = "Severe penalty";
+"cancellation.noShowWarning" = "No-shows significantly affect your reliability score";
+
+// =============================================================================
+// MARK: - Employer Features
+// =============================================================================
+
+"employer.bulkMessage" = "Bulk Message";
+"employer.dataExport" = "Data Export";
+"employer.dataManagement" = "Data Management";
+
+// =============================================================================
+// MARK: - Legacy Japanese-Key Mappings
+// =============================================================================
+
+/* Tab Bar */
+"ホーム" = "Home";
+"さがす" = "Search";
+"はたらく" = "Work";
+"チャット" = "Chat";
+"マイページ" = "My Page";
+
+/* Auth */
+"ログイン" = "Log In";
+"新規登録" = "Sign Up";
+"メールアドレス" = "Email";
+"パスワード" = "Password";
+"パスワードを忘れた方" = "Forgot Password?";
+
+/* Job Search */
+"求人を検索" = "Search Jobs";
+"募集中" = "Recruiting";
+"募集終了" = "Closed";
+"応募する" = "Apply";
+"お気に入り" = "Favorites";
+"詳細" = "Details";
+
+/* Work */
+"チェックイン" = "Check In";
+"チェックアウト" = "Check Out";
+"勤務中" = "Working";
+"休憩中" = "On Break";
+"休憩開始" = "Start Break";
+"休憩終了" = "End Break";
+
+/* MyPage */
+"プロフィール" = "Profile";
+"ウォレット" = "Wallet";
+"銀行口座" = "Bank Accounts";
+"出金" = "Withdraw";
+"勤務履歴" = "Work History";
+"設定" = "Settings";
+"本人確認" = "Identity Verification";
+
+/* Common */
+"キャンセル" = "Cancel";
+"確認" = "Confirm";
+"保存" = "Save";
+"送信" = "Send";
+"削除" = "Delete";
+"編集" = "Edit";
+"閉じる" = "Close";
+"戻る" = "Back";
+"次へ" = "Next";
+"完了" = "Done";
+"エラー" = "Error";
+"読み込み中..." = "Loading...";
+"データがありません" = "No Data";
+"リトライ" = "Retry";
+"ログアウト" = "Log Out";
+
+/* Status */
+"審査中" = "Under Review";
+"承認済み" = "Approved";
+"却下" = "Rejected";
+"未提出" = "Not Submitted";
+"処理待ち" = "Processing";
+"完了" = "Completed";
+
+/* Reviews */
+"レビュー" = "Reviews";
+"レビューを書く" = "Write Review";
+"評価" = "Rating";
+
+/* Notifications */
+"通知" = "Notifications";
+"通知設定" = "Notification Settings";
+
+/* Error messages */
+"ネットワーク接続を確認してください" = "Please check your network connection";
+"もう一度お試しください" = "Please try again";
+"認証が必要です。再度ログインしてください" = "Authentication required. Please log in again";
+
+/* Earnings */
+"今月の収入" = "This Month's Earnings";
+"目標額" = "Goal Amount";
+
+/* Chat */
+"メッセージを入力..." = "Type a message...";
+"返信" = "Reply";
+"既読" = "Read";
+
+/* Cancellation */
+"キャンセルポリシー" = "Cancellation Policy";
+"ペナルティ" = "Penalty";

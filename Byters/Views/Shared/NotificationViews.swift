@@ -106,6 +106,23 @@ struct NotificationRow: View {
                         .foregroundColor(.gray)
                         .lineLimit(2)
 
+                    // Show notification image thumbnail if available
+                    if let imageUrlString = notification.imageUrl,
+                       let imageUrl = URL(string: imageUrlString) {
+                        CachedAsyncImage(url: imageUrl) {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.gray.opacity(0.15))
+                                .overlay(
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                )
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
                     if let createdAt = notification.createdAt {
                         Text(formatDate(createdAt))
                             .font(.caption2)

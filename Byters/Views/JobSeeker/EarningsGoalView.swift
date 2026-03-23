@@ -70,6 +70,7 @@ struct EarningsGoalView: View {
                 Button(action: { showSetGoalSheet = true }) {
                     Image(systemName: "target")
                 }
+                .accessibilityLabel("収入目標を設定")
             }
         }
         .sheet(isPresented: $showSetGoalSheet) {
@@ -99,71 +100,133 @@ struct GoalProgressCard: View {
         return min(Double(currentAmount) / Double(goalAmount), 1.0)
     }
 
+    private var remainingAmount: Int {
+        max(goalAmount - currentAmount, 0)
+    }
+
     var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(periodText)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
+        VStack(spacing: 20) {
+            // Period label
+            Text(periodText)
+                .font(.subheadline)
+                .foregroundColor(.gray)
+
+            if goalAmount > 0 {
+                // Circular Progress Ring
+                ZStack {
+                    // Background ring
+                    Circle()
+                        .stroke(Color.gray.opacity(0.15), lineWidth: 16)
+                        .frame(width: 180, height: 180)
+
+                    // Progress ring
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(
+                            AngularGradient(
+                                gradient: Gradient(colors: [progressColor.opacity(0.7), progressColor]),
+                                center: .center,
+                                startAngle: .degrees(0),
+                                endAngle: .degrees(360 * progress)
+                            ),
+                            style: StrokeStyle(lineWidth: 16, lineCap: .round)
+                        )
+                        .frame(width: 180, height: 180)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeInOut(duration: 1.0), value: progress)
+
+                    // Center content
+                    VStack(spacing: 6) {
+                        Text("\(Int(progress * 100))%")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(progressColor)
+
+                        Text("達成")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.gray)
+                    }
+                }
+                .accessibilityLabel("目標達成率: \(Int(progress * 100))パーセント")
+
+                // Amount details
+                HStack(spacing: 0) {
+                    // Current earnings
+                    VStack(spacing: 4) {
+                        Text("現在の収入")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("¥\(currentAmount.formatted())")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    // Divider
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 1, height: 40)
+
+                    // Goal amount
+                    VStack(spacing: 4) {
+                        Text("目標金額")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("¥\(goalAmount.formatted())")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(.blue)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .padding(.top, 4)
+
+                // Remaining amount
+                if currentAmount < goalAmount {
+                    HStack(spacing: 6) {
+                        Image(systemName: "flag.fill")
+                            .font(.caption)
+                            .foregroundColor(progressColor)
+                        Text("あと ¥\(remainingAmount.formatted()) で目標達成")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(progressColor.opacity(0.1))
+                    .clipShape(Capsule())
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("目標達成おめでとうございます!")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.green.opacity(0.1))
+                    .clipShape(Capsule())
+                }
+            } else {
+                // No goal set state
+                VStack(spacing: 12) {
+                    Image(systemName: "target")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray.opacity(0.4))
+
                     Text("¥\(currentAmount.formatted())")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+
+                    Text("目標を設定してモチベーションを高めよう!")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
                 }
-
-                Spacer()
-
-                if goalAmount > 0 {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("目標")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        Text("¥\(goalAmount.formatted())")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.blue)
-                    }
-                }
-            }
-
-            if goalAmount > 0 {
-                VStack(spacing: 8) {
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.gray.opacity(0.2))
-
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(progressColor)
-                                .frame(width: geometry.size.width * progress)
-                        }
-                    }
-                    .frame(height: 16)
-
-                    HStack {
-                        Text("\(Int(progress * 100))% 達成")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(progressColor)
-
-                        Spacer()
-
-                        if currentAmount < goalAmount {
-                            Text("あと ¥\((goalAmount - currentAmount).formatted())")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        } else {
-                            Text("目標達成!")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.green)
-                        }
-                    }
-                }
-            } else {
-                Text("目標を設定してモチベーションを高めよう!")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                .padding(.vertical, 8)
             }
         }
         .padding()
@@ -367,6 +430,7 @@ struct SetGoalSheet: View {
                         Text("¥")
                         TextField("目標金額を入力", text: $goalAmount)
                             .keyboardType(.numberPad)
+                            .accessibilityLabel("目標金額を円で入力")
                     }
                 }
 
@@ -490,12 +554,14 @@ class EarningsGoalViewModel: ObservableObject {
     }
 
     func setGoal(amount: Int, period: String) async {
+        errorMessage = nil
         do {
             _ = try await api.setEarningsGoal(amount: amount, period: period)
             goalAmount = amount
             goalPeriod = period
         } catch {
-            _ = error
+            errorMessage = "目標の設定に失敗しました"
+            AnalyticsService.shared.trackError(error, context: "setEarningsGoal")
         }
     }
 

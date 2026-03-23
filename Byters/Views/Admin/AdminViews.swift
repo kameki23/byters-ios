@@ -137,7 +137,7 @@ struct AdminDashboardView: View {
                 .padding(.vertical)
             }
             .navigationTitle("管理画面")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .refreshable {
                 await viewModel.refresh()
             }
@@ -399,7 +399,7 @@ struct AdminUsersView: View {
                 }
             }
             .navigationTitle("ユーザー管理")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .refreshable {
                 await viewModel.loadUsers()
             }
@@ -770,7 +770,7 @@ struct AdminJobsView: View {
                 }
             }
             .navigationTitle("求人管理")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .refreshable {
                 await viewModel.loadJobs()
             }
@@ -1070,6 +1070,10 @@ struct AdminSettingsView: View {
                         Label("通報・問い合わせ", systemImage: "exclamationmark.bubble")
                     }
 
+                    NavigationLink(destination: AdminDisputesView()) {
+                        Label("紛争解決キュー", systemImage: "arrow.triangle.2.circlepath")
+                    }
+
                     NavigationLink(destination: AdminKycSettingsView()) {
                         Label("本人確認設定", systemImage: "shield.checkered")
                     }
@@ -1093,7 +1097,7 @@ struct AdminSettingsView: View {
                 }
             }
             .navigationTitle("設定")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -1463,6 +1467,14 @@ class AdminIdentityVerificationsViewModel: ObservableObject {
     func approve(id: String) async {
         do {
             _ = try await api.approveIdentityVerification(verificationId: id)
+            // ユーザーに承認通知を送信
+            if let verification = verifications.first(where: { $0.id == id }) {
+                await sendUserNotification(
+                    userId: verification.userId,
+                    title: "本人確認が承認されました",
+                    message: "本人確認が完了しました。お仕事への応募が可能です。"
+                )
+            }
             await loadVerifications()
         } catch {
             errorMessage = error.localizedDescription
@@ -1470,11 +1482,33 @@ class AdminIdentityVerificationsViewModel: ObservableObject {
     }
 
     func reject(id: String, reason: String) async {
+        let finalReason = reason.isEmpty ? "書類不備" : reason
         do {
-            _ = try await api.rejectIdentityVerification(verificationId: id, reason: reason.isEmpty ? "書類不備" : reason)
+            _ = try await api.rejectIdentityVerification(verificationId: id, reason: finalReason)
+            // ユーザーに却下通知を送信
+            if let verification = verifications.first(where: { $0.id == id }) {
+                await sendUserNotification(
+                    userId: verification.userId,
+                    title: "本人確認書類の再提出をお願いします",
+                    message: "却下理由: \(finalReason)。内容を確認の上、再提出してください。"
+                )
+            }
             await loadVerifications()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func sendUserNotification(userId: String, title: String, message: String) async {
+        do {
+            _ = try await api.sendMassNotification(
+                title: title,
+                message: message,
+                targetUserType: nil,
+                targetUserIds: [userId]
+            )
+        } catch {
+            // 通知送信失敗は審査処理自体には影響させない
         }
     }
 }
@@ -1514,18 +1548,15 @@ struct AdminIdentityVerificationRow: View {
                         Text("表面")
                             .font(.caption2)
                             .foregroundColor(.gray)
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 80)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } placeholder: {
+                        CachedAsyncImage(url: url) {
                             Rectangle()
                                 .fill(Color.gray.opacity(0.2))
                                 .frame(height: 80)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
+                        .scaledToFit()
+                        .frame(height: 80)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
                 if let backUrl = verification.backImageUrl, let url = URL(string: backUrl) {
@@ -1533,18 +1564,15 @@ struct AdminIdentityVerificationRow: View {
                         Text("裏面")
                             .font(.caption2)
                             .foregroundColor(.gray)
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 80)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } placeholder: {
+                        CachedAsyncImage(url: url) {
                             Rectangle()
                                 .fill(Color.gray.opacity(0.2))
                                 .frame(height: 80)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
+                        .scaledToFit()
+                        .frame(height: 80)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
             }
@@ -1733,18 +1761,15 @@ struct AdminBannerRow: View {
     var body: some View {
         HStack(spacing: 12) {
             if let imageUrl = banner.imageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 80, height: 45)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } placeholder: {
+                CachedAsyncImage(url: url) {
                     Rectangle()
                         .fill(Color.gray.opacity(0.2))
                         .frame(width: 80, height: 45)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
+                .scaledToFill()
+                .frame(width: 80, height: 45)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -1852,7 +1877,7 @@ struct AddBannerSheet: View {
 // MARK: - Settings Views
 
 struct AdminFeeSettingsView: View {
-    @State private var platformFee = "20"
+    @State private var platformFee = "18"
     @State private var isSaving = false
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -1928,7 +1953,7 @@ struct AdminFeeSettingsView: View {
 
         do {
             _ = try await api.updateAdminSystemSettings(settings: [
-                "platformFeePercent": feeValue
+                "platform_fee_percent": feeValue
             ])
             successMessage = "保存しました"
         } catch {
@@ -2042,9 +2067,9 @@ struct AdminWithdrawalSettingsView: View {
 
         do {
             _ = try await api.updateAdminSystemSettings(settings: [
-                "minWithdrawalAmount": minValue,
-                "maxWithdrawalAmount": maxValue,
-                "withdrawalFee": feeValue
+                "min_withdrawal_amount": minValue,
+                "max_withdrawal_amount": maxValue,
+                "withdrawal_fee": feeValue
             ])
             successMessage = "保存しました"
         } catch {
@@ -2378,6 +2403,14 @@ class AdminQualificationsViewModel: ObservableObject {
     func approveQualification(id: String) async {
         do {
             _ = try await api.approveQualification(qualificationId: id)
+            // ユーザーに承認通知を送信
+            if let qualification = qualifications.first(where: { $0.id == id }) {
+                await sendUserNotification(
+                    userId: qualification.userId,
+                    title: "資格が承認されました",
+                    message: "「\(qualification.qualificationName)」が承認されました。対象の求人に応募できます。"
+                )
+            }
             await loadQualifications()
         } catch {
             errorMessage = error.localizedDescription
@@ -2387,9 +2420,30 @@ class AdminQualificationsViewModel: ObservableObject {
     func rejectQualification(id: String, reason: String) async {
         do {
             _ = try await api.rejectQualification(qualificationId: id, reason: reason)
+            // ユーザーに却下通知を送信
+            if let qualification = qualifications.first(where: { $0.id == id }) {
+                await sendUserNotification(
+                    userId: qualification.userId,
+                    title: "資格の再提出をお願いします",
+                    message: "「\(qualification.qualificationName)」が却下されました。理由: \(reason)"
+                )
+            }
             await loadQualifications()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func sendUserNotification(userId: String, title: String, message: String) async {
+        do {
+            _ = try await api.sendMassNotification(
+                title: title,
+                message: message,
+                targetUserType: nil,
+                targetUserIds: [userId]
+            )
+        } catch {
+            // 通知送信失敗は審査処理自体には影響させない
         }
     }
 }
@@ -2466,17 +2520,14 @@ struct AdminQualificationDetailSheet: View {
                             .font(.headline)
 
                         if let imageUrl = qualification.qualificationImage, let url = URL(string: imageUrl) {
-                            AsyncImage(url: url) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                            } placeholder: {
+                            CachedAsyncImage(url: url) {
                                 Rectangle()
                                     .fill(Color.gray.opacity(0.2))
                                     .frame(height: 200)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
+                            .scaledToFit()
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         } else {
                             Text("画像なし")
                                 .foregroundColor(.gray)
@@ -2849,18 +2900,15 @@ struct AdminBannerSlotRow: View {
                 .clipShape(Capsule())
 
             if let imageUrl = banner.imageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 60, height: 35)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                } placeholder: {
+                CachedAsyncImage(url: url) {
                     Rectangle()
                         .fill(Color.gray.opacity(0.2))
                         .frame(width: 60, height: 35)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
+                .scaledToFill()
+                .frame(width: 60, height: 35)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -2920,19 +2968,16 @@ struct AdminBannerCandidateRow: View {
     var body: some View {
         HStack(spacing: 12) {
             if let imageUrl = banner.imageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 60, height: 35)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .grayscale(1)
-                } placeholder: {
+                CachedAsyncImage(url: url) {
                     Rectangle()
                         .fill(Color.gray.opacity(0.2))
                         .frame(width: 60, height: 35)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
+                .scaledToFill()
+                .frame(width: 60, height: 35)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .grayscale(1)
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -2960,7 +3005,7 @@ struct AdminBannerCandidateRow: View {
             }
         }
         .padding()
-        .background(Color.white.opacity(0.8))
+        .background(Color(.systemBackground).opacity(0.8))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -4049,22 +4094,19 @@ struct AdminPlatformBankAccountRow: View {
 struct AddAdminBankAccountSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var bankName = ""
-    @State private var bankCode = ""
     @State private var branchName = ""
-    @State private var branchCode = ""
     @State private var accountType = "ordinary"
     @State private var accountNumber = ""
     @State private var accountHolderName = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showBankSelection = false
 
     let onSuccess: () async -> Void
 
     private var isValid: Bool {
         !bankName.isEmpty &&
-        bankCode.count == 4 &&
         !branchName.isEmpty &&
-        branchCode.count == 3 &&
         accountNumber.count == 7 &&
         !accountHolderName.isEmpty
     }
@@ -4073,15 +4115,29 @@ struct AddAdminBankAccountSheet: View {
         NavigationStack {
             Form {
                 Section("銀行情報") {
-                    TextField("銀行名", text: $bankName)
-                    TextField("銀行コード（4桁）", text: $bankCode)
-                        .keyboardType(.numberPad)
+                    Button {
+                        showBankSelection = true
+                    } label: {
+                        HStack {
+                            Text("銀行名")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if bankName.isEmpty {
+                                Text("選択してください")
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text(bankName)
+                                    .foregroundColor(.blue)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
 
                 Section("支店情報") {
                     TextField("支店名", text: $branchName)
-                    TextField("支店コード（3桁）", text: $branchCode)
-                        .keyboardType(.numberPad)
                 }
 
                 Section("口座情報") {
@@ -4115,6 +4171,9 @@ struct AddAdminBankAccountSheet: View {
                     .disabled(!isValid || isLoading)
                 }
             }
+            .sheet(isPresented: $showBankSelection) {
+                BankSelectionView(selectedBankName: $bankName)
+            }
         }
     }
 
@@ -4124,9 +4183,7 @@ struct AddAdminBankAccountSheet: View {
         do {
             _ = try await APIClient.shared.addAdminBankAccount(
                 bankName: bankName,
-                bankCode: bankCode,
                 branchName: branchName,
-                branchCode: branchCode,
                 accountType: accountType,
                 accountNumber: accountNumber,
                 accountHolderName: accountHolderName
@@ -4547,12 +4604,23 @@ struct AdminCMSContentView: View {
         List {
             ForEach(contentKeys, id: \.0) { key, title, icon in
                 NavigationLink(destination: AdminCMSEditorView(contentKey: key, title: title)) {
-                    Label(title, systemImage: icon)
+                    HStack {
+                        Label(title, systemImage: icon)
+                        Spacer()
+                        if let status = viewModel.contentStatuses[key] {
+                            Text(status)
+                                .font(.caption)
+                                .foregroundColor(status == "設定済み" ? .green : .orange)
+                        }
+                    }
                 }
             }
         }
         .listStyle(.insetGrouped)
         .navigationTitle("コンテンツ編集")
+        .task {
+            await viewModel.loadStatuses(keys: contentKeys.map { $0.0 })
+        }
     }
 }
 
@@ -4640,7 +4708,27 @@ struct AdminCMSEditorView: View {
 }
 
 @MainActor
-class AdminCMSContentViewModel: ObservableObject {}
+class AdminCMSContentViewModel: ObservableObject {
+    @Published var contentStatuses: [String: String] = [:]
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    private let api = APIClient.shared
+
+    func loadStatuses(keys: [String]) async {
+        isLoading = true
+        for key in keys {
+            do {
+                let content = try await api.getAdminContent(key: key)
+                let hasContent = (content.content ?? "").isEmpty == false
+                contentStatuses[key] = hasContent ? "設定済み" : "未設定"
+            } catch {
+                contentStatuses[key] = "取得失敗"
+            }
+        }
+        isLoading = false
+    }
+}
 
 // MARK: - Reports / Inquiries
 
@@ -5021,7 +5109,9 @@ struct AdminGlobalAPIKeysSheet: View {
             let keys = try await APIClient.shared.getAdminGlobalAPIKeys()
             googleMapsKey = keys.googleMapsApiKey ?? ""
             stripePk = keys.stripePk ?? ""
-        } catch {}
+        } catch {
+            errorMessage = "APIキーの取得に失敗しました"
+        }
         isLoading = false
     }
 
@@ -5237,7 +5327,9 @@ class AdminOptionalFeaturesViewModel: ObservableObject {
             if let kycSettings = try? await api.getKycSettings() {
                 kycMode = kycSettings.approvalMode
             }
-        } catch {}
+        } catch {
+            errorMessage = "設定の取得に失敗しました"
+        }
         isLoading = false
     }
 
@@ -5259,6 +5351,316 @@ class AdminOptionalFeaturesViewModel: ObservableObject {
             errorMessage = "保存に失敗しました"
         }
         isSaving = false
+    }
+}
+
+// MARK: - Admin Disputes View (紛争解決キュー)
+
+struct AdminDisputesView: View {
+    @StateObject private var viewModel = AdminDisputesViewModel()
+    @State private var selectedFilter = "all"
+    @State private var selectedDispute: Dispute?
+
+    let filters = [
+        ("all", "すべて"),
+        ("open", "未対応"),
+        ("investigating", "調査中"),
+        ("awaiting_response", "回答待ち"),
+        ("resolved", "解決済み")
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Filter tabs
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(filters, id: \.0) { key, label in
+                        Button(action: {
+                            selectedFilter = key
+                            Task { await viewModel.loadData(status: key == "all" ? nil : key) }
+                        }) {
+                            Text(label)
+                                .font(.subheadline)
+                                .fontWeight(selectedFilter == key ? .semibold : .regular)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(selectedFilter == key ? Color.blue : Color.gray.opacity(0.1))
+                                .foregroundColor(selectedFilter == key ? .white : .primary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+            }
+
+            if viewModel.isLoading {
+                ProgressView()
+                    .padding(.top, 40)
+                Spacer()
+            } else if viewModel.disputes.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "checkmark.shield")
+                        .font(.system(size: 40))
+                        .foregroundColor(.green)
+                    Text("紛争はありません")
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 40)
+                Spacer()
+            } else {
+                List(viewModel.disputes) { dispute in
+                    Button(action: { selectedDispute = dispute }) {
+                        DisputeRow(dispute: dispute)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .listStyle(.plain)
+            }
+        }
+        .navigationTitle("紛争解決キュー")
+        .task {
+            await viewModel.loadData()
+        }
+        .sheet(item: $selectedDispute) { dispute in
+            DisputeDetailSheet(dispute: dispute, onUpdate: {
+                Task { await viewModel.loadData(status: selectedFilter == "all" ? nil : selectedFilter) }
+            })
+        }
+    }
+}
+
+struct DisputeRow: View {
+    let dispute: Dispute
+
+    var statusColor: Color {
+        switch dispute.status {
+        case "open": return .red
+        case "investigating": return .orange
+        case "awaiting_response": return .blue
+        case "resolved": return .green
+        case "escalated": return .purple
+        case "closed": return .gray
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(statusColor)
+                    .font(.caption)
+                Text(dispute.typeDisplay)
+                    .font(.headline)
+                Spacer()
+                Text(dispute.statusDisplay)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(statusColor.opacity(0.15))
+                    .foregroundColor(statusColor)
+                    .clipShape(Capsule())
+            }
+
+            if let jobTitle = dispute.jobTitle {
+                Text(jobTitle)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                if let worker = dispute.workerName {
+                    Label(worker, systemImage: "person")
+                        .font(.caption)
+                }
+                if let employer = dispute.employerName {
+                    Label(employer, systemImage: "building.2")
+                        .font(.caption)
+                }
+            }
+            .foregroundColor(.secondary)
+
+            if let amount = dispute.amount {
+                Text("係争額: ¥\(amount.formatted())")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .fontWeight(.medium)
+            }
+
+            if let date = dispute.createdAt {
+                Text(date)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct DisputeDetailSheet: View {
+    let dispute: Dispute
+    var onUpdate: () -> Void
+    @Environment(\.dismiss) var dismiss
+
+    @State private var selectedStatus: String = ""
+    @State private var resolution = ""
+    @State private var adminNote = ""
+    @State private var resolvedAmountText = ""
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
+
+    let statusOptions = [
+        ("open", "未対応"),
+        ("investigating", "調査中"),
+        ("awaiting_response", "回答待ち"),
+        ("resolved", "解決済み"),
+        ("escalated", "エスカレーション"),
+        ("closed", "クローズ")
+    ]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("紛争情報") {
+                    LabeledContent("種別", value: dispute.typeDisplay)
+                    LabeledContent("ステータス", value: dispute.statusDisplay)
+                    if let jobTitle = dispute.jobTitle {
+                        LabeledContent("求人", value: jobTitle)
+                    }
+                    if let worker = dispute.workerName {
+                        LabeledContent("ワーカー", value: worker)
+                    }
+                    if let employer = dispute.employerName {
+                        LabeledContent("事業者", value: employer)
+                    }
+                    if let amount = dispute.amount {
+                        LabeledContent("係争額", value: "¥\(amount.formatted())")
+                    }
+                }
+
+                if let reason = dispute.reason {
+                    Section("理由") {
+                        Text(reason)
+                    }
+                }
+
+                if let desc = dispute.description {
+                    Section("詳細") {
+                        Text(desc)
+                    }
+                }
+
+                if let workerClaim = dispute.workerClaim {
+                    Section("ワーカーの主張") {
+                        Text(workerClaim)
+                    }
+                }
+
+                if let employerClaim = dispute.employerClaim {
+                    Section("事業者の主張") {
+                        Text(employerClaim)
+                    }
+                }
+
+                Section("対応") {
+                    Picker("ステータス", selection: $selectedStatus) {
+                        ForEach(statusOptions, id: \.0) { value, label in
+                            Text(label).tag(value)
+                        }
+                    }
+
+                    if selectedStatus == "resolved" {
+                        TextField("解決内容", text: $resolution, axis: .vertical)
+                            .lineLimit(3...6)
+
+                        TextField("解決金額", text: $resolvedAmountText)
+                            .keyboardType(.numberPad)
+                    }
+
+                    TextField("管理者メモ", text: $adminNote, axis: .vertical)
+                        .lineLimit(2...5)
+                }
+
+                if let error = errorMessage {
+                    Section {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+
+                Section {
+                    Button(action: submit) {
+                        if isSubmitting {
+                            HStack { Spacer(); ProgressView(); Spacer() }
+                        } else {
+                            HStack {
+                                Spacer()
+                                Text("更新する")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
+                        }
+                    }
+                    .disabled(isSubmitting)
+                }
+            }
+            .navigationTitle("紛争詳細")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+            .onAppear {
+                selectedStatus = dispute.status ?? "open"
+                adminNote = dispute.adminNote ?? ""
+                resolution = dispute.resolution ?? ""
+                if let amount = dispute.resolvedAmount {
+                    resolvedAmountText = "\(amount)"
+                }
+            }
+        }
+    }
+
+    func submit() {
+        isSubmitting = true
+        Task {
+            do {
+                let resolvedAmount = Int(resolvedAmountText)
+                _ = try await APIClient.shared.updateAdminDispute(
+                    disputeId: dispute.id,
+                    status: selectedStatus,
+                    resolution: resolution.isEmpty ? nil : resolution,
+                    adminNote: adminNote.isEmpty ? nil : adminNote,
+                    resolvedAmount: resolvedAmount
+                )
+                onUpdate()
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isSubmitting = false
+        }
+    }
+}
+
+@MainActor
+class AdminDisputesViewModel: ObservableObject {
+    @Published var disputes: [Dispute] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    func loadData(status: String? = nil) async {
+        isLoading = true
+        do {
+            disputes = try await APIClient.shared.getAdminDisputes(status: status)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
     }
 }
 

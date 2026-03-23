@@ -6,10 +6,11 @@
 STRIPE_PUBLISHABLE_KEY = pk_live_51MRPhyDHUqifxNa843bDtU6nVmSpTjl23Nap27hjmBpCYGJPFxgYLG3Ao4WOjBQtymA7xmT4ZX4bXohJ03VOhxKo00NnKXbxux
 
 // API Base URL
-API_BASE_URL = https:/$()/byters.jp/api
+API_BASE_URL = https://frontend-nine-pi-38.vercel.app/api
 
 // Google Sign-In Client ID (iOS)
-GOOGLE_CLIENT_ID = CONFIGURE_YOUR_GOOGLE_CLIENT_ID_HERE
+GOOGLE_CLIENT_ID = 676826520882-okcpk204tg6dp8nl4pihivq09m4rfd25.apps.googleusercontent.com
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.676826520882-okcpk204tg6dp8nl4pihivq09m4rfd25
 
 // LINE Login Channel ID
 LINE_CHANNEL_ID = 2008814279

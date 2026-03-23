@@ -20,43 +20,34 @@ struct JobDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        jobDetailModifiers
+    }
+
+    private var jobDetailBody: some View {
         ScrollView {
-            if viewModel.isLoading {
-                VStack(spacing: 12) {
-                    ProgressView()
-                    Text("求人情報を読み込み中...")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+            jobDetailContent
+        }
+        .animation(.easeInOut(duration: 0.4), value: viewModel.isLoading)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private var jobDetailContent: some View {
+        if viewModel.isLoading {
+            JobDetailSkeletonView()
+                .transition(.opacity)
+        } else if let errorMessage = viewModel.errorMessage, viewModel.job == nil {
+            EnhancedErrorView(
+                icon: "exclamationmark.triangle.fill",
+                title: "読み込みに失敗しました",
+                message: errorMessage,
+                retryAction: {
+                    await viewModel.loadJob(jobId: jobId)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, 100)
-            } else if let errorMessage = viewModel.errorMessage, viewModel.job == nil {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 48))
-                        .foregroundColor(.orange)
-                    Text(errorMessage)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                    Button(action: {
-                        Task { await viewModel.loadJob(jobId: jobId) }
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.clockwise")
-                            Text("再試行")
-                        }
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .background(Color.blue)
-                        .clipShape(Capsule())
-                    }
-                }
-                .padding(.top, 100)
-            } else if let job = viewModel.job {
+            )
+            .padding(.top, 60)
+            .transition(.opacity)
+        } else if let job = viewModel.job {
                 VStack(alignment: .leading, spacing: 24) {
                     // Job Image(s)
                     JobImageCarousel(job: job)
@@ -143,6 +134,27 @@ struct JobDetailView: View {
                             }
                         }
 
+                        // Badge Requirements
+                        if let badges = job.requiredBadges, !badges.isEmpty {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.purple)
+                                Text("バッジ限定")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.purple)
+                                ForEach(badges, id: \.self) { badge in
+                                    Text(badge)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.purple.opacity(0.1))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+
                         // Employer Rating
                         if let goodRate = job.employerGoodRate ?? job.goodRate, goodRate > 0 {
                             HStack(spacing: 6) {
@@ -211,6 +223,53 @@ struct JobDetailView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding(.horizontal)
+
+                    // Dress Code & Required Items
+                    if job.dressCode != nil || job.requiredItems?.isEmpty == false {
+                        Divider()
+                            .padding(.horizontal)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("持ち物・服装")
+                                .font(.headline)
+
+                            if let dressCode = job.dressCode, !dressCode.isEmpty {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "tshirt.fill")
+                                        .foregroundColor(.blue)
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("服装")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Text(dressCode)
+                                            .font(.body)
+                                    }
+                                }
+                            }
+
+                            if let items = job.requiredItems, !items.isEmpty {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "bag.fill")
+                                        .foregroundColor(.orange)
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("持ち物")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        ForEach(items, id: \.self) { item in
+                                            HStack(spacing: 4) {
+                                                Text("•")
+                                                Text(item)
+                                            }
+                                            .font(.body)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
 
                     // Requirements
                     if let requirements = job.requirements, !requirements.isEmpty {
@@ -370,133 +429,103 @@ struct JobDetailView: View {
                         .frame(height: 100)
                 }
                 .padding(.vertical)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else {
-                Text("求人が見つかりません")
-                    .foregroundColor(.gray)
-                    .padding(.top, 100)
+                EnhancedEmptyStateView(
+                    icon: "briefcase",
+                    title: "求人が見つかりません",
+                    message: "この求人は削除されたか、公開期間が終了した可能性があります。",
+                    actionLabel: "求人を検索する",
+                    action: { dismiss() }
+                )
+                .padding(.top, 60)
+                .transition(.opacity)
             }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    Button(action: { showReportSheet = true }) {
-                        Image(systemName: "flag")
-                            .foregroundColor(.orange)
-                    }
-                    Button(action: { shareJob() }) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
+    }
+
+    private var jobDetailModifiers: some View {
+        jobDetailWithToolbar
+            .overlay(alignment: .bottom) {
+                applyButtonOverlay
             }
-        }
-        .sheet(isPresented: $showReportSheet) {
-            ReportContentView(
-                targetType: "job",
-                targetId: jobId,
-                targetTitle: viewModel.job?.title
-            )
-        }
-        .overlay(alignment: .bottom) {
-            if viewModel.job != nil {
-                ApplyButton(
-                    isApplied: viewModel.isApplied,
-                    isEligible: viewModel.eligibility?.eligible ?? true,
-                    isLoading: viewModel.isCheckingEligibility
-                ) {
-                    if !viewModel.isApplied {
-                        // 未レビューチェック
-                        if pendingReviewCount > 0 {
-                            showPendingReviewBlock = true
-                            return
+            .modifier(JobDetailSheetsModifier(
+                showReportSheet: $showReportSheet,
+                showApplySheet: $showApplySheet,
+                showReviewSheet: $showReviewSheet,
+                showScheduleConflict: $showScheduleConflict,
+                showApplyConfirmation: $showApplyConfirmation,
+                jobId: jobId,
+                viewModel: viewModel,
+                scheduleConflicts: scheduleConflicts
+            ))
+            .modifier(JobDetailAlertsModifier(
+                showEligibilityError: $showEligibilityError,
+                showProfileIncompleteAlert: $showProfileIncompleteAlert,
+                showPendingReviewBlock: $showPendingReviewBlock,
+                showReviewSheet: $showReviewSheet,
+                eligibilityMessage: eligibilityMessage,
+                pendingReviewCount: pendingReviewCount
+            ))
+            .task {
+                await viewModel.loadJob(jobId: jobId)
+                await viewModel.loadReviews(jobId: jobId)
+                await viewModel.checkEligibility(jobId: jobId)
+                await checkPendingReviews()
+            }
+    }
+
+    private var jobDetailWithToolbar: some View {
+        jobDetailBody
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 16) {
+                        Button(action: { showReportSheet = true }) {
+                            Image(systemName: "flag")
+                                .foregroundColor(.orange)
                         }
-                        if viewModel.eligibility?.eligible == false {
-                            eligibilityMessage = viewModel.eligibility?.message ?? "応募条件を満たしていません"
-                            showEligibilityError = true
-                        } else if let user = authManager.currentUser,
-                                  (user.name == nil || user.name?.isEmpty == true) {
-                            showProfileIncompleteAlert = true
-                        } else {
-                            // スケジュール重複チェック
-                            Task {
-                                let conflicts = await viewModel.checkScheduleConflicts()
-                                if !conflicts.isEmpty {
-                                    scheduleConflicts = conflicts
-                                    showScheduleConflict = true
-                                } else {
-                                    showApplyConfirmation = true
-                                }
-                            }
+                        Button(action: { shareJob() }) {
+                            Image(systemName: "square.and.arrow.up")
                         }
                     }
                 }
             }
-        }
-        .confirmationDialog(
-            "この求人に応募しますか？",
-            isPresented: $showApplyConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("応募に進む") {
-                showApplySheet = true
-            }
-            Button("キャンセル", role: .cancel) {}
-        } message: {
-            if let job = viewModel.job {
-                Text(applyConfirmationMessage(job: job))
+    }
+
+    @ViewBuilder
+    private var applyButtonOverlay: some View {
+        if viewModel.job != nil {
+            ApplyButton(
+                isApplied: viewModel.isApplied,
+                isEligible: viewModel.eligibility?.eligible ?? true,
+                isLoading: viewModel.isCheckingEligibility
+            ) {
+                handleApplyAction()
             }
         }
-        .sheet(isPresented: $showApplySheet) {
-            ApplySheetView(jobId: jobId) { success in
-                if success {
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
-                    viewModel.isApplied = true
-                }
-                showApplySheet = false
-            }
+    }
+
+    private func handleApplyAction() {
+        guard !viewModel.isApplied else { return }
+        if pendingReviewCount > 0 {
+            showPendingReviewBlock = true
+            return
         }
-        .alert("応募できません", isPresented: $showEligibilityError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(eligibilityMessage)
-        }
-        .alert("プロフィールを完成させてください", isPresented: $showProfileIncompleteAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("求人に応募するには、マイページからお名前を登録してください。")
-        }
-        .alert("レビューを先に完了してください", isPresented: $showPendingReviewBlock) {
-            Button("レビューを書く") {
-                showReviewSheet = true
-            }
-            Button("あとで", role: .cancel) {}
-        } message: {
-            Text("\(pendingReviewCount)件の未レビューがあります。レビューを完了すると応募できるようになります。")
-        }
-        .sheet(isPresented: $showReviewSheet) {
-            NavigationStack {
-                PendingReviewsView()
-            }
-        }
-        .sheet(isPresented: $showScheduleConflict) {
-            ScheduleConflictView(
-                conflicts: scheduleConflicts,
-                onProceed: {
-                    showScheduleConflict = false
+        if viewModel.eligibility?.eligible == false {
+            eligibilityMessage = viewModel.eligibility?.message ?? "応募条件を満たしていません"
+            showEligibilityError = true
+        } else if let user = authManager.currentUser,
+                  (user.name == nil || user.name?.isEmpty == true) {
+            showProfileIncompleteAlert = true
+        } else {
+            Task {
+                let conflicts = await viewModel.checkScheduleConflicts()
+                if !conflicts.isEmpty {
+                    scheduleConflicts = conflicts
+                    showScheduleConflict = true
+                } else {
                     showApplyConfirmation = true
-                },
-                onCancel: {
-                    showScheduleConflict = false
                 }
-            )
-        }
-        .task {
-            await viewModel.loadJob(jobId: jobId)
-            await viewModel.loadReviews(jobId: jobId)
-            await viewModel.checkEligibility(jobId: jobId)
-            // 未レビュー数をチェック
-            await checkPendingReviews()
+            }
         }
     }
 
@@ -512,17 +541,6 @@ struct JobDetailView: View {
         guard let required = job.requiredPeople else { return "未定" }
         let current = job.currentApplicants ?? 0
         return "\(required - current)名"
-    }
-
-    private func applyConfirmationMessage(job: Job) -> String {
-        var lines: [String] = []
-        lines.append("【\(job.title)】")
-        lines.append("給与: \(job.wageDisplay)")
-        if let date = job.workDate {
-            let timeInfo = job.timeDisplay.isEmpty ? "" : " \(job.timeDisplay)"
-            lines.append("勤務日: \(date)\(timeInfo)")
-        }
-        return lines.joined(separator: "\n")
     }
 
     private func checkPendingReviews() async {
@@ -569,6 +587,7 @@ class JobDetailViewModel: ObservableObject {
         isLoading = true
         do {
             job = try await api.getJobDetail(jobId: jobId)
+            AnalyticsService.shared.track(AnalyticsService.eventJobViewed, properties: ["job_id": jobId])
         } catch {
             errorMessage = "求人情報の読み込みに失敗しました"
         }
@@ -585,7 +604,7 @@ class JobDetailViewModel: ObservableObject {
         do {
             reviews = try await api.getJobReviews(jobId: jobId)
         } catch {
-            _ = error
+            AnalyticsService.shared.trackError(error, context: "loadReviews")
         }
     }
 
@@ -651,6 +670,7 @@ class JobDetailViewModel: ObservableObject {
 
     func toggleFavorite() async {
         guard let jobId = job?.id else { return }
+        let wasAdding = !isFavorite
         do {
             if isFavorite {
                 _ = try await api.removeFavoriteJob(jobId: jobId)
@@ -658,8 +678,11 @@ class JobDetailViewModel: ObservableObject {
                 _ = try await api.addFavoriteJob(jobId: jobId)
             }
             isFavorite.toggle()
+            if wasAdding {
+                AnalyticsService.shared.track(AnalyticsService.eventJobFavorited, properties: ["job_id": jobId])
+            }
         } catch {
-            _ = error
+            errorMessage = "お気に入りの更新に失敗しました"
         }
     }
 }
@@ -885,6 +908,7 @@ struct ApplySheetView: View {
                     jobId: jobId,
                     message: message.isEmpty ? nil : message
                 )
+                AnalyticsService.shared.track(AnalyticsService.eventJobApplied, properties: ["job_id": jobId])
                 onComplete(true)
             } catch let apiError as APIError {
                 error = apiError.errorDescription
@@ -939,6 +963,115 @@ struct JobLocationMapView: View {
         }
         .mapStyle(.standard)
         .allowsHitTesting(true)
+    }
+}
+
+// MARK: - Sheets Modifier
+
+struct JobDetailSheetsModifier: ViewModifier {
+    @Binding var showReportSheet: Bool
+    @Binding var showApplySheet: Bool
+    @Binding var showReviewSheet: Bool
+    @Binding var showScheduleConflict: Bool
+    @Binding var showApplyConfirmation: Bool
+    let jobId: String
+    @ObservedObject var viewModel: JobDetailViewModel
+    let scheduleConflicts: [ScheduleConflict]
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showReportSheet) {
+                ReportContentView(
+                    targetType: "job",
+                    targetId: jobId,
+                    targetTitle: viewModel.job?.title
+                )
+            }
+            .confirmationDialog(
+                "この求人に応募しますか？",
+                isPresented: $showApplyConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("応募に進む") {
+                    showApplySheet = true
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                if let job = viewModel.job {
+                    Text(confirmationMessage(job: job))
+                }
+            }
+            .sheet(isPresented: $showApplySheet) {
+                ApplySheetView(jobId: jobId) { success in
+                    if success {
+                        let generator = UINotificationFeedbackGenerator()
+                        generator.notificationOccurred(.success)
+                        viewModel.isApplied = true
+                    }
+                    showApplySheet = false
+                }
+            }
+            .sheet(isPresented: $showReviewSheet) {
+                NavigationStack {
+                    PendingReviewsView()
+                }
+            }
+            .sheet(isPresented: $showScheduleConflict) {
+                ScheduleConflictView(
+                    conflicts: scheduleConflicts,
+                    onProceed: {
+                        showScheduleConflict = false
+                        showApplyConfirmation = true
+                    },
+                    onCancel: {
+                        showScheduleConflict = false
+                    }
+                )
+            }
+    }
+
+    private func confirmationMessage(job: Job) -> String {
+        var lines: [String] = []
+        lines.append("【\(job.title)】")
+        lines.append("給与: \(job.wageDisplay)")
+        if let date = job.workDate {
+            let timeInfo = job.timeDisplay.isEmpty ? "" : " \(job.timeDisplay)"
+            lines.append("勤務日: \(date)\(timeInfo)")
+        }
+        return lines.joined(separator: "\n")
+    }
+}
+
+// MARK: - Alerts Modifier
+
+struct JobDetailAlertsModifier: ViewModifier {
+    @Binding var showEligibilityError: Bool
+    @Binding var showProfileIncompleteAlert: Bool
+    @Binding var showPendingReviewBlock: Bool
+    @Binding var showReviewSheet: Bool
+    let eligibilityMessage: String
+    let pendingReviewCount: Int
+
+    func body(content: Content) -> some View {
+        content
+            .alert("応募できません", isPresented: $showEligibilityError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(eligibilityMessage)
+            }
+            .alert("プロフィールを完成させてください", isPresented: $showProfileIncompleteAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("求人に応募するには、マイページからお名前を登録してください。")
+            }
+            .alert("レビューを先に完了してください", isPresented: $showPendingReviewBlock) {
+                Button("レビューを書く") {
+                    showReviewSheet = true
+                }
+                Button("あとで", role: .cancel) {}
+            } message: {
+                Text("\(pendingReviewCount)件の未レビューがあります。レビューを完了すると応募できるようになります。")
+            }
     }
 }
 

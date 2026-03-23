@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 import Stripe
-import StripePaymentSheet
 
 // MARK: - Stripe Service
 
@@ -11,6 +10,11 @@ struct StripeConfig {
     static var isConfigured: Bool {
         let key = publishableKey
         return !key.isEmpty && (key.hasPrefix("pk_test_") || key.hasPrefix("pk_live_"))
+    }
+
+    /// Returns true if using Stripe test mode
+    static var isTestMode: Bool {
+        publishableKey.hasPrefix("pk_test_")
     }
 
     /// Stripe publishable key from Info.plist or environment
@@ -189,49 +193,6 @@ class StripeService: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Payment Sheet
-
-    /// Present a Payment Sheet for collecting payment
-    /// - Parameters:
-    ///   - paymentIntentClientSecret: The PaymentIntent client secret
-    ///   - customerId: The Stripe customer ID
-    ///   - customerEphemeralKeySecret: The ephemeral key secret for the customer
-    /// - Returns: Payment result
-    func presentPaymentSheet(
-        paymentIntentClientSecret: String,
-        customerId: String,
-        customerEphemeralKeySecret: String
-    ) async throws -> PaymentSheetResult {
-        guard isConfigured else {
-            throw StripeError.notConfigured
-        }
-
-        var configuration = PaymentSheet.Configuration()
-        configuration.merchantDisplayName = "Byters"
-        configuration.customer = .init(id: customerId, ephemeralKeySecret: customerEphemeralKeySecret)
-        configuration.allowsDelayedPaymentMethods = false
-
-        let paymentSheet = PaymentSheet(
-            paymentIntentClientSecret: paymentIntentClientSecret,
-            configuration: configuration
-        )
-
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first?.rootViewController else {
-            throw StripeError.notConfigured
-        }
-
-        var topVC = rootVC
-        while let presentedVC = topVC.presentedViewController {
-            topVC = presentedVC
-        }
-
-        return await withCheckedContinuation { continuation in
-            paymentSheet.present(from: topVC) { result in
-                continuation.resume(returning: result)
-            }
-        }
-    }
 }
 
 // MARK: - Stripe Authentication Context Helper

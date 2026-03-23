@@ -79,7 +79,7 @@ struct FavoriteJobCard: View {
                         .foregroundColor(.primary)
                         .lineLimit(2)
 
-                    Text(favorite.employerName)
+                    Text(favorite.employerName ?? "")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                 }
@@ -172,14 +172,179 @@ class FavoritesViewModel: ObservableObject {
     }
 }
 
+// MARK: - Favorite Employers View
+
+struct FavoriteEmployersView: View {
+    @StateObject private var viewModel = FavoriteEmployersViewModel()
+
+    var body: some View {
+        Group {
+            if viewModel.isLoading {
+                ProgressView("読み込み中...")
+            } else if let error = viewModel.errorMessage {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Button("再試行") { Task { await viewModel.loadFavoriteEmployers() } }
+                        .buttonStyle(.bordered)
+                }
+            } else if viewModel.employers.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "building.2.crop.circle")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    Text("お気に入り事業者がありません")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    Text("気になる事業者をお気に入りに追加しましょう")
+                        .font(.subheadline)
+                        .foregroundColor(.gray.opacity(0.8))
+                }
+                .padding()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.employers) { employer in
+                            FavoriteEmployerCard(employer: employer) {
+                                Task { await viewModel.removeFavorite(employerId: employer.employerId) }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+        .navigationTitle("お気に入り事業者")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await viewModel.loadFavoriteEmployers()
+        }
+        .refreshable {
+            await viewModel.loadFavoriteEmployers()
+        }
+    }
+}
+
+struct FavoriteEmployerCard: View {
+    let employer: EmployerProfile
+    let onRemove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                if let logoUrl = employer.logoUrl, let url = URL(string: logoUrl) {
+                    CachedAsyncImage(url: url) {
+                        Image(systemName: "building.2.fill")
+                            .foregroundColor(.gray)
+                    }
+                    .scaledToFill()
+                    .frame(width: 50, height: 50)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    Image(systemName: "building.2.fill")
+                        .font(.title2)
+                        .foregroundColor(.gray)
+                        .frame(width: 50, height: 50)
+                        .background(Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(employer.displayName ?? employer.companyName ?? "事業者")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+
+                    if let prefecture = employer.prefecture {
+                        Label(prefecture + (employer.city.map { " \($0)" } ?? ""), systemImage: "mappin.circle")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                Button(action: {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    onRemove()
+                }) {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.red)
+                        .font(.title2)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+                .accessibilityLabel("お気に入りから削除")
+            }
+
+            HStack(spacing: 16) {
+                if let rating = employer.averageRating, rating > 0 {
+                    Label(String(format: "%.1f", rating), systemImage: "star.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+                if let jobs = employer.totalJobs {
+                    Label("\(jobs)件の求人", systemImage: "briefcase")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
+                if let hires = employer.totalHires {
+                    Label("\(hires)人採用", systemImage: "person.2")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+    }
+}
+
+@MainActor
+class FavoriteEmployersViewModel: ObservableObject {
+    @Published var employers: [EmployerProfile] = []
+    @Published var isLoading = true
+    @Published var errorMessage: String?
+
+    private let api = APIClient.shared
+
+    func loadFavoriteEmployers() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            employers = try await api.getFavoriteEmployers()
+        } catch {
+            errorMessage = "お気に入り事業者の読み込みに失敗しました"
+        }
+        isLoading = false
+    }
+
+    func removeFavorite(employerId: String) async {
+        do {
+            _ = try await api.removeFavoriteEmployer(employerId: employerId)
+            employers.removeAll { $0.employerId == employerId }
+        } catch {
+            errorMessage = "お気に入りの削除に失敗しました"
+        }
+    }
+}
+
 // MARK: - Model
 
 struct FavoriteJob: Codable, Identifiable {
     let id: String
-    let jobId: String
-    let jobTitle: String
-    let employerName: String
+    let title: String?
+    let employerName: String?
     let hourlyWage: Int?
     let location: String?
     let createdAt: String?
+
+    var jobId: String { id }
+    var jobTitle: String { title ?? "" }
 }

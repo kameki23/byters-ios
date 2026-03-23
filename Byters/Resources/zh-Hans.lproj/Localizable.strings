@@ -1,0 +1,698 @@
+/*
+  Localizable.strings (Simplified Chinese)
+  Byters
+
+  Simplified Chinese localization for Byters iOS app.
+*/
+
+// =============================================================================
+// MARK: - Common Actions
+// =============================================================================
+
+"common.ok" = "确定";
+"common.cancel" = "取消";
+"common.close" = "关闭";
+"common.save" = "保存";
+"common.delete" = "删除";
+"common.edit" = "编辑";
+"common.retry" = "重试";
+"common.send" = "发送";
+"common.confirm" = "确认";
+"common.back" = "返回";
+"common.next" = "下一步";
+"common.skip" = "跳过";
+"common.done" = "完成";
+"common.apply" = "应用";
+"common.search" = "搜索";
+"common.filter" = "筛选";
+"common.sort" = "排序";
+"common.all" = "全部";
+"common.none" = "不限";
+"common.loading" = "加载中...";
+"common.seeAll" = "查看全部";
+"common.openSettings" = "打开设置";
+"common.continueAction" = "继续";
+
+// =============================================================================
+// MARK: - Auth / Login
+// =============================================================================
+
+"auth.login" = "登录";
+"auth.register" = "注册";
+"auth.logout" = "退出登录";
+"auth.password" = "密码";
+"auth.email" = "电子邮箱";
+"auth.authenticating" = "认证中...";
+"auth.adminLogin" = "管理员登录";
+"auth.adminOnly" = "此页面仅限管理员访问";
+"auth.credentials" = "认证信息";
+"auth.forgotPassword" = "忘记密码？";
+"auth.passwordReset" = "重置密码";
+"auth.passwordResetDescription" = "我们将向您的注册邮箱发送密码重置链接";
+"auth.sendResetEmail" = "发送重置邮件";
+"auth.resetEmailSent" = "重置邮件已发送，请查看您的邮箱。";
+"auth.resetEmailFailed" = "发送失败，请确认您的邮箱地址。";
+"auth.adminAuthFailed" = "管理员认证失败";
+"auth.getStarted" = "开始使用Byters";
+"auth.selectTypeAndLogin" = "选择账户类型并登录";
+"auth.selectAccountType" = "选择账户类型";
+"auth.selectTypeDescription" = "请根据您的使用目的进行选择";
+"auth.termsRequired" = "登录需要同意使用条款";
+"auth.agreeToTerms" = "我同意";
+"auth.and" = "和";
+
+// Social Login
+"auth.social.continueWithLine" = "使用LINE继续";
+"auth.social.continueWithApple" = "使用Apple继续";
+"auth.social.continueWithGoogle" = "使用Google继续";
+"auth.social.lineOneTap" = "一键快速注册";
+"auth.social.appleLogin" = "使用Apple ID登录";
+"auth.social.googleLogin" = "使用Google账号登录";
+
+// User Type
+"auth.userType.wantToWork" = "我想找工作";
+"auth.userType.jobSeeker" = "求职者";
+"auth.userType.jobSeekerDescription" = "无需简历，立即申请工作";
+"auth.userType.wantToHire" = "我想招人";
+"auth.userType.employer" = "雇主";
+"auth.userType.employerDescription" = "最快3分钟发布职位、招聘员工";
+
+// =============================================================================
+// MARK: - Tab Titles (Job Seeker)
+// =============================================================================
+
+"tab.home" = "首页";
+"tab.search" = "搜索";
+"tab.work" = "工作";
+"tab.chat" = "聊天";
+"tab.mypage" = "我的";
+
+// Tab Accessibility
+"tab.home.accessibility" = "首页标签";
+"tab.search.accessibility" = "职位搜索标签";
+"tab.work.accessibility" = "工作标签";
+"tab.chat.accessibility" = "聊天标签";
+"tab.mypage.accessibility" = "我的页面标签";
+
+// =============================================================================
+// MARK: - Tab Titles (Employer)
+// =============================================================================
+
+"tab.employer.dashboard" = "仪表盘";
+"tab.employer.jobManagement" = "职位管理";
+"tab.employer.applicants" = "应聘者";
+"tab.employer.messages" = "消息";
+"tab.employer.settings" = "设置";
+
+// =============================================================================
+// MARK: - Tab Titles (Admin)
+// =============================================================================
+
+"tab.admin.dashboard" = "仪表盘";
+"tab.admin.users" = "用户";
+"tab.admin.jobs" = "职位";
+"tab.admin.notifications" = "通知";
+"tab.admin.settings" = "设置";
+
+// =============================================================================
+// MARK: - Home View
+// =============================================================================
+
+"home.title" = "首页";
+"home.todayJobs" = "今日可工作的职位";
+"home.featuredJobs" = "推荐职位";
+"home.highWageJobs" = "高薪职位";
+"home.recentApplications" = "最近的申请";
+"home.monthlySummary" = "本月摘要";
+"home.completeProfile" = "完善您的个人资料";
+"home.notSet" = "未设置";
+"home.noJobs" = "暂无职位";
+"home.noJobsMessage" = "请等待新职位发布";
+"home.jobsLoadFailed" = "职位加载失败";
+
+// Quick Stats
+"home.stats.applying" = "申请中";
+"home.stats.scheduled" = "已安排";
+"home.stats.balance" = "余额";
+
+// Monthly Summary
+"home.summary.income" = "收入";
+"home.summary.jobs" = "工作";
+"home.summary.hours" = "时长";
+"home.summary.completionRate" = "完成率";
+
+// Categories
+"home.categories" = "按分类浏览";
+"home.category.food" = "餐饮";
+"home.category.lightWork" = "轻体力活";
+"home.category.event" = "活动";
+"home.category.office" = "办公";
+"home.category.sales" = "销售";
+"home.category.cleaning" = "清洁";
+"home.category.delivery" = "配送";
+"home.category.care" = "护理";
+
+// Worker Score
+"home.workerScore.completed" = "已完成%d件";
+"home.workerScore.reliability" = "信赖度%d";
+"home.workerScore.nextRank" = "距下一等级还差%d件";
+
+// =============================================================================
+// MARK: - Job Search
+// =============================================================================
+
+"search.title" = "职位搜索";
+"search.keyword" = "关键词搜索";
+"search.resultCount" = "%d个职位";
+"search.clearFilters" = "清除筛选条件";
+"search.noResults" = "未找到职位";
+"search.noResultsMessage" = "请尝试更改搜索条件";
+"search.searchFailed" = "搜索失败";
+"search.favorites" = "收藏列表";
+
+// Date Filters
+"search.filter.today" = "今天";
+"search.filter.tomorrow" = "明天";
+"search.filter.thisWeek" = "本周";
+"search.filter.area" = "地区";
+"search.filter.wage" = "时薪";
+"search.filter.category" = "分类";
+"search.filter.workDate" = "工作日期";
+
+// Sort Options
+"search.sort.newest" = "最新发布";
+"search.sort.wageHigh" = "时薪从高到低";
+"search.sort.wageLow" = "时薪从低到高";
+"search.sort.dateNearest" = "工作日期由近到远";
+"search.sort.wageHighShort" = "时薪高优先";
+"search.sort.wageLowShort" = "时薪低优先";
+"search.sort.dateNearestShort" = "日期近优先";
+
+// Filter Sheet
+"search.filterSheet.title" = "筛选";
+"search.filterSheet.area" = "地区";
+"search.filterSheet.prefecture" = "省份/地区";
+"search.filterSheet.allAreas" = "全部";
+"search.filterSheet.nearMe" = "搜索附近";
+"search.filterSheet.getLocation" = "获取当前位置";
+"search.filterSheet.distance" = "距离";
+"search.filterSheet.hourlyWage" = "时薪";
+"search.filterSheet.minWage" = "最低时薪";
+"search.filterSheet.category" = "分类";
+"search.filterSheet.allCategories" = "全部";
+"search.filterSheet.workDate" = "工作日期";
+
+// Wage Ranges
+"search.wage.any" = "不限";
+
+// Distance
+"search.distance.any" = "不限";
+"search.distance.within5km" = "5公里以内";
+"search.distance.within10km" = "10公里以内";
+"search.distance.within20km" = "20公里以内";
+"search.distance.within30km" = "30公里以内";
+"search.location.failed" = "获取位置信息失败";
+
+// =============================================================================
+// MARK: - Job Detail
+// =============================================================================
+
+"jobDetail.loading" = "正在加载职位信息...";
+"jobDetail.loadFailed" = "职位信息加载失败";
+"jobDetail.notFound" = "未找到该职位";
+"jobDetail.salary" = "薪资";
+"jobDetail.workDate" = "工作日期";
+"jobDetail.time" = "工作时间";
+"jobDetail.remainingSlots" = "剩余名额";
+"jobDetail.tbd" = "待定";
+"jobDetail.location" = "工作地点";
+"jobDetail.viewOnMap" = "在地图上查看";
+"jobDetail.description" = "工作内容";
+"jobDetail.noDescription" = "暂无详细信息";
+"jobDetail.requirements" = "申请条件";
+"jobDetail.benefits" = "待遇和福利";
+"jobDetail.reviews" = "评价";
+"jobDetail.allReviews" = "全部评价";
+"jobDetail.seeAllReviews" = "查看全部评价";
+"jobDetail.noReviews" = "暂无评价";
+"jobDetail.employerRating" = "雇主评分 %d%%";
+"jobDetail.shareText" = "%@ - 在Byters上找到短期兼职！";
+"jobDetail.addToFavorites" = "添加到收藏";
+"jobDetail.removeFromFavorites" = "取消收藏";
+
+// Eligibility
+"jobDetail.eligible" = "符合申请条件";
+"jobDetail.notEligible" = "不符合申请条件";
+"jobDetail.eligibilityCheckFailed" = "申请资格检查失败";
+
+// Apply
+"jobDetail.apply" = "申请该职位";
+"jobDetail.applied" = "已申请";
+"jobDetail.notEligibleButton" = "不符合条件";
+"jobDetail.cannotApply" = "无法申请";
+"jobDetail.completeProfile" = "请完善您的个人资料";
+"jobDetail.completeProfileMessage" = "申请职位前，请先在我的页面中填写您的姓名。";
+"jobDetail.applyMessage" = "申请留言（选填）";
+"jobDetail.applyConfirm" = "确认申请";
+"jobDetail.applySubmit" = "提交申请";
+"jobDetail.applyFailed" = "申请失败";
+
+// Job Status Labels
+"jobDetail.recruitmentClosed" = "招聘已结束";
+"jobDetail.remainingPeople" = "剩余%d名";
+"jobDetail.remainingPeopleAlt" = "还剩%d个名额";
+"jobDetail.applicants" = "%d人已申请";
+
+// =============================================================================
+// MARK: - Job Related
+// =============================================================================
+
+"job.job" = "职位";
+"job.application" = "申请";
+"job.hourlyWage" = "时薪";
+"job.dailyWage" = "日薪";
+"job.workLocation" = "工作地点";
+"job.companyName" = "公司名称";
+"job.negotiable" = "面议";
+"job.perHour" = "/小时";
+"job.perDay" = "/天";
+
+// Job Status
+"job.status.active" = "招聘中";
+"job.status.draft" = "草稿";
+"job.status.closed" = "已结束";
+"job.status.expired" = "已过期";
+"job.status.pending" = "审核中";
+
+// Application Status
+"job.applicationStatus.pending" = "审核中";
+"job.applicationStatus.accepted" = "已通过";
+"job.applicationStatus.rejected" = "未通过";
+"job.applicationStatus.completed" = "已完成";
+
+// Perk Tags (displayed as-is from model)
+"job.perk.transportation" = "报销交通费";
+"job.perk.meal" = "包餐";
+"job.perk.beginner" = "欢迎新手";
+
+// Date Display
+"job.date.today" = "今天";
+"job.date.tomorrow" = "明天";
+
+// =============================================================================
+// MARK: - Work View
+// =============================================================================
+
+"work.title" = "工作";
+"work.qrCheckIn" = "扫描二维码打卡";
+"work.qrCheckInAccessibility" = "扫描二维码进行上班打卡";
+"work.currentlyWorking" = "工作中";
+"work.upcomingWork" = "即将开始的工作";
+"work.noUpcoming" = "暂无安排";
+"work.noUpcomingMessage" = "已通过的申请将显示在这里";
+"work.history" = "工作记录";
+"work.noHistory" = "暂无记录";
+"work.elapsedTime" = "已用时间";
+"work.estimatedEarnings" = "预计报酬";
+
+// Check In / Out
+"work.checkIn" = "上班打卡";
+"work.checkOut" = "下班打卡";
+"work.checkInProcessing" = "正在打卡...";
+"work.checkOutProcessing" = "正在处理下班打卡和结算...";
+"work.checkInSuccess" = "打卡成功！";
+"work.checkInFailed" = "打卡失败";
+"work.checkOutFailed" = "下班打卡失败";
+"work.checkOutConfirm" = "确定结束工作吗？";
+"work.checkOutConfirmDetail" = "确定结束工作吗？\n\n已用时间：%d小时%d分钟\n预计报酬：¥%@";
+"work.workComplete" = "辛苦了！";
+"work.writeReview" = "写评价";
+"work.reviewRequest" = "请对雇主进行评价";
+"work.canCheckIn" = "可以打卡";
+"work.untilStart" = "距开始";
+"work.pastStartTime" = "已过开始时间";
+"work.minutesRemaining" = "还剩%d分钟";
+"work.hoursMinutesRemaining" = "还剩%d小时%d分钟";
+"work.daysRemaining" = "还剩%d天";
+
+// Cancel Application
+"work.cancelApplication" = "取消申请";
+"work.cancelApplicationConfirm" = "确定要取消此申请吗？\n当日取消可能会受到处罚。";
+"work.cancelApplicationButton" = "取消申请";
+"work.cancelSuccess" = "申请已取消";
+"work.cancelFailed" = "取消失败";
+
+// QR Scanner
+"work.qrScan" = "扫描二维码";
+"work.qrScanTitle" = "扫描二维码";
+"work.qrScanDescription" = "请使用相机扫描工作场所的二维码";
+"work.manualEntry" = "手动输入";
+"work.manualEntryTitle" = "手动输入令牌";
+"work.checkInCode" = "打卡码";
+"work.cameraAccessRequired" = "需要相机权限";
+"work.cameraAccessDescription" = "请允许访问相机以扫描二维码";
+
+// Location
+"work.locationDisabled" = "位置服务已关闭";
+"work.locationDisabledMessage" = "位置服务权限已关闭。为确保准确打卡，请在设置中开启位置服务。";
+
+// =============================================================================
+// MARK: - Chat
+// =============================================================================
+
+"chat.title" = "聊天";
+"chat.noMessages" = "暂无消息";
+"chat.noMessagesDescription" = "申请职位后将开启聊天";
+"chat.inputPlaceholder" = "输入消息";
+"chat.fileSendFailed" = "文件发送失败";
+"chat.comingSoon" = "即将推出";
+"chat.callComingSoon" = "语音通话功能即将推出。";
+
+// =============================================================================
+// MARK: - Wallet
+// =============================================================================
+
+"wallet.title" = "钱包";
+"wallet.balance" = "余额";
+"wallet.withdrawal" = "提现申请";
+"wallet.bankAccount" = "银行账户";
+"wallet.transactionHistory" = "交易记录";
+"wallet.taxDocuments" = "税务凭证";
+
+// =============================================================================
+// MARK: - My Page
+// =============================================================================
+
+"mypage.title" = "我的";
+"mypage.user" = "用户";
+
+// Wallet Section
+"mypage.wallet" = "钱包";
+"mypage.wallet.balance" = "余额";
+"mypage.wallet.bankAccount" = "银行账户";
+"mypage.wallet.withdrawal" = "提现申请";
+"mypage.wallet.transactions" = "交易记录";
+"mypage.wallet.taxDocuments" = "税务凭证";
+
+// Work Section
+"mypage.work" = "工作";
+"mypage.work.upcoming" = "即将开始的工作";
+"mypage.work.applicationHistory" = "申请记录";
+"mypage.work.workHistory" = "工作记录";
+"mypage.work.favoriteJobs" = "收藏的职位";
+"mypage.work.favoriteEmployers" = "收藏的雇主";
+"mypage.work.writeReview" = "写评价";
+"mypage.work.reviewHistory" = "评价记录";
+
+// Growth Section
+"mypage.growth" = "技能提升";
+"mypage.growth.workerRank" = "工人等级和信赖度";
+"mypage.growth.penaltyHistory" = "处罚记录";
+"mypage.growth.monthlyReport" = "月度报告";
+"mypage.growth.earningsGoal" = "收入目标";
+"mypage.growth.qualifications" = "资质和证书";
+"mypage.growth.badges" = "徽章";
+
+// Account Section
+"mypage.account" = "账户";
+"mypage.account.editProfile" = "编辑个人资料";
+"mypage.account.identityVerification" = "身份验证";
+"mypage.account.timesheetAdjustment" = "工时修正";
+"mypage.account.changePassword" = "修改密码";
+
+// Settings Section
+"mypage.settings" = "设置";
+"mypage.settings.notificationList" = "通知列表";
+"mypage.settings.notificationSettings" = "通知设置";
+"mypage.settings.emailSettings" = "邮件设置";
+"mypage.settings.areaSettings" = "地区设置";
+"mypage.settings.appearance" = "显示设置";
+"mypage.settings.muteManagement" = "免打扰管理";
+
+// Support Section
+"mypage.support" = "帮助与支持";
+"mypage.support.faq" = "常见问题";
+"mypage.support.contact" = "联系我们";
+"mypage.support.bugReport" = "报告问题/功能建议";
+"mypage.support.feedbackHistory" = "反馈记录";
+
+// Legal Section
+"mypage.legal" = "法律信息";
+"mypage.legal.terms" = "使用条款";
+"mypage.legal.privacy" = "隐私政策";
+
+// Profile
+"mypage.profile.name" = "姓名";
+"mypage.profile.phone" = "电话号码";
+"mypage.profile.bio" = "自我介绍";
+"mypage.profile.prefecture" = "省份/地区";
+"mypage.profile.profileImage" = "头像";
+"mypage.profile.identityVerification" = "身份验证";
+"mypage.profile.identityVerified" = "已完成身份验证";
+"mypage.profile.completionRate" = "资料完成度";
+"mypage.profile.notSet" = "未设置";
+
+// Identity Verification Status
+"mypage.identity.pending" = "审核中";
+"mypage.identity.approved" = "已验证";
+"mypage.identity.rejected" = "已拒绝";
+"mypage.identity.notSubmitted" = "未提交";
+
+// Account Deletion
+"mypage.deleteAccount" = "删除账户";
+"mypage.deleteAccountTitle" = "删除账户";
+"mypage.deleteAccountMessage" = "删除账户后，所有数据将被永久删除且无法恢复。确定要删除吗？";
+"mypage.deleteAccountFinalTitle" = "最终确认";
+"mypage.deleteAccountFinalMessage" = "此操作无法撤销。与您账户相关的所有数据（申请记录、钱包、聊天等）都将被删除。";
+"mypage.deleteAccountConfirm" = "删除";
+"mypage.deleteAccountFinalConfirm" = "永久删除";
+
+// =============================================================================
+// MARK: - Favorites
+// =============================================================================
+
+"favorites.title" = "收藏";
+"favorites.noFavorites" = "暂无收藏";
+"favorites.addHint" = "点击职位上的心形图标\n将其添加到收藏";
+
+// =============================================================================
+// MARK: - Settings (Appearance)
+// =============================================================================
+
+"settings.appearance.title" = "显示设置";
+"settings.appearance.theme" = "主题";
+"settings.appearance.system" = "跟随系统";
+"settings.appearance.light" = "浅色模式";
+"settings.appearance.dark" = "深色模式";
+"settings.appearance.systemDescription" = "选择\"跟随系统\"后，将根据iPhone的设置自动切换。";
+"settings.appearance.mode" = "外观模式";
+
+// =============================================================================
+// MARK: - Settings (Notifications)
+// =============================================================================
+
+"settings.notifications.work" = "工作相关";
+"settings.notifications.recommendedJobs" = "推荐职位";
+"settings.notifications.applicationUpdates" = "申请状态更新";
+"settings.notifications.workReminder" = "工作提醒";
+"settings.notifications.messages" = "消息";
+"settings.notifications.chatMessages" = "聊天消息";
+"settings.notifications.other" = "其他";
+"settings.notifications.marketing" = "优惠信息和活动";
+
+// =============================================================================
+// MARK: - Employer Views
+// =============================================================================
+
+"employer.dashboard" = "仪表盘";
+"employer.stats.active" = "发布中";
+"employer.stats.applicants" = "应聘者";
+"employer.stats.monthlyHires" = "本月录用";
+"employer.stats.rating" = "评分";
+"employer.pendingApplications" = "有%d份待处理的申请";
+"employer.quickActions" = "快捷操作";
+"employer.createJob" = "创建职位";
+"employer.checkApplications" = "查看申请";
+"employer.templates" = "模板";
+"employer.bulkApproval" = "批量审批考勤";
+"employer.reliableWorkers" = "可靠的工人列表";
+"employer.recentJobs" = "最近的职位";
+"employer.noJobs" = "暂无职位";
+
+// =============================================================================
+// MARK: - Admin Views
+// =============================================================================
+
+"admin.dashboard" = "管理后台";
+"admin.overview" = "概览";
+"admin.totalUsers" = "总用户数";
+"admin.totalJobs" = "职位数量";
+"admin.monthlyRevenue" = "本月收入";
+"admin.pendingWithdrawals" = "待处理提现";
+"admin.pendingIdentity" = "待身份验证";
+"admin.monthlyNewUsers" = "本月新注册用户";
+"admin.quickActions" = "快捷操作";
+"admin.withdrawalProcessing" = "提现处理";
+"admin.identityVerification" = "身份验证";
+"admin.jobReview" = "职位审核";
+"admin.recentActivity" = "最近活动";
+"admin.noActivity" = "暂无活动";
+
+// =============================================================================
+// MARK: - Error Messages
+// =============================================================================
+
+"error.title" = "错误";
+"error.generic" = "发生了错误";
+"error.networkError" = "无法连接到服务器，请检查网络连接。";
+"error.serverError" = "服务器错误：%@";
+"error.authFailed" = "认证失败，请重试。";
+"error.loginFailed" = "登录失败：%@";
+"error.loginFailedWithCode" = "登录失败（%d）";
+"error.authError" = "认证错误：%@";
+"error.authStartFailed" = "无法启动认证";
+"error.authPreparationFailed" = "认证准备失败：%@";
+"error.authProcessingFailed" = "认证过程中发生错误";
+"error.authCodeFailed" = "无法获取认证码";
+"error.userInfoFailed" = "获取用户信息失败";
+"error.screenFailed" = "获取页面失败";
+"error.urlError" = "URL错误";
+"error.unknownError" = "未知错误";
+"error.serverErrorWithCode" = "服务器错误（%d）：%@";
+
+// =============================================================================
+// MARK: - App Subtitle
+// =============================================================================
+
+"app.subtitle" = "短期兼职匹配平台";
+
+// =============================================================================
+// MARK: - Withholding Tax
+// =============================================================================
+
+"tax.title" = "预扣税通知";
+"tax.description" = "由于今天的收入超过¥9,800，将适用预扣税。";
+"tax.grossEarnings" = "总收入";
+"tax.taxableAmount" = "应税金额";
+"tax.withholdingTax" = "预扣税（3.102%）";
+"tax.netEarnings" = "实际收入";
+"tax.confirmed" = "已确认";
+"tax.info.threshold" = "日收入¥9,800以下免税";
+"tax.info.download" = "可从个人页面下载扣税证明";
+"tax.info.refund" = "报税时可能获得退税";
+"tax.detail" = "查看预扣税详情";
+
+// =============================================================================
+// MARK: - Schedule Conflict
+// =============================================================================
+
+"conflict.title" = "排班冲突";
+"conflict.warning" = "排班确认";
+"conflict.overlap" = "与现有班次时间重叠";
+"conflict.tooClose" = "与现有班次间隔不足1小时（请注意通勤时间）";
+"conflict.sameDay" = "同一天已有其他班次";
+"conflict.blocked" = "无法申请——与现有班次时间冲突。";
+"conflict.proceedAnyway" = "仍然申请";
+
+// =============================================================================
+// MARK: - Mandatory Review
+// =============================================================================
+
+"review.mandatory.title" = "请撰写评价";
+"review.mandatory.description" = "您有%d条待评价。\n完成评价后可申请新工作。";
+"review.mandatory.blocked" = "请先完成评价";
+"review.mandatory.blockedMessage" = "您有%d条待评价。完成后即可申请新工作。";
+"review.writeNow" = "撰写评价";
+"review.later" = "稍后";
+
+// =============================================================================
+// MARK: - Bulk Message
+// =============================================================================
+
+"bulkMessage.title" = "群发消息";
+"bulkMessage.recipients" = "收件人";
+"bulkMessage.selectAll" = "全选";
+"bulkMessage.workers" = "%d名工作者";
+"bulkMessage.templates" = "模板";
+"bulkMessage.message" = "消息";
+"bulkMessage.send" = "发送给%d人";
+"bulkMessage.charLimit" = "%d/500";
+
+// =============================================================================
+// MARK: - CSV Export
+// =============================================================================
+
+"export.title" = "数据导出";
+"export.type" = "导出类型";
+"export.attendance" = "考勤数据";
+"export.payment" = "支付数据";
+"export.workers" = "工作者名单";
+"export.period" = "时间范围";
+"export.startDate" = "开始日期";
+"export.endDate" = "结束日期";
+"export.thisMonth" = "本月";
+"export.lastMonth" = "上月";
+"export.threeMonths" = "3个月";
+"export.doExport" = "导出CSV";
+"export.success" = "导出成功";
+
+// =============================================================================
+// MARK: - Job Alert
+// =============================================================================
+
+"jobAlert.title" = "职位提醒设置";
+"jobAlert.keyword" = "关键词";
+"jobAlert.keywordPlaceholder" = "例：咖啡厅、厨房";
+"jobAlert.wage" = "时薪";
+"jobAlert.timeRange" = "时间段";
+"jobAlert.morning" = "早上";
+"jobAlert.afternoon" = "下午";
+"jobAlert.evening" = "傍晚";
+"jobAlert.night" = "夜间";
+"jobAlert.dayOfWeek" = "星期";
+"jobAlert.notification" = "通知";
+"jobAlert.enable" = "开启提醒";
+"jobAlert.save" = "保存";
+
+// =============================================================================
+// MARK: - Saved Search
+// =============================================================================
+
+"savedSearch.title" = "已保存的搜索";
+"savedSearch.empty" = "暂无已保存的搜索";
+"savedSearch.hint" = "从职位搜索页面保存搜索条件";
+"savedSearch.results" = "%d个结果";
+
+// =============================================================================
+// MARK: - Photo Check-in
+// =============================================================================
+
+"photoCheckin.title" = "签到照片";
+"photoCheckin.description" = "请在工作地点拍照以确认到达。";
+"photoCheckin.take" = "拍照";
+"photoCheckin.retake" = "重拍";
+"photoCheckin.confirm" = "确认照片";
+"photoCheckin.skip" = "跳过";
+
+// =============================================================================
+// MARK: - Cancellation Policy
+// =============================================================================
+
+"cancellation.title" = "取消政策";
+"cancellation.72h" = "72小时前";
+"cancellation.24h" = "24-72小时前";
+"cancellation.6h" = "6-24小时前";
+"cancellation.0h" = "不足6小时";
+"cancellation.noPenalty" = "无处罚";
+"cancellation.warning" = "警告";
+"cancellation.mildPenalty" = "轻度处罚";
+"cancellation.severePenalty" = "严重处罚";
+"cancellation.noShowWarning" = "无故缺勤将严重影响您的信誉评分";
+
+// =============================================================================
+// MARK: - Employer Features
+// =============================================================================
+
+"employer.bulkMessage" = "群发消息";
+"employer.dataExport" = "数据导出";
+"employer.dataManagement" = "数据管理";

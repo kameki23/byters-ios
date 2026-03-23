@@ -91,6 +91,10 @@ struct Job: Codable, Identifiable {
     let reviewCount: Int?
     let employerGoodRate: Int?
     let paymentType: String?
+    let dressCode: String?
+    let requiredItems: [String]?
+    let requiredBadges: [String]?
+    let videoUrl: String?
 
     var resolvedPaymentType: PaymentType {
         PaymentType(rawValue: paymentType ?? "") ?? .auto
@@ -300,9 +304,7 @@ struct BankAccount: Codable, Identifiable {
 
 struct BankAccountCreateRequest: Codable {
     let bankName: String
-    let bankCode: String
     let branchName: String
-    let branchCode: String
     let accountType: String
     let accountNumber: String
     let accountHolderName: String
@@ -399,9 +401,10 @@ struct ChatMessage: Codable, Identifiable {
 // MARK: - Employer Profile
 
 struct EmployerProfile: Codable, Identifiable {
-    let id: String
-    let employerId: String
+    private let _id: String?
+    private let _employerId: String?
     let companyName: String?
+    let businessName: String?
     let description: String?
     let prefecture: String?
     let city: String?
@@ -409,6 +412,8 @@ struct EmployerProfile: Codable, Identifiable {
     let categories: [String]?
     let phone: String?
     let email: String?
+    let contactPhone: String?
+    let contactEmail: String?
     let logoUrl: String?
     let coverImageUrl: String?
     let createdAt: String?
@@ -416,9 +421,33 @@ struct EmployerProfile: Codable, Identifiable {
     let totalHires: Int?
     let averageRating: Double?
 
-    var businessName: String? { companyName }
-    var contactPhone: String? { phone }
-    var contactEmail: String? { email }
+    var id: String { _id ?? _employerId ?? UUID().uuidString }
+    var employerId: String { _employerId ?? _id ?? "" }
+    var displayName: String? { companyName ?? businessName }
+    var displayPhone: String? { phone ?? contactPhone }
+    var displayEmail: String? { email ?? contactEmail }
+
+    enum CodingKeys: String, CodingKey {
+        case _id = "id"
+        case _employerId = "employerId"
+        case companyName
+        case businessName
+        case description
+        case prefecture
+        case city
+        case address
+        case categories
+        case phone
+        case email
+        case contactPhone
+        case contactEmail
+        case logoUrl
+        case coverImageUrl
+        case createdAt
+        case totalJobs
+        case totalHires
+        case averageRating
+    }
 }
 
 // MARK: - Employer Stats
@@ -461,7 +490,7 @@ struct WorkHistory: Codable, Identifiable {
 
 // MARK: - Payment / Stripe
 
-struct PaymentMethod: Codable, Identifiable {
+struct PaymentMethod: Identifiable {
     let id: String
     let brand: String
     let last4: String
@@ -478,10 +507,34 @@ struct PaymentMethod: Codable, Identifiable {
     }
 }
 
+extension PaymentMethod: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case id, brand, last4, expMonth, expYear, isDefault
+        case cardBrand = "card_brand"
+        case cardLast4 = "card_last4"
+        case cardExpMonth = "card_exp_month"
+        case cardExpYear = "card_exp_year"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        brand = (try? container.decode(String.self, forKey: .brand))
+            ?? (try? container.decode(String.self, forKey: .cardBrand)) ?? ""
+        last4 = (try? container.decode(String.self, forKey: .last4))
+            ?? (try? container.decode(String.self, forKey: .cardLast4)) ?? ""
+        expMonth = (try? container.decode(Int.self, forKey: .expMonth))
+            ?? (try? container.decode(Int.self, forKey: .cardExpMonth)) ?? 0
+        expYear = (try? container.decode(Int.self, forKey: .expYear))
+            ?? (try? container.decode(Int.self, forKey: .cardExpYear)) ?? 0
+        isDefault = try? container.decode(Bool.self, forKey: .isDefault)
+    }
+}
+
 struct PaymentIntent: Codable {
     let clientSecret: String
-    let amount: Int
-    let status: String
+    let amount: Int?
+    let status: String?
 }
 
 // MARK: - Review
@@ -621,6 +674,12 @@ struct CheckOutResponse: Codable {
     let paymentId: String?
     let message: String?
     let paymentType: String?
+}
+
+// MARK: - Platform Fee
+
+struct PlatformFeeResponse: Codable {
+    let platformFeePercent: Double
 }
 
 // MARK: - Payment Processing
@@ -1458,10 +1517,10 @@ struct HelpArticle: Identifiable {
         HelpArticle(id: "ap1", category: "応募について", title: "応募の流れ", content: "1. 求人詳細画面で「応募する」をタップ\n2. 応募メッセージを入力（任意）\n3. 事業者が応募を確認\n4. 承認されるとチャットが開きます\n\n※ 本人確認が完了している必要があります"),
         HelpArticle(id: "ap2", category: "応募について", title: "応募のキャンセル", content: "応募はキャンセルできますが、タイミングによりペナルティが発生します。\n\n・72時間以上前：ペナルティなし\n・24〜72時間前：1ポイント\n・6〜24時間前：2ポイント\n・6時間以内：3ポイント\n\n※ 無断欠勤はアカウント停止の対象です"),
         // お仕事当日
-        HelpArticle(id: "wk1", category: "お仕事当日", title: "出勤・退勤の方法", content: "勤務先に設置されたQRコードをスキャンして出退勤します。\n\n【出勤】開始時刻の30分前からチェックイン可能\n【退勤】お仕事終了後にチェックアウト\n\n※ 位置情報の許可が必要です\n※ 開始5分以内、終了15分以内は自動調整されます"),
+        HelpArticle(id: "wk1", category: "お仕事当日", title: "出勤・退勤の方法", content: "勤務先に設置されたQRコードをスキャンして出退勤します。\n\n【出勤】QRコードをスキャン（開始時刻の30分前から可能）\n【退勤】同じQRコードを再度スキャン、またはアプリ内のチェックアウトボタン\n\n※ 位置情報の許可が必要です\n※ 開始5分以内、終了15分以内は自動調整されます"),
         HelpArticle(id: "wk2", category: "お仕事当日", title: "勤務時間の修正", content: "実際の勤務時間が予定と異なる場合、修正リクエストを送ることができます。\n\n「お仕事」タブ → 該当のお仕事 → 「時間修正をリクエスト」\n\n理由を10文字以上で入力してください。事業者の承認後に反映されます。"),
         // 報酬・振込
-        HelpArticle(id: "py1", category: "報酬・振込", title: "報酬の受け取り方", content: "報酬は以下の方法で受け取れます。\n\n【即時振込】\n・24時間いつでも振込可能\n・振込手数料：無料\n・10〜30分で着金\n\n【定期振込】\n・毎月15日に前月分を自動振込\n\n※ 銀行口座の登録が必要です"),
+        HelpArticle(id: "py1", category: "報酬・振込", title: "報酬の受け取り方", content: "報酬は以下の方法で受け取れます。\n\n【出金申請】\n・マイページのウォレットから申請\n・最低出金額：¥1,000\n・着金目安：翌営業日〜2営業日\n・Stripe経由で登録済み銀行口座へ振込\n\n※ 土日祝日を挟む場合は翌営業日以降\n※ 銀行口座の登録が必要です"),
         HelpArticle(id: "py2", category: "報酬・振込", title: "源泉徴収について", content: "日当が9,800円を超える場合、源泉徴収税が自動で控除されます。\n\n源泉徴収票はマイページからダウンロードできます。\n\n確定申告が必要な場合がありますのでご注意ください。"),
         // レビュー
         HelpArticle(id: "rv1", category: "レビュー", title: "レビューの仕組み", content: "お仕事完了後、事業者と求職者がお互いにレビューを投稿します。\n\n【レビュー項目】\n・Good / Bad 評価\n・コメント（任意）\n\nレビューは両者が投稿するか、14日経過後に公開されます。\n\n※ レビューを投稿するとペナルティが1ポイント減少します"),
@@ -1471,7 +1530,7 @@ struct HelpArticle: Identifiable {
         HelpArticle(id: "ac1", category: "アカウント", title: "アカウント削除", content: "マイページ → 設定 → アカウントを削除\n\n※ 削除すると全てのデータが消去され、元に戻せません\n※ 未払いの報酬がある場合は先に出金してください"),
         // 事業者向け
         HelpArticle(id: "em1", category: "事業者向け", title: "求人の投稿方法", content: "1. ダッシュボードの「求人作成」をタップ\n2. 業種・職種を選択で自動入力（かんたん入力）\n3. 詳細を編集\n4. 公開\n\nテンプレートを保存すれば次回から簡単に投稿できます。"),
-        HelpArticle(id: "em2", category: "事業者向け", title: "料金について", content: "【初期費用】無料\n【月額費用】無料\n【求人掲載費】無料\n\n【手数料】\nワーカーの報酬の30% + 220円/人/月\n\n成功報酬型なので、マッチングが成立するまで費用はかかりません。"),
+        HelpArticle(id: "em2", category: "事業者向け", title: "料金について", content: "【初期費用】無料\n【月額費用】無料\n【求人掲載費】無料\n\n【手数料】\n・プラットフォーム手数料：ワーカー報酬の18%\n・Stripe決済手数料：3.6%\n\n手数料はお支払い画面で確認できます。\n成功報酬型なので、マッチングが成立するまで費用はかかりません。"),
         // 安全・安心
         HelpArticle(id: "sf1", category: "安全・安心", title: "通報・報告", content: "不適切な求人やメッセージを見つけた場合は、通報ボタンから報告できます。\n\n24時間体制で確認し、適切に対応いたします。\n\n【通報対象】\n・詐欺的な求人\n・ハラスメント\n・違法な労働条件\n・個人情報の不正収集"),
     ]
@@ -1733,4 +1792,19 @@ struct Dispute: Codable, Identifiable {
 struct DisputeListResponse: Codable {
     let disputes: [Dispute]
     let total: Int?
+}
+
+// MARK: - Job Cancellation
+
+struct JobCancellation: Codable {
+    let jobId: String
+    let reason: String
+    let penaltyAmount: Int?
+    let affectedWorkers: Int
+    let cancelledAt: String?
+}
+
+struct JobCancellationRequest: Codable {
+    let reason: String
+    let notifyWorkers: Bool
 }

@@ -23,32 +23,63 @@ struct WorkView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
+                if viewModel.isLoading {
+                    WorkSkeletonView()
+                        .transition(.opacity)
+                } else {
                 VStack(spacing: 24) {
-                    // QR Check-in Section
+                    // QR Check-in / Check-out Section
                     VStack(spacing: 16) {
-                        Button(action: { showQRScanner = true }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "qrcode.viewfinder")
-                                    .font(.title2)
-                                Text("QRコードで出勤打刻")
-                                    .fontWeight(.semibold)
+                        if viewModel.currentlyWorking != nil {
+                            // 勤務中 → QRで退勤打刻
+                            Button(action: { showQRScanner = true }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "qrcode.viewfinder")
+                                        .font(.title2)
+                                    Text("QRコードで退勤打刻")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.red)
+                                .foregroundColor(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .accessibilityLabel("QRコードをスキャンして退勤打刻")
+                            .padding(.horizontal)
+                        } else {
+                            // 未勤務 → QRで出勤打刻
+                            Button(action: { showQRScanner = true }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "qrcode.viewfinder")
+                                        .font(.title2)
+                                    Text("QRコードで出勤打刻")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                            .accessibilityLabel("QRコードをスキャンして出勤打刻")
+                            .padding(.horizontal)
                         }
-                        .accessibilityLabel("QRコードをスキャンして出勤打刻")
-                        .padding(.horizontal)
                     }
 
                     // Currently Working Section
                     if let working = viewModel.currentlyWorking {
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("勤務中")
-                                .font(.headline)
-                                .padding(.horizontal)
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 8, height: 8)
+                                    .scaleEffect(isOnBreak ? 1.0 : 1.3)
+                                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isOnBreak)
+                                Text("勤務中")
+                                    .font(.headline)
+                            }
+                            .padding(.horizontal)
 
                             CurrentWorkCard(
                                 application: working,
@@ -61,32 +92,43 @@ struct WorkView: View {
                                     isCheckingOut = true
                                 },
                                 onToggleBreak: {
+                                    let appId = working.id
                                     if isOnBreak {
-                                        // End break - sync to server
+                                        // End break
                                         if let start = breakStartTime {
                                             let elapsed = Int(Date().timeIntervalSince(start) / 60)
                                             totalBreakMinutes += max(elapsed, 1)
                                         }
                                         breakStartTime = nil
                                         isOnBreak = false
-                                        let appId = working.id
                                         Task {
-                                            // Best-effort server sync; break time tracked locally and sent at checkout
-                                            _ = try? await APIClient.shared.endBreak(applicationId: appId)
+                                            do {
+                                                _ = try await APIClient.shared.endBreak(applicationId: appId)
+                                            } catch {
+                                                #if DEBUG
+                                                print("[Break] endBreak sync failed: \(error.localizedDescription)")
+                                                #endif
+                                            }
                                         }
                                     } else {
                                         // Start break
-                                        breakStartTime = Date()
-                                        isOnBreak = true
-                                        let appId = working.id
                                         Task {
-                                            // Best-effort server sync; break time tracked locally and sent at checkout
-                                            _ = try? await APIClient.shared.startBreak(applicationId: appId)
+                                            do {
+                                                _ = try await APIClient.shared.startBreak(applicationId: appId)
+                                                breakStartTime = Date()
+                                                isOnBreak = true
+                                            } catch {
+                                                viewModel.errorMessage = "休憩の開始に失敗しました。再度お試しください。"
+                                                #if DEBUG
+                                                print("[Break] startBreak sync failed: \(error.localizedDescription)")
+                                                #endif
+                                            }
                                         }
                                     }
                                 }
                             )
                             .padding(.horizontal)
+                            .transition(.opacity.combined(with: .scale(scale: 0.98)))
                         }
                     }
 
@@ -100,10 +142,12 @@ struct WorkView: View {
                             .padding(.horizontal)
 
                         if viewModel.upcomingWork.isEmpty {
-                            EmptyStateView(
+                            EnhancedEmptyStateView(
                                 icon: "calendar",
-                                title: "予定なし",
-                                message: "承認された求人がここに表示されます"
+                                title: "予定のお仕事はありません",
+                                message: "応募が承認されるとここに表示されます。\n気になる求人を探してみましょう！",
+                                actionLabel: "求人を探す",
+                                action: nil
                             )
                         } else {
                             ForEach(viewModel.upcomingWork) { app in
@@ -132,11 +176,11 @@ struct WorkView: View {
                             .padding(.horizontal)
 
                         if viewModel.workHistory.isEmpty {
-                            Text("まだ履歴がありません")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 20)
+                            EnhancedEmptyStateView(
+                                icon: "clock.arrow.circlepath",
+                                title: "まだ履歴がありません",
+                                message: "お仕事を完了すると\nここに履歴が表示されます"
+                            )
                         } else {
                             ForEach(viewModel.workHistory) { app in
                                 WorkCompletedRow(application: app)
@@ -146,7 +190,9 @@ struct WorkView: View {
                     }
                 }
                 .padding(.vertical)
+                }
             }
+            .animation(.easeInOut(duration: 0.4), value: viewModel.isLoading)
             .navigationTitle("お仕事")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable {
@@ -157,7 +203,14 @@ struct WorkView: View {
                     onScanComplete: { result in
                         showQRScanner = false
                         pendingQRResult = result
-                        showPhotoCheckIn = true
+                        if viewModel.currentlyWorking != nil {
+                            // 勤務中 → QRチェックアウト確認
+                            selectedApplication = viewModel.currentlyWorking
+                            isCheckingOut = true
+                        } else {
+                            // 未勤務 → 従来のチェックインフロー
+                            showPhotoCheckIn = true
+                        }
                     },
                     onCancel: {
                         showQRScanner = false
@@ -168,6 +221,7 @@ struct WorkView: View {
             .alert("チェックアウト", isPresented: $isCheckingOut) {
                 Button("キャンセル", role: .cancel) {
                     selectedApplication = nil
+                    pendingQRResult = nil
                 }
                 Button("チェックアウト") {
                     Task {
@@ -177,7 +231,12 @@ struct WorkView: View {
                             let elapsed = Int(Date().timeIntervalSince(start) / 60)
                             finalBreakMinutes += max(elapsed, 1)
                         }
-                        if let app = selectedApplication {
+                        if let qrResult = pendingQRResult {
+                            // QRコードでチェックアウト
+                            await viewModel.handleQRCheckOut(result: qrResult, breakMinutes: finalBreakMinutes)
+                            pendingQRResult = nil
+                        } else if let app = selectedApplication {
+                            // ボタンでチェックアウト（従来の方式）
                             await viewModel.checkOut(applicationId: app.id, breakMinutes: finalBreakMinutes)
                         }
                         selectedApplication = nil
@@ -352,25 +411,61 @@ class WorkViewModel: ObservableObject {
     }
 
     func handleQRScan(result: QRScanResult, application: Application?) async {
+        // 重複チェックイン防止
+        guard !isProcessing else { return }
+        guard currentlyWorking == nil else {
+            errorMessage = "既に勤務中です。先にチェックアウトしてください。"
+            return
+        }
+
         isProcessing = true
         processingMessage = "チェックイン中..."
 
         do {
             let components = result.payload.components(separatedBy: "|")
             let token = components.last ?? result.payload
+
+            // トークンの基本バリデーション
+            guard !token.isEmpty, token.count >= 4 else {
+                throw APIError.serverError("無効なQRコードです。事業者に再生成を依頼してください。")
+            }
+
             let location = await getCurrentLocation()
 
             let response = try await api.checkInWithQR(
                 token: token,
                 latitude: location?.coordinate.latitude,
                 longitude: location?.coordinate.longitude,
-                deviceTime: ISO8601DateFormatter().string(from: Date())
+                deviceTime: SharedFormatters.iso8601.string(from: Date())
             )
 
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
-            successMessage = "チェックインしました！\n\(response.jobTitle ?? "")で勤務開始"
+            if response.ok {
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+                let locationNote = location == nil ? "\n⚠️ 位置情報が取得できませんでした" : ""
+                successMessage = "チェックインしました！\n\(response.jobTitle ?? "")で勤務開始\(locationNote)"
+                AnalyticsService.shared.track(AnalyticsService.eventCheckIn)
+            } else {
+                errorMessage = response.message ?? "チェックインに失敗しました"
+            }
             await loadData()
+        } catch let error as APIError {
+            switch error {
+            case .serverError(let message):
+                if message.contains("expired") || message.contains("期限") {
+                    errorMessage = "QRコードの有効期限が切れています。事業者に再生成を依頼してください。"
+                } else if message.contains("already") || message.contains("既に") {
+                    errorMessage = "既にチェックイン済みです。"
+                } else {
+                    errorMessage = "チェックインに失敗しました: \(message)"
+                }
+            case .offline:
+                errorMessage = "オフラインです。インターネット接続を確認してください。"
+            case .networkError:
+                errorMessage = "ネットワークエラーが発生しました。接続を確認して再度お試しください。"
+            default:
+                errorMessage = "チェックインに失敗しました: \(error.errorDescription ?? "不明なエラー")"
+            }
         } catch {
             errorMessage = "チェックインに失敗しました: \(error.localizedDescription)"
         }
@@ -379,6 +474,9 @@ class WorkViewModel: ObservableObject {
     }
 
     func checkOut(applicationId: String, breakMinutes: Int = 0) async {
+        // 連打防止
+        guard !isProcessing else { return }
+
         isProcessing = true
         processingMessage = "チェックアウト処理中..."
 
@@ -389,12 +487,20 @@ class WorkViewModel: ObservableObject {
                 applicationId: applicationId,
                 latitude: location?.coordinate.latitude,
                 longitude: location?.coordinate.longitude,
-                deviceTime: ISO8601DateFormatter().string(from: Date()),
+                deviceTime: SharedFormatters.iso8601.string(from: Date()),
                 breakMinutes: breakMinutes > 0 ? breakMinutes : nil
             )
 
-            let hours = String(format: "%.1f", response.workedHours ?? 0)
+            let workedHours = response.workedHours ?? 0
+            let hours = String(format: "%.1f", workedHours)
             let earnings = response.earnings ?? 0
+
+            // 勤務時間0の場合は警告
+            if workedHours <= 0 {
+                #if DEBUG
+                print("[CheckOut] Warning: workedHours is 0 or nil")
+                #endif
+            }
 
             // 源泉徴収計算
             let taxCalc = WithholdingTaxCalculation.calculate(dailyEarnings: earnings)
@@ -402,72 +508,23 @@ class WorkViewModel: ObservableObject {
                 lastTaxCalculation = taxCalc
             }
 
-            // 支払い方式による分岐
-            if response.paymentType == "manual" {
-                // 実績精算払い: 即時決済をスキップ
-                let taxNote = taxCalc.isApplicable ? "\n※源泉徴収が適用される場合があります" : ""
-                successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n事業者が実績を確認後、交通費・残業代を含めた精算が行われます。\n\nレビューを書いてバッジを獲得しよう！"
-            } else {
-                // 自動支払い: 既存の即時決済フロー
-                // チェックアウト後の即時決済を試行
-                // 事業者のクレカで求職者へ即時支払い → ウォレットに反映
-                if response.paid != true {
-                    processingMessage = "決済処理中...\n事業者への課金を実行しています"
+            AnalyticsService.shared.track(AnalyticsService.eventCheckOut, properties: ["application_id": applicationId])
 
-                    do {
-                        let paymentResponse = try await api.requestInstantPayment(applicationId: applicationId)
-
-                        if paymentResponse.ok {
-                            // Stripe 3D Secure対応が必要な場合
-                            if paymentResponse.requiresAction == true, let clientSecret = paymentResponse.clientSecret {
-                                processingMessage = "追加認証が必要です..."
-                                // 3DS認証が必要 - StripeServiceで処理
-                                let paymentMethodId = paymentResponse.paymentId ?? ""
-                                let confirmed = try await StripeService.shared.confirmPaymentIntent(
-                                    clientSecret: clientSecret,
-                                    paymentMethodId: paymentMethodId
-                                )
-                                if confirmed {
-                                    let netAmount = paymentResponse.netAmount ?? earnings
-                                    let taxNote = taxCalc.isApplicable ? "\n源泉徴収税: -¥\(taxCalc.taxAmount.formatted())\nお受取額: ¥\(taxCalc.netEarnings.formatted())" : ""
-                                    successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬: ¥\(netAmount.formatted())\(taxNote)\n\n決済完了！ウォレットに反映されました。\nレビューを書いてバッジを獲得しよう！"
-                                } else {
-                                    let taxNote = taxCalc.isApplicable ? "\n※源泉徴収が適用される場合があります" : ""
-                                    successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n決済認証に失敗しました。事業者の確認後に報酬が確定します。"
-                                }
-                            } else {
-                                // 即時決済成功
-                                let netAmount = paymentResponse.netAmount ?? earnings
-                                let walletBalance = paymentResponse.walletBalance
-                                let taxNote = taxCalc.isApplicable ? "\n源泉徴収税: -¥\(taxCalc.taxAmount.formatted())\nお受取額: ¥\(taxCalc.netEarnings.formatted())" : ""
-                                let walletNote = walletBalance != nil ? "\nウォレット残高: ¥\(walletBalance!.formatted())" : ""
-                                successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬: ¥\(netAmount.formatted())\(taxNote)\(walletNote)\n\n即時決済完了！ウォレットに反映されました。\nレビューを書いてバッジを獲得しよう！"
-                            }
-                        } else {
-                            // 即時決済が利用不可 - 通常フロー
-                            let taxNote = taxCalc.isApplicable ? "\n※日額9,800円超のため源泉徴収が適用されます" : ""
-                            successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n\(paymentResponse.message ?? "事業者の確認後に報酬が確定します。")\n\nレビューを書いてバッジを獲得しよう！"
-                        }
-                    } catch {
-                        // 即時決済に失敗 - 通常のチェックアウト成功メッセージ
-                        #if DEBUG
-                        print("[Payment] Instant payment failed: \(error.localizedDescription)")
-                        #endif
-                        let taxNote = taxCalc.isApplicable ? "\n※日額9,800円超のため源泉徴収が適用されます" : ""
-                        successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n\(response.message ?? "事業者の確認後に報酬が確定します。")\n\nレビューを書いてバッジを獲得しよう！"
-                    }
-                } else {
-                    // 既にバックエンドで決済済み
-                    let taxNote = taxCalc.isApplicable ? "\n源泉徴収税: -¥\(taxCalc.taxAmount.formatted())\nお受取額: ¥\(taxCalc.netEarnings.formatted())" : ""
-                    successMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n報酬: ¥\(earnings.formatted())\(taxNote)\n\n報酬が確定しウォレットに反映されました！\nレビューを書いてバッジを獲得しよう！"
-                }
-            }
+            // チェックアウト成功後の決済処理
+            let paymentResult = await processPaymentAfterCheckout(
+                applicationId: applicationId,
+                response: response,
+                hours: hours,
+                earnings: earnings,
+                taxCalc: taxCalc
+            )
+            successMessage = paymentResult
 
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
+            stopTimer()
             await loadData()
         } catch let error as APIError {
-            // Stripe/決済関連の詳細エラーハンドリング
             switch error {
             case .serverError(let message):
                 if message.contains("payment") || message.contains("stripe") || message.contains("カード") {
@@ -475,8 +532,10 @@ class WorkViewModel: ObservableObject {
                 } else {
                     errorMessage = "チェックアウトに失敗しました: \(message)"
                 }
+            case .offline:
+                errorMessage = "オフラインです。インターネット接続を確認してから再度お試しください。"
             case .networkError:
-                errorMessage = "ネットワークエラー: インターネット接続を確認してください。チェックアウトが完了していない可能性があります。"
+                errorMessage = "ネットワークエラー: インターネット接続を確認してください。\nチェックアウトが完了していない可能性があります。アプリを再起動して状態を確認してください。"
             default:
                 errorMessage = "チェックアウトに失敗しました: \(error.errorDescription ?? "不明なエラー")"
             }
@@ -485,6 +544,150 @@ class WorkViewModel: ObservableObject {
         }
 
         isProcessing = false
+    }
+
+    func handleQRCheckOut(result: QRScanResult, breakMinutes: Int = 0) async {
+        guard !isProcessing else { return }
+
+        isProcessing = true
+        processingMessage = "QRチェックアウト処理中..."
+
+        do {
+            let components = result.payload.components(separatedBy: "|")
+            let token = components.last ?? result.payload
+
+            guard !token.isEmpty, token.count >= 4 else {
+                throw APIError.serverError("無効なQRコードです。事業者に再生成を依頼してください。")
+            }
+
+            let location = await getCurrentLocation()
+
+            let response = try await api.checkOutWithQR(
+                token: token,
+                latitude: location?.coordinate.latitude,
+                longitude: location?.coordinate.longitude,
+                deviceTime: SharedFormatters.iso8601.string(from: Date()),
+                breakMinutes: breakMinutes > 0 ? breakMinutes : nil
+            )
+
+            let workedHours = response.workedHours ?? 0
+            let hours = String(format: "%.1f", workedHours)
+            let earnings = response.earnings ?? 0
+
+            let taxCalc = WithholdingTaxCalculation.calculate(dailyEarnings: earnings)
+            if taxCalc.isApplicable {
+                lastTaxCalculation = taxCalc
+            }
+
+            AnalyticsService.shared.track(AnalyticsService.eventCheckOut)
+
+            let applicationId = response.applicationId ?? currentlyWorking?.id ?? ""
+            let paymentResult = await processPaymentAfterCheckout(
+                applicationId: applicationId,
+                response: response,
+                hours: hours,
+                earnings: earnings,
+                taxCalc: taxCalc
+            )
+            successMessage = paymentResult
+
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+            stopTimer()
+            await loadData()
+        } catch let error as APIError {
+            switch error {
+            case .serverError(let message):
+                if message.contains("expired") || message.contains("期限") {
+                    errorMessage = "QRコードの有効期限が切れています。事業者に再生成を依頼してください。"
+                } else {
+                    errorMessage = "チェックアウトに失敗しました: \(message)"
+                }
+            case .offline:
+                errorMessage = "オフラインです。インターネット接続を確認してください。"
+            case .networkError:
+                errorMessage = "ネットワークエラー: チェックアウトが完了していない可能性があります。"
+            default:
+                errorMessage = "チェックアウトに失敗しました: \(error.errorDescription ?? "不明なエラー")"
+            }
+        } catch {
+            errorMessage = "チェックアウトに失敗しました: \(error.localizedDescription)"
+        }
+
+        isProcessing = false
+    }
+
+    private func processPaymentAfterCheckout(
+        applicationId: String,
+        response: CheckOutResponse,
+        hours: String,
+        earnings: Int,
+        taxCalc: WithholdingTaxCalculation
+    ) async -> String {
+        let taxNote = taxCalc.isApplicable ? "\n※源泉徴収が適用される場合があります" : ""
+        let baseMessage = "お疲れ様でした！\n\n勤務時間: \(hours)時間\n"
+
+        // 手動精算の場合
+        if response.paymentType == "manual" {
+            return "\(baseMessage)報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n事業者が実績を確認後、交通費・残業代を含めた精算が行われます。\n\nレビューを書いてバッジを獲得しよう！"
+        }
+
+        // 既にバックエンドで決済済み
+        if response.paid == true {
+            let taxDetail = taxCalc.isApplicable ? "\n源泉徴収税: -¥\(taxCalc.taxAmount.formatted())\nお受取額: ¥\(taxCalc.netEarnings.formatted())" : ""
+            return "\(baseMessage)報酬: ¥\(earnings.formatted())\(taxDetail)\n\n報酬が確定しウォレットに反映されました！\nレビューを書いてバッジを獲得しよう！"
+        }
+
+        // 自動支払い: 即時決済を試行
+        processingMessage = "決済処理中...\n事業者への課金を実行しています"
+
+        do {
+            let paymentResponse = try await api.requestInstantPayment(applicationId: applicationId)
+
+            guard paymentResponse.ok else {
+                return "\(baseMessage)報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n\(paymentResponse.message ?? "事業者の確認後に報酬が確定します。")\n\nレビューを書いてバッジを獲得しよう！"
+            }
+
+            // 3DS認証が必要な場合
+            if paymentResponse.requiresAction == true, let clientSecret = paymentResponse.clientSecret {
+                processingMessage = "追加認証が必要です..."
+                let paymentMethodId = paymentResponse.paymentId ?? ""
+
+                guard !paymentMethodId.isEmpty else {
+                    return "\(baseMessage)報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n決済情報の取得に失敗しました。事業者の確認後に報酬が確定します。"
+                }
+
+                do {
+                    let confirmed = try await StripeService.shared.confirmPaymentIntent(
+                        clientSecret: clientSecret,
+                        paymentMethodId: paymentMethodId
+                    )
+                    if confirmed {
+                        let netAmount = paymentResponse.netAmount ?? earnings
+                        let taxDetail = taxCalc.isApplicable ? "\n源泉徴収税: -¥\(taxCalc.taxAmount.formatted())\nお受取額: ¥\(taxCalc.netEarnings.formatted())" : ""
+                        return "\(baseMessage)報酬: ¥\(netAmount.formatted())\(taxDetail)\n\n決済完了！ウォレットに反映されました。\nレビューを書いてバッジを獲得しよう！"
+                    } else {
+                        return "\(baseMessage)報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n決済認証に失敗しました。事業者の確認後に報酬が確定します。"
+                    }
+                } catch {
+                    #if DEBUG
+                    print("[Payment] 3DS confirmation error: \(error.localizedDescription)")
+                    #endif
+                    return "\(baseMessage)報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\n決済認証中にエラーが発生しました。事業者の確認後に報酬が確定します。"
+                }
+            }
+
+            // 即時決済成功
+            let netAmount = paymentResponse.netAmount ?? earnings
+            let taxDetail = taxCalc.isApplicable ? "\n源泉徴収税: -¥\(taxCalc.taxAmount.formatted())\nお受取額: ¥\(taxCalc.netEarnings.formatted())" : ""
+            let walletNote = paymentResponse.walletBalance.map { "\nウォレット残高: ¥\($0.formatted())" } ?? ""
+            return "\(baseMessage)報酬: ¥\(netAmount.formatted())\(taxDetail)\(walletNote)\n\n即時決済完了！ウォレットに反映されました。\nレビューを書いてバッジを獲得しよう！"
+        } catch {
+            #if DEBUG
+            print("[Payment] Instant payment failed: \(error.localizedDescription)")
+            #endif
+            return "\(baseMessage)報酬見込み: ¥\(earnings.formatted())\(taxNote)\n\nチェックアウトは完了しました。\n\(response.message ?? "事業者の確認後に報酬が確定します。")\n\nレビューを書いてバッジを獲得しよう！"
+        }
     }
 
     // MARK: - Timer
@@ -565,7 +768,10 @@ class WorkViewModel: ObservableObject {
         }
 
         return await withCheckedContinuation { continuation in
+            var hasResumed = false
             let delegate = LocationDelegate { [weak self] location in
+                guard !hasResumed else { return }
+                hasResumed = true
                 self?.locationDelegate = nil
                 continuation.resume(returning: location)
             }
@@ -573,7 +779,21 @@ class WorkViewModel: ObservableObject {
             locationManager.delegate = delegate
             locationManager.desiredAccuracy = kCLLocationAccuracyBest
             locationManager.requestLocation()
+
+            // 5秒タイムアウト: 位置情報が取得できなくてもnilで続行
+            Task {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                guard !hasResumed else { return }
+                hasResumed = true
+                self.locationDelegate = nil
+                continuation.resume(returning: nil)
+            }
         }
+    }
+
+    deinit {
+        timer?.invalidate()
+        timer = nil
     }
 }
 
@@ -713,10 +933,10 @@ struct QRScannerView: View {
                 ManualTokenEntryView(
                     token: $manualToken,
                     onSubmit: {
-                        if !manualToken.isEmpty {
-                            showManualEntry = false
-                            onScanComplete(QRScanResult(payload: manualToken))
-                        }
+                        let trimmed = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard trimmed.count >= 4, trimmed.count <= 500 else { return }
+                        showManualEntry = false
+                        onScanComplete(QRScanResult(payload: trimmed))
                     },
                     onCancel: {
                         showManualEntry = false
@@ -827,29 +1047,48 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
         }
     }
 
+    @Published var cameraSetupFailed = false
+
     private func setupSession() {
         captureSession = AVCaptureSession()
 
-        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video),
-              let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice),
-              let session = captureSession,
-              session.canAddInput(videoInput) else {
+        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else {
+            DispatchQueue.main.async {
+                self.cameraSetupFailed = true
+            }
             return
         }
 
-        session.addInput(videoInput)
+        do {
+            let videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
+            guard let session = captureSession, session.canAddInput(videoInput) else {
+                DispatchQueue.main.async {
+                    self.cameraSetupFailed = true
+                }
+                return
+            }
 
-        let metadataOutput = AVCaptureMetadataOutput()
-        if session.canAddOutput(metadataOutput) {
-            session.addOutput(metadataOutput)
-            metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-            metadataOutput.metadataObjectTypes = [.qr]
-        }
+            session.addInput(videoInput)
 
-        previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspectFill
-        DispatchQueue.main.async {
-            self.cameraReady = true
+            let metadataOutput = AVCaptureMetadataOutput()
+            if session.canAddOutput(metadataOutput) {
+                session.addOutput(metadataOutput)
+                metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+                metadataOutput.metadataObjectTypes = [.qr]
+            }
+
+            previewLayer = AVCaptureVideoPreviewLayer(session: session)
+            previewLayer.videoGravity = .resizeAspectFill
+            DispatchQueue.main.async {
+                self.cameraReady = true
+            }
+        } catch {
+            #if DEBUG
+            print("[QRScanner] Camera setup failed: \(error.localizedDescription)")
+            #endif
+            DispatchQueue.main.async {
+                self.cameraSetupFailed = true
+            }
         }
     }
 
@@ -1018,20 +1257,20 @@ struct CurrentWorkCard: View {
                 .accessibilityLabel(isOnBreak ? "休憩を終了して勤務に戻る" : "休憩を開始する")
             }
 
-            // Check out button
+            // Check out button (manual fallback)
             Button(action: onCheckOut) {
                 HStack {
                     Image(systemName: "clock.badge.checkmark")
-                    Text("チェックアウト")
+                    Text("ボタンでチェックアウト")
                 }
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Color.red)
+                .background(Color.red.opacity(0.7))
                 .foregroundColor(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .accessibilityLabel("勤務を終了してチェックアウト")
+            .accessibilityLabel("ボタンで勤務を終了してチェックアウト")
         }
         .padding()
         .background(isOnBreak ? Color.orange.opacity(0.05) : Color.green.opacity(0.05))

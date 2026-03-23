@@ -1,14 +1,24 @@
 import SwiftUI
 import PhotosUI
 import CoreImage.CIFilterBuiltins
+import AVKit
+import AVFoundation
 
 // MARK: - Employer Dashboard
 
+enum EmployerDashDestination: Hashable {
+    case applications, jobCreate, jobTemplates, timesheetBulkApproval
+    case reliableWorkers, attendanceDashboard, invoices
+    case bulkMessage, csvExport, allJobs
+    case workerAvailability
+}
+
 struct EmployerDashboardView: View {
     @StateObject private var viewModel = EmployerDashboardViewModel()
+    @State private var navPath = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navPath) {
             ScrollView {
                 VStack(spacing: 24) {
                     if let error = viewModel.errorMessage {
@@ -62,21 +72,24 @@ struct EmployerDashboardView: View {
 
                     // Pending Applications Alert
                     if let pending = viewModel.stats?.pendingApplications, pending > 0 {
-                        HStack {
-                            Image(systemName: "bell.badge.fill")
-                                .foregroundColor(.orange)
-                            Text("\(pending)件の未対応の応募があります")
-                                .font(.subheadline)
-                            Spacer()
-                            NavigationLink(destination: EmployerApplicationsView()) {
+                        Button(action: { navPath.append(EmployerDashDestination.applications) }) {
+                            HStack {
+                                Image(systemName: "bell.badge.fill")
+                                    .foregroundColor(.orange)
+                                Text("\(pending)件の未対応の応募があります")
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                                Spacer()
                                 Text("確認")
                                     .font(.caption)
                                     .fontWeight(.medium)
+                                    .foregroundColor(.blue)
                             }
+                            .padding()
+                            .background(Color.orange.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
-                        .padding()
-                        .background(Color.orange.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .buttonStyle(.plain)
                         .padding(.horizontal)
                     }
 
@@ -87,31 +100,36 @@ struct EmployerDashboardView: View {
                             .padding(.horizontal)
 
                         HStack(spacing: 16) {
-                            NavigationLink(destination: JobCreateView()) {
+                            Button(action: { navPath.append(EmployerDashDestination.jobCreate) }) {
                                 EmployerQuickActionButton(title: "求人作成", icon: "plus.circle.fill", color: .blue)
                             }
-                            NavigationLink(destination: EmployerApplicationsView()) {
+                            .buttonStyle(.plain)
+                            Button(action: { navPath.append(EmployerDashDestination.applications) }) {
                                 EmployerQuickActionButton(title: "応募確認", icon: "bell.fill", color: .orange)
                             }
+                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal)
 
                         HStack(spacing: 16) {
-                            NavigationLink(destination: JobTemplatesView()) {
+                            Button(action: { navPath.append(EmployerDashDestination.jobTemplates) }) {
                                 EmployerQuickActionButton(title: "テンプレート", icon: "doc.on.doc.fill", color: .purple)
                             }
-                            NavigationLink(destination: TimesheetBulkApprovalView()) {
+                            .buttonStyle(.plain)
+                            Button(action: { navPath.append(EmployerDashDestination.timesheetBulkApproval) }) {
                                 EmployerQuickActionButton(title: "勤怠一括承認", icon: "checkmark.circle.fill", color: .green)
                             }
+                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal)
 
-                        NavigationLink(destination: ReliableWorkersView()) {
+                        Button(action: { navPath.append(EmployerDashDestination.reliableWorkers) }) {
                             HStack {
                                 Image(systemName: "person.crop.circle.badge.checkmark")
                                     .foregroundColor(.blue)
                                 Text("信頼できるワーカー一覧")
                                     .font(.subheadline)
+                                    .foregroundColor(.primary)
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.caption)
@@ -124,12 +142,13 @@ struct EmployerDashboardView: View {
                         .buttonStyle(.plain)
                         .padding(.horizontal)
 
-                        NavigationLink(destination: EmployerAttendanceDashboardView()) {
+                        Button(action: { navPath.append(EmployerDashDestination.attendanceDashboard) }) {
                             HStack {
                                 Image(systemName: "person.badge.clock")
                                     .foregroundColor(.green)
                                 Text("出勤ダッシュボード")
                                     .font(.subheadline)
+                                    .foregroundColor(.primary)
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.caption)
@@ -142,12 +161,32 @@ struct EmployerDashboardView: View {
                         .buttonStyle(.plain)
                         .padding(.horizontal)
 
-                        NavigationLink(destination: EmployerInvoiceView()) {
+                        Button(action: { navPath.append(EmployerDashDestination.workerAvailability) }) {
+                            HStack {
+                                Image(systemName: "calendar.badge.clock")
+                                    .foregroundColor(.orange)
+                                Text("ワーカー空き状況")
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                            .padding()
+                            .background(Color(.systemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal)
+
+                        Button(action: { navPath.append(EmployerDashDestination.invoices) }) {
                             HStack {
                                 Image(systemName: "doc.text.below.ecg")
                                     .foregroundColor(.purple)
                                 Text("請求・支払管理")
                                     .font(.subheadline)
+                                    .foregroundColor(.primary)
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.caption)
@@ -161,12 +200,14 @@ struct EmployerDashboardView: View {
                         .padding(.horizontal)
 
                         HStack(spacing: 16) {
-                            NavigationLink(destination: BulkMessageView(jobId: nil)) {
+                            Button(action: { navPath.append(EmployerDashDestination.bulkMessage) }) {
                                 EmployerQuickActionButton(title: "一括メッセージ", icon: "paperplane.fill", color: .teal)
                             }
-                            NavigationLink(destination: CSVExportView()) {
+                            .buttonStyle(.plain)
+                            Button(action: { navPath.append(EmployerDashDestination.csvExport) }) {
                                 EmployerQuickActionButton(title: "データ出力", icon: "square.and.arrow.up", color: .indigo)
                             }
+                            .buttonStyle(.plain)
                         }
                         .padding(.horizontal)
                     }
@@ -177,7 +218,7 @@ struct EmployerDashboardView: View {
                             Text("最近の求人")
                                 .font(.headline)
                             Spacer()
-                            NavigationLink(destination: EmployerJobsView()) {
+                            Button(action: { navPath.append(EmployerDashDestination.allJobs) }) {
                                 Text("すべて見る")
                                     .font(.caption)
                                     .foregroundColor(.blue)
@@ -203,6 +244,21 @@ struct EmployerDashboardView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("ダッシュボード")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: EmployerDashDestination.self) { dest in
+                switch dest {
+                case .applications: EmployerApplicationsView()
+                case .jobCreate: JobCreateView()
+                case .jobTemplates: JobTemplatesView()
+                case .timesheetBulkApproval: TimesheetBulkApprovalView()
+                case .reliableWorkers: ReliableWorkersView()
+                case .attendanceDashboard: EmployerAttendanceDashboardView()
+                case .invoices: EmployerInvoiceView()
+                case .bulkMessage: BulkMessageView(jobId: nil)
+                case .csvExport: CSVExportView()
+                case .allJobs: EmployerJobsView()
+                case .workerAvailability: WorkerAvailabilityView()
+                }
+            }
             .refreshable {
                 await viewModel.loadData()
             }
@@ -305,6 +361,7 @@ struct EmployerJobsView: View {
     @State private var showRepostSheet = false
     @State private var showLimitAlert = false
     @State private var duplicateTargetJob: Job?
+    @State private var cancelTargetJob: Job?
 
     private let maxActiveJobs = 3
 
@@ -387,6 +444,11 @@ struct EmployerJobsView: View {
                 Task { await viewModel.loadData() }
             })
         }
+        .sheet(item: $cancelTargetJob) { job in
+            ShiftCancellationView(job: job, onCancelled: {
+                Task { await viewModel.loadData() }
+            })
+        }
         .refreshable {
             await viewModel.loadData()
         }
@@ -402,10 +464,15 @@ struct EmployerJobsView: View {
                 ForEach(activeJobs) { job in
                     ActiveJobRow(job: job, onQR: { selectedJobForQR = job }, onClose: {
                         Task {
-                            _ = try? await APIClient.shared.closeJob(jobId: job.id)
+                            do {
+                                _ = try await APIClient.shared.closeJob(jobId: job.id)
+                            } catch {
+                                viewModel.errorMessage = "求人の締め切りに失敗しました"
+                            }
                             await viewModel.loadData()
                         }
-                    }, onDuplicate: { duplicateTargetJob = job })
+                    }, onDuplicate: { duplicateTargetJob = job },
+                       onCancel: { cancelTargetJob = job })
                 }
             }
         }
@@ -463,6 +530,7 @@ struct ActiveJobRow: View {
     let onQR: () -> Void
     let onClose: () -> Void
     var onDuplicate: (() -> Void)? = nil
+    var onCancel: (() -> Void)? = nil
 
     var body: some View {
         EmployerJobRow(job: job)
@@ -474,6 +542,11 @@ struct ActiveJobRow: View {
                     Label("終了", systemImage: "xmark.circle")
                 }.tint(.orange)
             }
+            .swipeActions(edge: .leading) {
+                Button { onCancel?() } label: {
+                    Label("キャンセル", systemImage: "xmark.shield")
+                }.tint(.red)
+            }
             .contextMenu {
                 Button { onQR() } label: {
                     Label("チェックインQR表示", systemImage: "qrcode")
@@ -483,6 +556,9 @@ struct ActiveJobRow: View {
                 }
                 Button { onClose() } label: {
                     Label("募集を終了", systemImage: "xmark.circle")
+                }
+                Button(role: .destructive) { onCancel?() } label: {
+                    Label("シフトをキャンセル", systemImage: "xmark.shield")
                 }
             }
     }
@@ -702,8 +778,8 @@ struct JobQRCodeView: View {
                     Button("閉じる") { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    if viewModel.qrImage != nil {
-                        ShareLink(item: Image(uiImage: viewModel.qrImage!), preview: SharePreview("QRコード", image: Image(uiImage: viewModel.qrImage!)))
+                    if let qrImage = viewModel.qrImage {
+                        ShareLink(item: Image(uiImage: qrImage), preview: SharePreview("QRコード", image: Image(uiImage: qrImage)))
                     }
                 }
             }
@@ -729,8 +805,10 @@ class JobQRCodeViewModel: ObservableObject {
             let response = try await api.getJobQRCode(jobId: jobId)
             checkInToken = response.token
             qrImage = generateQRCode(from: "\(jobId)|\(response.token)")
+            if qrImage == nil {
+                errorMessage = "QRコードの生成に失敗しました。再生成してください。"
+            }
         } catch {
-            qrImage = generateQRCode(from: jobId)
             errorMessage = "QRコードの取得に失敗しました。再生成してください。"
         }
         isLoading = false
@@ -904,8 +982,18 @@ struct JobCreateView: View {
     @State private var showImageValidationAlert = false
     @State private var imageValidationMessage = ""
 
+    // Video upload states
+    @State private var selectedVideoItem: PhotosPickerItem?
+    @State private var selectedVideoURL: URL?
+    @State private var videoThumbnail: UIImage?
+    @State private var isCompressingVideo = false
+    @State private var compressedVideoData: Data?
+    @State private var videoDuration: Double = 0
+    @State private var showVideoValidationAlert = false
+    @State private var videoValidationMessage = ""
+
     // Platform fee (fetched from backend, default 20%)
-    @State private var platformFeePercent: Double = 20.0
+    @State private var platformFeePercent: Double = 18.0
 
     var body: some View {
         NavigationStack {
@@ -1094,6 +1182,117 @@ struct JobCreateView: View {
                     }
                 }
 
+                // Video Upload Section
+                Section {
+                    if selectedVideoURL == nil {
+                        PhotosPicker(
+                            selection: $selectedVideoItem,
+                            matching: .videos
+                        ) {
+                            HStack {
+                                Image(systemName: "video.fill")
+                                Text("動画を追加")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.purple.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                    } else {
+                        VStack(spacing: 12) {
+                            // Video thumbnail preview
+                            ZStack {
+                                if let thumbnail = videoThumbnail {
+                                    Image(uiImage: thumbnail)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(height: 160)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                } else {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(height: 160)
+                                }
+
+                                // Play icon overlay
+                                Image(systemName: "play.circle.fill")
+                                    .font(.system(size: 44))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .shadow(radius: 4)
+
+                                // Duration badge
+                                if videoDuration > 0 {
+                                    VStack {
+                                        Spacer()
+                                        HStack {
+                                            Spacer()
+                                            Text(formatVideoDuration(videoDuration))
+                                                .font(.caption2)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.black.opacity(0.7))
+                                                .clipShape(Capsule())
+                                                .padding(8)
+                                        }
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+
+                            HStack {
+                                if isCompressingVideo {
+                                    HStack(spacing: 8) {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                        Text("動画を圧縮中...")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                } else if let data = compressedVideoData {
+                                    Text("サイズ: \(formatFileSize(data.count))")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                Button(action: {
+                                    selectedVideoItem = nil
+                                    selectedVideoURL = nil
+                                    videoThumbnail = nil
+                                    compressedVideoData = nil
+                                    videoDuration = 0
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "trash")
+                                        Text("削除")
+                                    }
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("動画（最大1本・60秒以内）")
+                } footer: {
+                    Text("職場の雰囲気が伝わる短い動画を追加すると、応募率がアップします")
+                        .font(.caption2)
+                }
+                .onChange(of: selectedVideoItem) { _, newItem in
+                    guard let newItem = newItem else { return }
+                    Task {
+                        await loadAndCompressVideo(item: newItem)
+                    }
+                }
+                .alert("動画エラー", isPresented: $showVideoValidationAlert) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text(videoValidationMessage)
+                }
+
                 Section("勤務地") {
                     Picker("都道府県", selection: $prefecture) {
                         Text("選択してください").tag("")
@@ -1240,10 +1439,10 @@ struct JobCreateView: View {
                             ? String(format: "%.0f", platformFeePercent)
                             : String(format: "%.1f", platformFeePercent)
 
-                        LabeledContent("労働者報酬", value: "¥\(workerPay.formatted())")
-                        LabeledContent("手数料（\(feeDisplay)%）", value: "¥\(fee.formatted())")
+                        LabeledContent("ワーカーへの報酬", value: "¥\(workerPay.formatted())")
+                        LabeledContent("プラットフォーム手数料（\(feeDisplay)%）", value: "¥\(fee.formatted())")
                             .foregroundColor(.orange)
-                        LabeledContent("1人あたり合計", value: "¥\(totalPerPerson.formatted())")
+                        LabeledContent("1人あたりお支払い額", value: "¥\(totalPerPerson.formatted())")
                             .fontWeight(.semibold)
                         if people > 1 {
                             LabeledContent("総額（\(people)名）", value: "¥\((totalPerPerson * people).formatted())")
@@ -1251,7 +1450,7 @@ struct JobCreateView: View {
                                 .foregroundColor(.blue)
                         }
 
-                        Text("※ 手数料はプラットフォーム利用料です")
+                        Text("※ プラットフォーム手数料\(feeDisplay)% + Stripe決済手数料3.6%が含まれます")
                             .font(.caption2)
                             .foregroundColor(.gray)
                     }
@@ -1399,6 +1598,12 @@ struct JobCreateView: View {
                     requirements = job.requirements ?? ""
                     benefits = job.benefits ?? ""
                 }
+                // バックエンドから手数料率を取得
+                Task {
+                    if let response = try? await APIClient.shared.getPlatformFeePercent() {
+                        platformFeePercent = response.platformFeePercent
+                    }
+                }
             }
         }
     }
@@ -1487,12 +1692,13 @@ struct JobCreateView: View {
                     startTime: startTime,
                     endTime: endTime,
                     requiredPeople: Int(requiredPeople) ?? 1,
-                    categories: selectedIndustry != nil ? [selectedIndustry!.rawValue] : nil,
+                    categories: selectedIndustry.map { [$0.rawValue] },
                     requirements: requirements.isEmpty ? nil : requirements,
                     benefits: benefits.isEmpty ? nil : benefits,
                     images: imageBase64Strings,
                     thumbnailIndex: thumbnailIndex,
-                    paymentType: paymentType.rawValue
+                    paymentType: paymentType.rawValue,
+                    videoBase64: compressedVideoData?.base64EncodedString()
                 )
                 onSuccess?()
                 dismiss()
@@ -1500,6 +1706,133 @@ struct JobCreateView: View {
                 errorMessage = error.localizedDescription
             }
             isLoading = false
+        }
+    }
+
+    // MARK: - Video Helpers
+
+    private func loadAndCompressVideo(item: PhotosPickerItem) async {
+        isCompressingVideo = true
+        selectedVideoURL = nil
+        videoThumbnail = nil
+        compressedVideoData = nil
+        videoDuration = 0
+
+        do {
+            guard let movie = try await item.loadTransferable(type: VideoTransferable.self) else {
+                videoValidationMessage = "動画の読み込みに失敗しました"
+                showVideoValidationAlert = true
+                isCompressingVideo = false
+                return
+            }
+
+            let url = movie.url
+            let asset = AVURLAsset(url: url)
+            let duration = try await asset.load(.duration)
+            let durationSeconds = CMTimeGetSeconds(duration)
+
+            // 60秒制限
+            if durationSeconds > 60 {
+                videoValidationMessage = "動画は60秒以内にしてください（現在: \(Int(durationSeconds))秒）"
+                showVideoValidationAlert = true
+                selectedVideoItem = nil
+                isCompressingVideo = false
+                return
+            }
+
+            videoDuration = durationSeconds
+
+            // サムネイル生成
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 400, height: 400)
+            if let cgImage = try? await generator.image(at: .zero).image {
+                videoThumbnail = UIImage(cgImage: cgImage)
+            }
+
+            selectedVideoURL = url
+
+            // 動画を圧縮 (720p, medium quality)
+            let compressedData = try await compressVideo(url: url)
+
+            // 50MB制限
+            let maxSize = 50 * 1024 * 1024
+            if compressedData.count > maxSize {
+                videoValidationMessage = "動画ファイルが大きすぎます（最大50MB）。より短い動画をお試しください。"
+                showVideoValidationAlert = true
+                selectedVideoItem = nil
+                selectedVideoURL = nil
+                videoThumbnail = nil
+                isCompressingVideo = false
+                return
+            }
+
+            compressedVideoData = compressedData
+        } catch {
+            videoValidationMessage = "動画の処理に失敗しました: \(error.localizedDescription)"
+            showVideoValidationAlert = true
+            selectedVideoItem = nil
+        }
+
+        isCompressingVideo = false
+    }
+
+    private func compressVideo(url: URL) async throws -> Data {
+        let asset = AVURLAsset(url: url)
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mp4")
+
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetMediumQuality) else {
+            return try Data(contentsOf: url)
+        }
+
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        exportSession.shouldOptimizeForNetworkUse = true
+
+        await exportSession.export()
+
+        guard exportSession.status == .completed else {
+            if let error = exportSession.error {
+                throw error
+            }
+            return try Data(contentsOf: url)
+        }
+
+        let data = try Data(contentsOf: outputURL)
+        try? FileManager.default.removeItem(at: outputURL)
+        return data
+    }
+
+    private func formatVideoDuration(_ seconds: Double) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+
+    private func formatFileSize(_ bytes: Int) -> String {
+        if bytes < 1024 * 1024 {
+            return String(format: "%.0f KB", Double(bytes) / 1024)
+        }
+        return String(format: "%.1f MB", Double(bytes) / (1024 * 1024))
+    }
+}
+
+// MARK: - Video Transferable
+
+struct VideoTransferable: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { video in
+            SentTransferredFile(video.url)
+        } importing: { received in
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension("mp4")
+            try FileManager.default.copyItem(at: received.file, to: tempURL)
+            return Self(url: tempURL)
         }
     }
 }
@@ -1583,20 +1916,21 @@ struct JobTemplateSelectionSheet: View {
                             }
                             .padding(.horizontal)
 
-                            HStack {
-                                Image(systemName: selectedIndustry!.icon)
-                                    .foregroundColor(.blue)
-                                Text(selectedIndustry!.rawValue)
-                                    .font(.headline)
-                            }
-                            .padding(.horizontal)
-
-                            Text("職種を選択")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                            if let industry = selectedIndustry {
+                                HStack {
+                                    Image(systemName: industry.icon)
+                                        .foregroundColor(.blue)
+                                    Text(industry.rawValue)
+                                        .font(.headline)
+                                }
                                 .padding(.horizontal)
 
-                            let roles = JobRole.roles(for: selectedIndustry!)
+                                Text("職種を選択")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal)
+
+                                let roles = JobRole.roles(for: industry)
                             ForEach(roles) { role in
                                 Button(action: { onSelect(role) }) {
                                     HStack {
@@ -1621,6 +1955,7 @@ struct JobTemplateSelectionSheet: View {
                                 }
                                 .buttonStyle(.plain)
                                 .padding(.horizontal)
+                            }
                             }
                         }
                     }
@@ -2245,7 +2580,7 @@ struct EmployerSettingsView: View {
                             Text("Byters for Business")
                                 .font(.caption)
                                 .foregroundColor(.gray)
-                            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                            Text("バージョン \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                                 .font(.caption2)
                                 .foregroundColor(.gray.opacity(0.7))
                         }
@@ -2313,13 +2648,7 @@ struct CompanyProfileEditView: View {
                                 .frame(width: 80, height: 80)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                         } else if let logoUrl = viewModel.logoUrl, let url = URL(string: logoUrl) {
-                            AsyncImage(url: url) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 80, height: 80)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                            } placeholder: {
+                            CachedAsyncImage(url: url) {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.blue.opacity(0.1))
                                     .frame(width: 80, height: 80)
@@ -2329,6 +2658,9 @@ struct CompanyProfileEditView: View {
                                             .foregroundColor(.blue)
                                     )
                             }
+                            .scaledToFill()
+                            .frame(width: 80, height: 80)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         } else {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.blue.opacity(0.1))
@@ -2419,11 +2751,21 @@ struct CompanyProfileEditView: View {
                 }
             }
 
+            if let error = viewModel.errorMessage {
+                Section {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                }
+            }
+
             Section {
                 Button(action: {
                     Task {
                         await viewModel.save()
-                        showingSaved = true
+                        if viewModel.errorMessage == nil {
+                            showingSaved = true
+                        }
                     }
                 }) {
                     if viewModel.isLoading {
@@ -2491,23 +2833,34 @@ class CompanyProfileViewModel: ObservableObject {
     func loadData() async {
         do {
             let profile = try await api.getEmployerProfile()
-            businessName = profile.businessName ?? ""
-            description = profile.description ?? ""
-            prefecture = profile.prefecture ?? ""
-            city = profile.city ?? ""
-            address = profile.address ?? ""
-            contactPhone = profile.contactPhone ?? ""
-            contactEmail = profile.contactEmail ?? ""
-            logoUrl = profile.logoUrl
+            applyProfile(profile)
+            CacheService.shared.save(profile, forKey: "employer_profile")
         } catch {
+            // オフライン時はキャッシュからロード
+            if let cached = CacheService.shared.load(EmployerProfile.self, forKey: "employer_profile", ttl: 60 * 60 * 24 * 7) {
+                applyProfile(cached)
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
 
+    private func applyProfile(_ profile: EmployerProfile) {
+        businessName = profile.displayName ?? ""
+        description = profile.description ?? ""
+        prefecture = profile.prefecture ?? ""
+        city = profile.city ?? ""
+        address = profile.address ?? ""
+        contactPhone = profile.displayPhone ?? ""
+        contactEmail = profile.displayEmail ?? ""
+        logoUrl = profile.logoUrl
+    }
+
     func save() async {
         isLoading = true
+        errorMessage = nil
         do {
-            _ = try await api.updateEmployerProfile(
+            let updatedProfile = try await api.updateEmployerProfile(
                 businessName: businessName.isEmpty ? nil : businessName,
                 description: description.isEmpty ? nil : description,
                 prefecture: prefecture.isEmpty ? nil : prefecture,
@@ -2516,8 +2869,14 @@ class CompanyProfileViewModel: ObservableObject {
                 contactPhone: contactPhone.isEmpty ? nil : contactPhone,
                 contactEmail: contactEmail.isEmpty ? nil : contactEmail
             )
+            // キャッシュを更新して再起動後も最新データを保持
+            CacheService.shared.save(updatedProfile, forKey: "employer_profile")
+            applyProfile(updatedProfile)
+            AnalyticsService.shared.track(AnalyticsService.eventProfileUpdated)
+        } catch let apiError as APIError {
+            errorMessage = apiError.localizedDescription
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "プロフィールの保存に失敗しました。通信状況を確認してもう一度お試しください。"
         }
         isLoading = false
     }
@@ -2528,6 +2887,7 @@ class CompanyProfileViewModel: ObservableObject {
 struct PaymentMethodsView: View {
     @StateObject private var viewModel = PaymentMethodsViewModel()
     @State private var showAddCard = false
+    @State private var showErrorAlert = false
 
     var body: some View {
         List {
@@ -2625,7 +2985,10 @@ struct PaymentMethodsView: View {
         .task {
             await viewModel.loadData()
         }
-        .alert("エラー", isPresented: .constant(viewModel.errorMessage != nil)) {
+        .onChange(of: viewModel.errorMessage) { _, newValue in
+            showErrorAlert = newValue != nil
+        }
+        .alert("エラー", isPresented: $showErrorAlert) {
             Button("OK") { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
@@ -4616,13 +4979,14 @@ struct ReliableWorkerRow: View {
 class ReliableWorkersViewModel: ObservableObject {
     @Published var workers: [ReliableWorker] = []
     @Published var isLoading = true
+    @Published var errorMessage: String?
 
     func loadData() async {
         isLoading = true
         do {
             workers = try await APIClient.shared.getReliableWorkers()
         } catch {
-            // Handle error
+            errorMessage = "データの読み込みに失敗しました"
         }
         isLoading = false
     }
@@ -4722,7 +5086,9 @@ struct ReinviteWorkerSheet: View {
             do {
                 let allJobs = try await APIClient.shared.getEmployerJobs()
                 jobs = allJobs.filter { $0.status == "active" || $0.status == "recruiting" }
-            } catch {}
+            } catch {
+                errorMessage = "求人情報の取得に失敗しました"
+            }
             isLoading = false
         }
     }
@@ -4785,7 +5151,7 @@ struct EmployerWriteReviewView: View {
                             Image(systemName: ratingType == "good" ? "hand.thumbsup.fill" : "hand.thumbsup")
                                 .font(.system(size: 40))
                                 .foregroundColor(ratingType == "good" ? .green : .gray)
-                            Text("Good")
+                            Text("良い")
                                 .font(.headline)
                                 .foregroundColor(ratingType == "good" ? .green : .gray)
                         }
@@ -4797,7 +5163,7 @@ struct EmployerWriteReviewView: View {
                             Image(systemName: ratingType == "bad" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
                                 .font(.system(size: 40))
                                 .foregroundColor(ratingType == "bad" ? .red : .gray)
-                            Text("Bad")
+                            Text("悪い")
                                 .font(.headline)
                                 .foregroundColor(ratingType == "bad" ? .red : .gray)
                         }
@@ -4945,16 +5311,20 @@ struct EmployerCheckoutPaymentView: View {
 
                     if let quote = quote {
                         Section("金額") {
-                            LabeledContent("報酬", value: "¥\(quote.amount.formatted())")
-                            LabeledContent("手数料", value: "¥\(quote.fee.formatted())")
+                            LabeledContent("ワーカーへの報酬", value: "¥\(quote.amount.formatted())")
+                            LabeledContent("プラットフォーム手数料", value: "¥\(quote.fee.formatted())")
+                                .foregroundColor(.orange)
                             HStack {
-                                Text("合計")
+                                Text("お支払い総額")
                                     .fontWeight(.bold)
                                 Spacer()
                                 Text("¥\(quote.total.formatted())")
                                     .fontWeight(.bold)
                                     .foregroundColor(.blue)
                             }
+                            Text("※ プラットフォーム手数料 + Stripe決済手数料3.6%が含まれます")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
                         }
                     }
 
@@ -5069,6 +5439,7 @@ struct ManualPaymentView: View {
     @State private var isProcessing = false
     @State private var errorMessage: String?
     @State private var paymentSuccess = false
+    @State private var platformFeePercent: Double = 18.0
     @Environment(\.dismiss) private var dismiss
 
     private var workedHours: Double { timesheet.calculatedWorkedHours }
@@ -5160,13 +5531,35 @@ struct ManualPaymentView: View {
                             LabeledContent("残業代", value: "¥\(overtimePay.formatted())")
                         }
                         HStack {
-                            Text("合計")
-                                .fontWeight(.bold)
+                            Text("ワーカーへの支払い")
+                                .fontWeight(.semibold)
                             Spacer()
                             Text("¥\(totalAmount.formatted())")
+                                .fontWeight(.semibold)
+                        }
+
+                        let feeRate = platformFeePercent / 100.0
+                        let platformFee = Int(Double(totalAmount) * feeRate)
+                        let grandTotal = totalAmount + platformFee
+                        let feeDisplay = platformFeePercent.truncatingRemainder(dividingBy: 1) == 0
+                            ? String(format: "%.0f", platformFeePercent)
+                            : String(format: "%.1f", platformFeePercent)
+
+                        LabeledContent("手数料（\(feeDisplay)%）", value: "¥\(platformFee.formatted())")
+                            .foregroundColor(.orange)
+
+                        HStack {
+                            Text("お支払い総額")
+                                .fontWeight(.bold)
+                            Spacer()
+                            Text("¥\(grandTotal.formatted())")
                                 .fontWeight(.bold)
                                 .foregroundColor(.blue)
                         }
+
+                        Text("※ プラットフォーム手数料\(feeDisplay)% + Stripe決済手数料3.6%が含まれます")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
                     }
 
                     Section("お支払い方法") {
@@ -5200,7 +5593,7 @@ struct ManualPaymentView: View {
                                 ProgressView()
                                     .frame(maxWidth: .infinity)
                             } else {
-                                Text("精算を実行する（¥\(totalAmount.formatted())）")
+                                Text("精算を実行する")
                                     .fontWeight(.semibold)
                                     .frame(maxWidth: .infinity)
                             }
@@ -5220,7 +5613,14 @@ struct ManualPaymentView: View {
     private func loadPaymentMethods() async {
         isLoading = true
         do {
-            paymentMethods = try await APIClient.shared.getPaymentMethods()
+            async let methodsResult = APIClient.shared.getPaymentMethods()
+            async let feeResult = APIClient.shared.getPlatformFeePercent()
+
+            paymentMethods = try await methodsResult
+            if let response = try? await feeResult {
+                platformFeePercent = response.platformFeePercent
+            }
+
             if let defaultMethod = paymentMethods.first(where: { $0.isDefault == true }) {
                 selectedMethodId = defaultMethod.id
             } else {

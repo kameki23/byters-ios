@@ -35,6 +35,24 @@ struct BadgesView: View {
                             BadgeSection(title: "獲得済みバッジ", badges: viewModel.earnedBadges, isEarned: true)
                         }
 
+                        // Skill Certification Badges
+                        if !viewModel.skillBadges.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Image(systemName: "checkmark.seal.fill")
+                                        .foregroundColor(.blue)
+                                    Text("認定バッジ")
+                                        .font(.headline)
+                                }
+
+                                Text("事業者から業務スキルを認定されると獲得できます。認定バッジを持つと、高時給の限定求人に応募できるようになります。")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                BadgeSection(title: "", badges: viewModel.skillBadges, isEarned: true)
+                            }
+                        }
+
                         // Unearned Badges
                         if !viewModel.unearnedBadges.isEmpty {
                             BadgeSection(title: "未獲得バッジ", badges: viewModel.unearnedBadges, isEarned: false)
@@ -206,6 +224,7 @@ class BadgesViewModel: ObservableObject {
     @Published var allBadges: [Badge] = []
     @Published var earnedBadges: [Badge] = []
     @Published var unearnedBadges: [Badge] = []
+    @Published var skillBadges: [Badge] = []
     @Published var isLoading = true
     @Published var loadError: String?
 
@@ -217,12 +236,11 @@ class BadgesViewModel: ObservableObject {
         do {
             let result = try await api.getBadges()
             allBadges = result
-            earnedBadges = result.filter { $0.earnedAt != nil }
-            unearnedBadges = result.filter { $0.earnedAt == nil }
+            earnedBadges = result.filter { $0.earnedAt != nil && !$0.type.hasPrefix("skill_") }
+            unearnedBadges = result.filter { $0.earnedAt == nil && !$0.type.hasPrefix("skill_") }
+            skillBadges = result.filter { $0.type.hasPrefix("skill_") && $0.earnedAt != nil }
         } catch {
-            loadError = "バッジの読み込みに失敗しました"
-            allBadges = Badge.defaultBadges
-            unearnedBadges = allBadges
+            loadError = "バッジの読み込みに失敗しました。再度お試しください。"
         }
         isLoading = false
     }
@@ -247,5 +265,19 @@ struct Badge: Codable, Identifiable {
         Badge(id: "7", type: "early_bird", name: "早起き", description: "朝のシフトを10回完了", earnedAt: nil),
         Badge(id: "8", type: "night_owl", name: "夜型", description: "夜のシフトを10回完了", earnedAt: nil),
         Badge(id: "9", type: "reliable", name: "信頼の証", description: "連続10回定時チェックイン", earnedAt: nil),
+    ]
+
+    // Skill certification badges (awarded by employers)
+    static let skillBadges: [Badge] = [
+        Badge(id: "s1", type: "skill_hall", name: "ホール認定", description: "事業者からホール業務の認定を獲得", earnedAt: nil),
+        Badge(id: "s2", type: "skill_kitchen", name: "キッチン認定", description: "事業者から調理補助の認定を獲得", earnedAt: nil),
+        Badge(id: "s3", type: "skill_dishwash", name: "洗い場認定", description: "事業者から洗い場業務の認定を獲得", earnedAt: nil),
+        Badge(id: "s4", type: "skill_cashier", name: "レジ認定", description: "事業者からレジ業務の認定を獲得", earnedAt: nil),
+        Badge(id: "s5", type: "skill_cleaning", name: "清掃認定", description: "事業者から清掃業務の認定を獲得", earnedAt: nil),
+        Badge(id: "s6", type: "skill_sorting", name: "仕分け認定", description: "事業者から仕分け業務の認定を獲得", earnedAt: nil),
+        Badge(id: "s7", type: "skill_picking", name: "ピッキング認定", description: "事業者からピッキング業務の認定を獲得", earnedAt: nil),
+        Badge(id: "s8", type: "skill_packing", name: "梱包認定", description: "事業者から梱包業務の認定を獲得", earnedAt: nil),
+        Badge(id: "s9", type: "skill_event", name: "イベント認定", description: "事業者からイベント業務の認定を獲得", earnedAt: nil),
+        Badge(id: "s10", type: "skill_frontdesk", name: "フロント認定", description: "事業者からフロント業務の認定を獲得", earnedAt: nil),
     ]
 }

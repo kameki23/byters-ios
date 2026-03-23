@@ -1,0 +1,698 @@
+/*
+  Localizable.strings (Vietnamese)
+  Byters
+
+  Vietnamese localization for Byters iOS app.
+*/
+
+// =============================================================================
+// MARK: - Common Actions
+// =============================================================================
+
+"common.ok" = "OK";
+"common.cancel" = "Hủy";
+"common.close" = "Đóng";
+"common.save" = "Lưu";
+"common.delete" = "Xóa";
+"common.edit" = "Chỉnh sửa";
+"common.retry" = "Thử lại";
+"common.send" = "Gửi";
+"common.confirm" = "Xác nhận";
+"common.back" = "Quay lại";
+"common.next" = "Tiếp theo";
+"common.skip" = "Bỏ qua";
+"common.done" = "Hoàn tất";
+"common.apply" = "Áp dụng";
+"common.search" = "Tìm kiếm";
+"common.filter" = "Bộ lọc";
+"common.sort" = "Sắp xếp";
+"common.all" = "Tất cả";
+"common.none" = "Không chỉ định";
+"common.loading" = "Đang tải...";
+"common.seeAll" = "Xem tất cả";
+"common.openSettings" = "Mở Cài đặt";
+"common.continueAction" = "Tiếp tục";
+
+// =============================================================================
+// MARK: - Auth / Login
+// =============================================================================
+
+"auth.login" = "Đăng nhập";
+"auth.register" = "Đăng ký";
+"auth.logout" = "Đăng xuất";
+"auth.password" = "Mật khẩu";
+"auth.email" = "Địa chỉ email";
+"auth.authenticating" = "Đang xác thực...";
+"auth.adminLogin" = "Đăng nhập quản trị viên";
+"auth.adminOnly" = "Trang này chỉ dành cho quản trị viên";
+"auth.credentials" = "Thông tin xác thực";
+"auth.forgotPassword" = "Quên mật khẩu?";
+"auth.passwordReset" = "Đặt lại mật khẩu";
+"auth.passwordResetDescription" = "Chúng tôi sẽ gửi liên kết đặt lại mật khẩu đến email đã đăng ký của bạn";
+"auth.sendResetEmail" = "Gửi email đặt lại";
+"auth.resetEmailSent" = "Email đặt lại đã được gửi. Vui lòng kiểm tra hộp thư.";
+"auth.resetEmailFailed" = "Gửi thất bại. Vui lòng kiểm tra lại địa chỉ email.";
+"auth.adminAuthFailed" = "Xác thực quản trị viên thất bại";
+"auth.getStarted" = "Bắt đầu với Byters";
+"auth.selectTypeAndLogin" = "Chọn loại tài khoản và đăng nhập";
+"auth.selectAccountType" = "Chọn loại tài khoản";
+"auth.selectTypeDescription" = "Vui lòng chọn theo mục đích sử dụng của bạn";
+"auth.termsRequired" = "Bạn cần đồng ý với điều khoản sử dụng để đăng nhập";
+"auth.agreeToTerms" = "Tôi đồng ý với";
+"auth.and" = "và";
+
+// Social Login
+"auth.social.continueWithLine" = "Tiếp tục với LINE";
+"auth.social.continueWithApple" = "Tiếp tục với Apple";
+"auth.social.continueWithGoogle" = "Tiếp tục với Google";
+"auth.social.lineOneTap" = "Đăng ký nhanh chỉ một chạm";
+"auth.social.appleLogin" = "Đăng nhập bằng Apple ID";
+"auth.social.googleLogin" = "Đăng nhập bằng tài khoản Google";
+
+// User Type
+"auth.userType.wantToWork" = "Tôi muốn làm việc";
+"auth.userType.jobSeeker" = "Người tìm việc";
+"auth.userType.jobSeekerDescription" = "Không cần CV, ứng tuyển ngay lập tức";
+"auth.userType.wantToHire" = "Tôi muốn tuyển dụng";
+"auth.userType.employer" = "Nhà tuyển dụng";
+"auth.userType.employerDescription" = "Đăng tin tuyển dụng và thuê nhân viên chỉ trong 3 phút";
+
+// =============================================================================
+// MARK: - Tab Titles (Job Seeker)
+// =============================================================================
+
+"tab.home" = "Trang chủ";
+"tab.search" = "Tìm kiếm";
+"tab.work" = "Công việc";
+"tab.chat" = "Trò chuyện";
+"tab.mypage" = "Trang cá nhân";
+
+// Tab Accessibility
+"tab.home.accessibility" = "Tab Trang chủ";
+"tab.search.accessibility" = "Tab Tìm việc";
+"tab.work.accessibility" = "Tab Công việc";
+"tab.chat.accessibility" = "Tab Trò chuyện";
+"tab.mypage.accessibility" = "Tab Trang cá nhân";
+
+// =============================================================================
+// MARK: - Tab Titles (Employer)
+// =============================================================================
+
+"tab.employer.dashboard" = "Bảng điều khiển";
+"tab.employer.jobManagement" = "Quản lý việc làm";
+"tab.employer.applicants" = "Ứng viên";
+"tab.employer.messages" = "Tin nhắn";
+"tab.employer.settings" = "Cài đặt";
+
+// =============================================================================
+// MARK: - Tab Titles (Admin)
+// =============================================================================
+
+"tab.admin.dashboard" = "Bảng điều khiển";
+"tab.admin.users" = "Người dùng";
+"tab.admin.jobs" = "Việc làm";
+"tab.admin.notifications" = "Thông báo";
+"tab.admin.settings" = "Cài đặt";
+
+// =============================================================================
+// MARK: - Home View
+// =============================================================================
+
+"home.title" = "Trang chủ";
+"home.todayJobs" = "Việc làm có thể làm hôm nay";
+"home.featuredJobs" = "Việc làm gợi ý";
+"home.highWageJobs" = "Việc làm lương cao";
+"home.recentApplications" = "Đơn ứng tuyển gần đây";
+"home.monthlySummary" = "Tổng kết tháng này";
+"home.completeProfile" = "Hoàn thiện hồ sơ của bạn";
+"home.notSet" = "Chưa thiết lập";
+"home.noJobs" = "Không có việc làm";
+"home.noJobsMessage" = "Vui lòng chờ việc làm mới được đăng tải";
+"home.jobsLoadFailed" = "Tải việc làm thất bại";
+
+// Quick Stats
+"home.stats.applying" = "Đang ứng tuyển";
+"home.stats.scheduled" = "Đã lên lịch";
+"home.stats.balance" = "Số dư";
+
+// Monthly Summary
+"home.summary.income" = "Thu nhập";
+"home.summary.jobs" = "Công việc";
+"home.summary.hours" = "Giờ làm";
+"home.summary.completionRate" = "Tỷ lệ hoàn thành";
+
+// Categories
+"home.categories" = "Tìm theo danh mục";
+"home.category.food" = "Ẩm thực";
+"home.category.lightWork" = "Việc nhẹ";
+"home.category.event" = "Sự kiện";
+"home.category.office" = "Văn phòng";
+"home.category.sales" = "Bán hàng";
+"home.category.cleaning" = "Vệ sinh";
+"home.category.delivery" = "Giao hàng";
+"home.category.care" = "Chăm sóc";
+
+// Worker Score
+"home.workerScore.completed" = "Đã hoàn thành %d việc";
+"home.workerScore.reliability" = "Độ tin cậy %d";
+"home.workerScore.nextRank" = "Còn %d việc nữa để lên hạng";
+
+// =============================================================================
+// MARK: - Job Search
+// =============================================================================
+
+"search.title" = "Tìm việc làm";
+"search.keyword" = "Tìm theo từ khóa";
+"search.resultCount" = "%d việc làm";
+"search.clearFilters" = "Xóa bộ lọc";
+"search.noResults" = "Không tìm thấy việc làm";
+"search.noResultsMessage" = "Vui lòng thay đổi điều kiện tìm kiếm";
+"search.searchFailed" = "Tìm kiếm thất bại";
+"search.favorites" = "Danh sách yêu thích";
+
+// Date Filters
+"search.filter.today" = "Hôm nay";
+"search.filter.tomorrow" = "Ngày mai";
+"search.filter.thisWeek" = "Tuần này";
+"search.filter.area" = "Khu vực";
+"search.filter.wage" = "Lương theo giờ";
+"search.filter.category" = "Danh mục";
+"search.filter.workDate" = "Ngày làm việc";
+
+// Sort Options
+"search.sort.newest" = "Mới nhất";
+"search.sort.wageHigh" = "Lương cao nhất trước";
+"search.sort.wageLow" = "Lương thấp nhất trước";
+"search.sort.dateNearest" = "Ngày gần nhất trước";
+"search.sort.wageHighShort" = "Lương cao nhất";
+"search.sort.wageLowShort" = "Lương thấp nhất";
+"search.sort.dateNearestShort" = "Ngày gần nhất";
+
+// Filter Sheet
+"search.filterSheet.title" = "Bộ lọc";
+"search.filterSheet.area" = "Khu vực";
+"search.filterSheet.prefecture" = "Tỉnh/Thành phố";
+"search.filterSheet.allAreas" = "Tất cả";
+"search.filterSheet.nearMe" = "Tìm gần đây";
+"search.filterSheet.getLocation" = "Lấy vị trí hiện tại";
+"search.filterSheet.distance" = "Khoảng cách";
+"search.filterSheet.hourlyWage" = "Lương theo giờ";
+"search.filterSheet.minWage" = "Lương tối thiểu";
+"search.filterSheet.category" = "Danh mục";
+"search.filterSheet.allCategories" = "Tất cả";
+"search.filterSheet.workDate" = "Ngày làm việc";
+
+// Wage Ranges
+"search.wage.any" = "Không chỉ định";
+
+// Distance
+"search.distance.any" = "Không chỉ định";
+"search.distance.within5km" = "Trong vòng 5 km";
+"search.distance.within10km" = "Trong vòng 10 km";
+"search.distance.within20km" = "Trong vòng 20 km";
+"search.distance.within30km" = "Trong vòng 30 km";
+"search.location.failed" = "Không thể lấy thông tin vị trí";
+
+// =============================================================================
+// MARK: - Job Detail
+// =============================================================================
+
+"jobDetail.loading" = "Đang tải thông tin việc làm...";
+"jobDetail.loadFailed" = "Tải thông tin việc làm thất bại";
+"jobDetail.notFound" = "Không tìm thấy việc làm";
+"jobDetail.salary" = "Mức lương";
+"jobDetail.workDate" = "Ngày làm việc";
+"jobDetail.time" = "Thời gian";
+"jobDetail.remainingSlots" = "Chỗ còn trống";
+"jobDetail.tbd" = "Chưa xác định";
+"jobDetail.location" = "Địa điểm làm việc";
+"jobDetail.viewOnMap" = "Xem trên bản đồ";
+"jobDetail.description" = "Mô tả công việc";
+"jobDetail.noDescription" = "Chưa có thông tin chi tiết";
+"jobDetail.requirements" = "Điều kiện ứng tuyển";
+"jobDetail.benefits" = "Đãi ngộ và phúc lợi";
+"jobDetail.reviews" = "Đánh giá";
+"jobDetail.allReviews" = "Tất cả đánh giá";
+"jobDetail.seeAllReviews" = "Xem tất cả đánh giá";
+"jobDetail.noReviews" = "Chưa có đánh giá";
+"jobDetail.employerRating" = "Đánh giá nhà tuyển dụng %d%%";
+"jobDetail.shareText" = "%@ - Tìm việc làm ngắn hạn trên Byters!";
+"jobDetail.addToFavorites" = "Thêm vào yêu thích";
+"jobDetail.removeFromFavorites" = "Xóa khỏi yêu thích";
+
+// Eligibility
+"jobDetail.eligible" = "Đủ điều kiện ứng tuyển";
+"jobDetail.notEligible" = "Chưa đáp ứng điều kiện ứng tuyển";
+"jobDetail.eligibilityCheckFailed" = "Kiểm tra điều kiện ứng tuyển thất bại";
+
+// Apply
+"jobDetail.apply" = "Ứng tuyển việc làm này";
+"jobDetail.applied" = "Đã ứng tuyển";
+"jobDetail.notEligibleButton" = "Chưa đáp ứng điều kiện";
+"jobDetail.cannotApply" = "Không thể ứng tuyển";
+"jobDetail.completeProfile" = "Vui lòng hoàn thiện hồ sơ";
+"jobDetail.completeProfileMessage" = "Để ứng tuyển việc làm, vui lòng đăng ký tên của bạn tại Trang cá nhân.";
+"jobDetail.applyMessage" = "Lời nhắn ứng tuyển (Tùy chọn)";
+"jobDetail.applyConfirm" = "Xác nhận ứng tuyển";
+"jobDetail.applySubmit" = "Gửi đơn ứng tuyển";
+"jobDetail.applyFailed" = "Ứng tuyển thất bại";
+
+// Job Status Labels
+"jobDetail.recruitmentClosed" = "Đã đóng tuyển dụng";
+"jobDetail.remainingPeople" = "Còn %d chỗ";
+"jobDetail.remainingPeopleAlt" = "Còn lại %d chỗ";
+"jobDetail.applicants" = "%d người đã ứng tuyển";
+
+// =============================================================================
+// MARK: - Job Related
+// =============================================================================
+
+"job.job" = "Việc làm";
+"job.application" = "Đơn ứng tuyển";
+"job.hourlyWage" = "Lương theo giờ";
+"job.dailyWage" = "Lương theo ngày";
+"job.workLocation" = "Địa điểm làm việc";
+"job.companyName" = "Tên công ty";
+"job.negotiable" = "Thương lượng";
+"job.perHour" = "/giờ";
+"job.perDay" = "/ngày";
+
+// Job Status
+"job.status.active" = "Đang tuyển";
+"job.status.draft" = "Bản nháp";
+"job.status.closed" = "Đã đóng";
+"job.status.expired" = "Đã hết hạn";
+"job.status.pending" = "Đang xét duyệt";
+
+// Application Status
+"job.applicationStatus.pending" = "Đang xét duyệt";
+"job.applicationStatus.accepted" = "Đã chấp nhận";
+"job.applicationStatus.rejected" = "Không được chấp nhận";
+"job.applicationStatus.completed" = "Đã hoàn thành";
+
+// Perk Tags (displayed as-is from model)
+"job.perk.transportation" = "Hỗ trợ đi lại";
+"job.perk.meal" = "Bao ăn";
+"job.perk.beginner" = "Chào đón người mới";
+
+// Date Display
+"job.date.today" = "Hôm nay";
+"job.date.tomorrow" = "Ngày mai";
+
+// =============================================================================
+// MARK: - Work View
+// =============================================================================
+
+"work.title" = "Công việc";
+"work.qrCheckIn" = "Chấm công bằng mã QR";
+"work.qrCheckInAccessibility" = "Quét mã QR để chấm công";
+"work.currentlyWorking" = "Đang làm việc";
+"work.upcomingWork" = "Công việc sắp tới";
+"work.noUpcoming" = "Không có lịch";
+"work.noUpcomingMessage" = "Các công việc đã được chấp nhận sẽ hiển thị ở đây";
+"work.history" = "Lịch sử công việc";
+"work.noHistory" = "Chưa có lịch sử";
+"work.elapsedTime" = "Thời gian đã làm";
+"work.estimatedEarnings" = "Thu nhập dự kiến";
+
+// Check In / Out
+"work.checkIn" = "Chấm công vào";
+"work.checkOut" = "Chấm công ra";
+"work.checkInProcessing" = "Đang chấm công...";
+"work.checkOutProcessing" = "Đang xử lý chấm công ra và thanh toán...";
+"work.checkInSuccess" = "Chấm công thành công!";
+"work.checkInFailed" = "Chấm công thất bại";
+"work.checkOutFailed" = "Chấm công ra thất bại";
+"work.checkOutConfirm" = "Bạn muốn kết thúc ca làm?";
+"work.checkOutConfirmDetail" = "Bạn muốn kết thúc ca làm?\n\nThời gian đã làm: %d giờ %d phút\nThu nhập dự kiến: ¥%@";
+"work.workComplete" = "Bạn đã làm tốt lắm!";
+"work.writeReview" = "Viết đánh giá";
+"work.reviewRequest" = "Vui lòng đánh giá nhà tuyển dụng";
+"work.canCheckIn" = "Có thể chấm công";
+"work.untilStart" = "Còn lại trước khi bắt đầu";
+"work.pastStartTime" = "Đã qua giờ bắt đầu";
+"work.minutesRemaining" = "Còn %d phút";
+"work.hoursMinutesRemaining" = "Còn %d giờ %d phút";
+"work.daysRemaining" = "Còn %d ngày";
+
+// Cancel Application
+"work.cancelApplication" = "Hủy đơn ứng tuyển";
+"work.cancelApplicationConfirm" = "Bạn có chắc muốn hủy đơn ứng tuyển này?\nHủy trong ngày có thể bị phạt.";
+"work.cancelApplicationButton" = "Hủy";
+"work.cancelSuccess" = "Đã hủy đơn ứng tuyển";
+"work.cancelFailed" = "Hủy thất bại";
+
+// QR Scanner
+"work.qrScan" = "Quét mã QR";
+"work.qrScanTitle" = "Quét mã QR";
+"work.qrScanDescription" = "Vui lòng dùng camera quét mã QR tại nơi làm việc";
+"work.manualEntry" = "Nhập thủ công";
+"work.manualEntryTitle" = "Nhập mã thủ công";
+"work.checkInCode" = "Mã chấm công";
+"work.cameraAccessRequired" = "Cần quyền truy cập camera";
+"work.cameraAccessDescription" = "Vui lòng cho phép truy cập camera để quét mã QR";
+
+// Location
+"work.locationDisabled" = "Dịch vụ vị trí đã tắt";
+"work.locationDisabledMessage" = "Quyền truy cập vị trí đã bị tắt. Vui lòng bật trong Cài đặt để chấm công chính xác.";
+
+// =============================================================================
+// MARK: - Chat
+// =============================================================================
+
+"chat.title" = "Trò chuyện";
+"chat.noMessages" = "Không có tin nhắn";
+"chat.noMessagesDescription" = "Cuộc trò chuyện sẽ bắt đầu khi bạn ứng tuyển việc làm";
+"chat.inputPlaceholder" = "Nhập tin nhắn";
+"chat.fileSendFailed" = "Gửi tệp thất bại";
+"chat.comingSoon" = "Sắp ra mắt";
+"chat.callComingSoon" = "Tính năng gọi thoại sẽ sớm ra mắt.";
+
+// =============================================================================
+// MARK: - Wallet
+// =============================================================================
+
+"wallet.title" = "Ví";
+"wallet.balance" = "Số dư";
+"wallet.withdrawal" = "Yêu cầu rút tiền";
+"wallet.bankAccount" = "Tài khoản ngân hàng";
+"wallet.transactionHistory" = "Lịch sử giao dịch";
+"wallet.taxDocuments" = "Chứng từ thuế";
+
+// =============================================================================
+// MARK: - My Page
+// =============================================================================
+
+"mypage.title" = "Trang cá nhân";
+"mypage.user" = "Người dùng";
+
+// Wallet Section
+"mypage.wallet" = "Ví";
+"mypage.wallet.balance" = "Số dư";
+"mypage.wallet.bankAccount" = "Tài khoản ngân hàng";
+"mypage.wallet.withdrawal" = "Yêu cầu rút tiền";
+"mypage.wallet.transactions" = "Lịch sử giao dịch";
+"mypage.wallet.taxDocuments" = "Chứng từ thuế";
+
+// Work Section
+"mypage.work" = "Công việc";
+"mypage.work.upcoming" = "Công việc sắp tới";
+"mypage.work.applicationHistory" = "Lịch sử ứng tuyển";
+"mypage.work.workHistory" = "Lịch sử công việc";
+"mypage.work.favoriteJobs" = "Việc làm yêu thích";
+"mypage.work.favoriteEmployers" = "Nhà tuyển dụng yêu thích";
+"mypage.work.writeReview" = "Viết đánh giá";
+"mypage.work.reviewHistory" = "Lịch sử đánh giá";
+
+// Growth Section
+"mypage.growth" = "Phát triển kỹ năng";
+"mypage.growth.workerRank" = "Hạng người lao động và độ tin cậy";
+"mypage.growth.penaltyHistory" = "Lịch sử vi phạm";
+"mypage.growth.monthlyReport" = "Báo cáo tháng";
+"mypage.growth.earningsGoal" = "Mục tiêu thu nhập";
+"mypage.growth.qualifications" = "Bằng cấp và chứng chỉ";
+"mypage.growth.badges" = "Huy hiệu";
+
+// Account Section
+"mypage.account" = "Tài khoản";
+"mypage.account.editProfile" = "Chỉnh sửa hồ sơ";
+"mypage.account.identityVerification" = "Xác minh danh tính";
+"mypage.account.timesheetAdjustment" = "Điều chỉnh bảng chấm công";
+"mypage.account.changePassword" = "Đổi mật khẩu";
+
+// Settings Section
+"mypage.settings" = "Cài đặt";
+"mypage.settings.notificationList" = "Danh sách thông báo";
+"mypage.settings.notificationSettings" = "Cài đặt thông báo";
+"mypage.settings.emailSettings" = "Cài đặt email";
+"mypage.settings.areaSettings" = "Cài đặt khu vực";
+"mypage.settings.appearance" = "Giao diện";
+"mypage.settings.muteManagement" = "Quản lý tắt tiếng";
+
+// Support Section
+"mypage.support" = "Hỗ trợ";
+"mypage.support.faq" = "Câu hỏi thường gặp";
+"mypage.support.contact" = "Liên hệ";
+"mypage.support.bugReport" = "Báo lỗi / Yêu cầu tính năng";
+"mypage.support.feedbackHistory" = "Lịch sử phản hồi";
+
+// Legal Section
+"mypage.legal" = "Pháp lý";
+"mypage.legal.terms" = "Điều khoản sử dụng";
+"mypage.legal.privacy" = "Chính sách bảo mật";
+
+// Profile
+"mypage.profile.name" = "Họ tên";
+"mypage.profile.phone" = "Số điện thoại";
+"mypage.profile.bio" = "Giới thiệu bản thân";
+"mypage.profile.prefecture" = "Tỉnh/Thành phố";
+"mypage.profile.profileImage" = "Ảnh đại diện";
+"mypage.profile.identityVerification" = "Xác minh danh tính";
+"mypage.profile.identityVerified" = "Đã xác minh danh tính";
+"mypage.profile.completionRate" = "Mức hoàn thiện hồ sơ";
+"mypage.profile.notSet" = "Chưa thiết lập";
+
+// Identity Verification Status
+"mypage.identity.pending" = "Đang xét duyệt";
+"mypage.identity.approved" = "Đã xác minh";
+"mypage.identity.rejected" = "Bị từ chối";
+"mypage.identity.notSubmitted" = "Chưa nộp";
+
+// Account Deletion
+"mypage.deleteAccount" = "Xóa tài khoản";
+"mypage.deleteAccountTitle" = "Xóa tài khoản";
+"mypage.deleteAccountMessage" = "Xóa tài khoản sẽ xóa vĩnh viễn tất cả dữ liệu và không thể hoàn tác. Bạn có chắc chắn không?";
+"mypage.deleteAccountFinalTitle" = "Xác nhận lần cuối";
+"mypage.deleteAccountFinalMessage" = "Hành động này không thể hoàn tác. Tất cả dữ liệu liên quan đến tài khoản (lịch sử ứng tuyển, ví, trò chuyện, v.v.) sẽ bị xóa.";
+"mypage.deleteAccountConfirm" = "Xóa";
+"mypage.deleteAccountFinalConfirm" = "Xóa vĩnh viễn";
+
+// =============================================================================
+// MARK: - Favorites
+// =============================================================================
+
+"favorites.title" = "Yêu thích";
+"favorites.noFavorites" = "Chưa có mục yêu thích";
+"favorites.addHint" = "Nhấn vào biểu tượng trái tim trên việc làm\nđể thêm vào danh sách yêu thích";
+
+// =============================================================================
+// MARK: - Settings (Appearance)
+// =============================================================================
+
+"settings.appearance.title" = "Giao diện";
+"settings.appearance.theme" = "Chủ đề";
+"settings.appearance.system" = "Theo hệ thống";
+"settings.appearance.light" = "Chế độ sáng";
+"settings.appearance.dark" = "Chế độ tối";
+"settings.appearance.systemDescription" = "Chọn \"Theo hệ thống\" để tự động chuyển đổi theo cài đặt iPhone của bạn.";
+"settings.appearance.mode" = "Chế độ giao diện";
+
+// =============================================================================
+// MARK: - Settings (Notifications)
+// =============================================================================
+
+"settings.notifications.work" = "Liên quan đến công việc";
+"settings.notifications.recommendedJobs" = "Việc làm gợi ý";
+"settings.notifications.applicationUpdates" = "Cập nhật đơn ứng tuyển";
+"settings.notifications.workReminder" = "Nhắc nhở công việc";
+"settings.notifications.messages" = "Tin nhắn";
+"settings.notifications.chatMessages" = "Tin nhắn trò chuyện";
+"settings.notifications.other" = "Khác";
+"settings.notifications.marketing" = "Ưu đãi và khuyến mãi";
+
+// =============================================================================
+// MARK: - Employer Views
+// =============================================================================
+
+"employer.dashboard" = "Bảng điều khiển";
+"employer.stats.active" = "Đang đăng";
+"employer.stats.applicants" = "Ứng viên";
+"employer.stats.monthlyHires" = "Tuyển dụng tháng này";
+"employer.stats.rating" = "Đánh giá";
+"employer.pendingApplications" = "Có %d đơn ứng tuyển chờ xử lý";
+"employer.quickActions" = "Thao tác nhanh";
+"employer.createJob" = "Tạo việc làm";
+"employer.checkApplications" = "Xem đơn ứng tuyển";
+"employer.templates" = "Mẫu";
+"employer.bulkApproval" = "Duyệt chấm công hàng loạt";
+"employer.reliableWorkers" = "Danh sách người lao động đáng tin cậy";
+"employer.recentJobs" = "Việc làm gần đây";
+"employer.noJobs" = "Chưa có việc làm";
+
+// =============================================================================
+// MARK: - Admin Views
+// =============================================================================
+
+"admin.dashboard" = "Trang quản trị";
+"admin.overview" = "Tổng quan";
+"admin.totalUsers" = "Tổng số người dùng";
+"admin.totalJobs" = "Số lượng việc làm";
+"admin.monthlyRevenue" = "Doanh thu tháng này";
+"admin.pendingWithdrawals" = "Yêu cầu rút tiền chờ xử lý";
+"admin.pendingIdentity" = "Chờ xác minh danh tính";
+"admin.monthlyNewUsers" = "Người dùng mới tháng này";
+"admin.quickActions" = "Thao tác nhanh";
+"admin.withdrawalProcessing" = "Xử lý rút tiền";
+"admin.identityVerification" = "Xác minh danh tính";
+"admin.jobReview" = "Duyệt việc làm";
+"admin.recentActivity" = "Hoạt động gần đây";
+"admin.noActivity" = "Không có hoạt động";
+
+// =============================================================================
+// MARK: - Error Messages
+// =============================================================================
+
+"error.title" = "Lỗi";
+"error.generic" = "Đã xảy ra lỗi";
+"error.networkError" = "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.";
+"error.serverError" = "Lỗi máy chủ: %@";
+"error.authFailed" = "Xác thực thất bại. Vui lòng thử lại.";
+"error.loginFailed" = "Đăng nhập thất bại: %@";
+"error.loginFailedWithCode" = "Đăng nhập thất bại (%d)";
+"error.authError" = "Lỗi xác thực: %@";
+"error.authStartFailed" = "Không thể bắt đầu xác thực";
+"error.authPreparationFailed" = "Chuẩn bị xác thực thất bại: %@";
+"error.authProcessingFailed" = "Đã xảy ra lỗi trong quá trình xác thực";
+"error.authCodeFailed" = "Không thể lấy mã xác thực";
+"error.userInfoFailed" = "Lấy thông tin người dùng thất bại";
+"error.screenFailed" = "Không thể tải màn hình";
+"error.urlError" = "Lỗi URL";
+"error.unknownError" = "Lỗi không xác định";
+"error.serverErrorWithCode" = "Lỗi máy chủ (%d): %@";
+
+// =============================================================================
+// MARK: - App Subtitle
+// =============================================================================
+
+"app.subtitle" = "Kết nối việc làm ngắn hạn";
+
+// =============================================================================
+// MARK: - Withholding Tax
+// =============================================================================
+
+"tax.title" = "Thông báo thuế khấu trừ";
+"tax.description" = "Thuế khấu trừ được áp dụng vì thu nhập hôm nay vượt quá ¥9.800.";
+"tax.grossEarnings" = "Tổng thu nhập";
+"tax.taxableAmount" = "Số tiền chịu thuế";
+"tax.withholdingTax" = "Thuế khấu trừ (3,102%)";
+"tax.netEarnings" = "Thu nhập ròng";
+"tax.confirmed" = "Đã xác nhận";
+"tax.info.threshold" = "Không đánh thuế nếu thu nhập hàng ngày dưới ¥9.800";
+"tax.info.download" = "Chứng nhận thuế có sẵn từ Trang cá nhân";
+"tax.info.refund" = "Bạn có thể được hoàn thuế khi khai thuế";
+"tax.detail" = "Xem chi tiết thuế khấu trừ";
+
+// =============================================================================
+// MARK: - Schedule Conflict
+// =============================================================================
+
+"conflict.title" = "Xung đột lịch trình";
+"conflict.warning" = "Kiểm tra lịch trình";
+"conflict.overlap" = "Thời gian trùng với ca làm hiện có";
+"conflict.tooClose" = "Khoảng cách giữa các ca ít hơn 1 giờ (lưu ý thời gian di chuyển)";
+"conflict.sameDay" = "Bạn có ca làm khác trong cùng ngày";
+"conflict.blocked" = "Không thể ứng tuyển — thời gian xung đột với ca làm hiện có.";
+"conflict.proceedAnyway" = "Vẫn ứng tuyển";
+
+// =============================================================================
+// MARK: - Mandatory Review
+// =============================================================================
+
+"review.mandatory.title" = "Vui lòng viết đánh giá";
+"review.mandatory.description" = "Bạn có %d đánh giá chưa hoàn thành.\nHoàn thành để ứng tuyển công việc mới.";
+"review.mandatory.blocked" = "Vui lòng hoàn thành đánh giá trước";
+"review.mandatory.blockedMessage" = "Bạn có %d đánh giá chưa hoàn thành. Hoàn thành để mở khóa ứng tuyển.";
+"review.writeNow" = "Viết đánh giá";
+"review.later" = "Để sau";
+
+// =============================================================================
+// MARK: - Bulk Message
+// =============================================================================
+
+"bulkMessage.title" = "Tin nhắn hàng loạt";
+"bulkMessage.recipients" = "Người nhận";
+"bulkMessage.selectAll" = "Chọn tất cả";
+"bulkMessage.workers" = "%d người lao động";
+"bulkMessage.templates" = "Mẫu";
+"bulkMessage.message" = "Tin nhắn";
+"bulkMessage.send" = "Gửi cho %d người";
+"bulkMessage.charLimit" = "%d/500";
+
+// =============================================================================
+// MARK: - CSV Export
+// =============================================================================
+
+"export.title" = "Xuất dữ liệu";
+"export.type" = "Loại xuất";
+"export.attendance" = "Dữ liệu chấm công";
+"export.payment" = "Dữ liệu thanh toán";
+"export.workers" = "Danh sách người lao động";
+"export.period" = "Khoảng thời gian";
+"export.startDate" = "Ngày bắt đầu";
+"export.endDate" = "Ngày kết thúc";
+"export.thisMonth" = "Tháng này";
+"export.lastMonth" = "Tháng trước";
+"export.threeMonths" = "3 tháng";
+"export.doExport" = "Xuất CSV";
+"export.success" = "Xuất dữ liệu thành công";
+
+// =============================================================================
+// MARK: - Job Alert
+// =============================================================================
+
+"jobAlert.title" = "Cài đặt thông báo việc làm";
+"jobAlert.keyword" = "Từ khóa";
+"jobAlert.keywordPlaceholder" = "VD: Quán cà phê, Nhà bếp";
+"jobAlert.wage" = "Lương theo giờ";
+"jobAlert.timeRange" = "Khung giờ";
+"jobAlert.morning" = "Sáng";
+"jobAlert.afternoon" = "Chiều";
+"jobAlert.evening" = "Tối";
+"jobAlert.night" = "Đêm";
+"jobAlert.dayOfWeek" = "Ngày trong tuần";
+"jobAlert.notification" = "Thông báo";
+"jobAlert.enable" = "Bật thông báo";
+"jobAlert.save" = "Lưu";
+
+// =============================================================================
+// MARK: - Saved Search
+// =============================================================================
+
+"savedSearch.title" = "Tìm kiếm đã lưu";
+"savedSearch.empty" = "Chưa có tìm kiếm nào được lưu";
+"savedSearch.hint" = "Lưu bộ lọc tìm kiếm từ màn hình tìm việc";
+"savedSearch.results" = "%d kết quả";
+
+// =============================================================================
+// MARK: - Photo Check-in
+// =============================================================================
+
+"photoCheckin.title" = "Ảnh chấm công";
+"photoCheckin.description" = "Chụp ảnh tại nơi làm việc để xác nhận đã đến.";
+"photoCheckin.take" = "Chụp ảnh";
+"photoCheckin.retake" = "Chụp lại";
+"photoCheckin.confirm" = "Xác nhận ảnh";
+"photoCheckin.skip" = "Bỏ qua";
+
+// =============================================================================
+// MARK: - Cancellation Policy
+// =============================================================================
+
+"cancellation.title" = "Chính sách hủy";
+"cancellation.72h" = "Trước 72 giờ trở lên";
+"cancellation.24h" = "Trước 24-72 giờ";
+"cancellation.6h" = "Trước 6-24 giờ";
+"cancellation.0h" = "Dưới 6 giờ";
+"cancellation.noPenalty" = "Không phạt";
+"cancellation.warning" = "Cảnh báo";
+"cancellation.mildPenalty" = "Phạt nhẹ";
+"cancellation.severePenalty" = "Phạt nặng";
+"cancellation.noShowWarning" = "Vắng mặt không báo ảnh hưởng lớn đến điểm tin cậy";
+
+// =============================================================================
+// MARK: - Employer Features
+// =============================================================================
+
+"employer.bulkMessage" = "Tin nhắn hàng loạt";
+"employer.dataExport" = "Xuất dữ liệu";
+"employer.dataManagement" = "Quản lý dữ liệu";

@@ -81,6 +81,20 @@ class SocialAuthService {
         let config = GIDConfiguration(clientID: clientID)
         GIDSignIn.sharedInstance.configuration = config
 
+        // まず以前のGoogleセッションをサイレント復元を試みる
+        if let user = try? await GIDSignIn.sharedInstance.restorePreviousSignIn(),
+           let idToken = user.idToken?.tokenString {
+            return SocialAuthResult(
+                provider: .google,
+                idToken: idToken,
+                accessToken: nil,
+                identityToken: nil,
+                name: user.profile?.name,
+                email: user.profile?.email
+            )
+        }
+
+        // セッションがない場合はアカウントピッカーを表示（ワンタップ）
         do {
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presentingVC)
             guard let idToken = result.user.idToken?.tokenString else {
@@ -137,7 +151,7 @@ class SocialAuthService {
                     ))
 
                 case .failure(let error):
-                    if case .responseFailed(reason: .userCancelled) = error {
+                    if case .authorizeFailed(reason: .userCancelled) = error {
                         continuation.resume(throwing: SocialAuthError.cancelled)
                     } else {
                         continuation.resume(throwing: SocialAuthError.sdkError(error))
@@ -205,6 +219,7 @@ class SocialAuthService {
 
     func signOut() {
         GIDSignIn.sharedInstance.signOut()
+        LoginManager.shared.logout { _ in }
     }
 }
 

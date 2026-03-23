@@ -8,6 +8,7 @@ struct AuthView: View {
     @State private var isLoading = false
     @State private var showUserTypeSelection = true
     @State private var errorMessage: String?
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     // Secret admin access
     @State private var logoTapCount = 0
@@ -25,54 +26,40 @@ struct AuthView: View {
             .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 30) {
+                VStack(spacing: verticalSizeClass == .compact ? 16 : 30) {
                     // Logo - Secret admin access (tap 7 times)
-                    VStack(spacing: 12) {
+                    VStack(spacing: verticalSizeClass == .compact ? 6 : 12) {
                         Image(systemName: "briefcase.fill")
-                            .font(.system(size: 60))
+                            .font(.system(size: verticalSizeClass == .compact ? 36 : 60))
                             .foregroundColor(.white)
 
                         Text("Byters")
-                            .font(.system(size: 36, weight: .bold))
+                            .font(.system(size: verticalSizeClass == .compact ? 24 : 36, weight: .bold))
                             .foregroundColor(.white)
 
-                        Text("短期アルバイトマッチング")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.8))
+                        if verticalSizeClass != .compact {
+                            Text("短期アルバイトマッチング")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
                     }
-                    .padding(.top, 60)
+                    .padding(.top, verticalSizeClass == .compact ? 20 : 60)
                     .onTapGesture {
                         handleSecretTap()
                     }
 
-                    Spacer(minLength: 20)
+                    Spacer(minLength: verticalSizeClass == .compact ? 8 : 20)
 
-                    // Auth Card
+                    // Auth Card - unified: type selection + social login
                     VStack(spacing: 24) {
-                        if showUserTypeSelection {
-                            UserTypeSelectionView(
-                                selectedType: $selectedUserType,
-                                onContinue: {
-                                    withAnimation {
-                                        showUserTypeSelection = false
-                                    }
-                                }
-                            )
-                        } else {
-                            SocialLoginView(
-                                userType: selectedUserType,
-                                isLoading: $isLoading,
-                                errorMessage: $errorMessage,
-                                onBack: {
-                                    withAnimation {
-                                        showUserTypeSelection = true
-                                        errorMessage = nil
-                                    }
-                                }
-                            )
-                            .environmentObject(authManager)
-                            .environmentObject(appState)
-                        }
+                        SocialLoginView(
+                            userType: selectedUserType,
+                            selectedUserType: $selectedUserType,
+                            isLoading: $isLoading,
+                            errorMessage: $errorMessage
+                        )
+                        .environmentObject(authManager)
+                        .environmentObject(appState)
                     }
                     .padding(24)
                     .background(Color(.systemBackground))
@@ -166,9 +153,23 @@ struct SecretAdminLoginView: View {
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .autocorrectionDisabled()
+                        .submitLabel(.done)
+
+                    if let emailErr = ValidationHelper.emailError(email) {
+                        Text(emailErr)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
 
                     SecureField("パスワード", text: $password)
                         .textContentType(.password)
+                        .submitLabel(.done)
+
+                    if let passErr = ValidationHelper.passwordError(password) {
+                        Text(passErr)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
 
                 if let error = errorMessage {
@@ -200,7 +201,7 @@ struct SecretAdminLoginView: View {
                             }
                         }
                     }
-                    .disabled(email.isEmpty || password.isEmpty || isLoading)
+                    .disabled(!ValidationHelper.isValidEmail(email) || !ValidationHelper.isValidPassword(password) || isLoading)
                 }
 
                 Section {
@@ -212,6 +213,7 @@ struct SecretAdminLoginView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -237,10 +239,14 @@ struct SecretAdminLoginView: View {
 
                 await MainActor.run {
                     KeychainHelper.save(key: "auth_token", value: response.accessToken)
+                    APIClient.shared.invalidateTokenCache()
                     KeychainHelper.save(key: "is_admin", value: "true")
+                    authManager.setActiveUserType(.admin)
                     authManager.currentUser = response.user
                     authManager.isAuthenticated = true
-                    appState.onLoginSuccess()
+                    authManager.cacheCurrentUser()
+                    authManager.markLoginSuccess()
+                    appState.onLoginSuccess(userType: .admin)
                     isLoading = false
                     dismiss()
                 }
@@ -371,47 +377,65 @@ struct SocialLoginView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var appState: AppState
     let userType: UserType
+    @Binding var selectedUserType: UserType
     @Binding var isLoading: Bool
     @Binding var errorMessage: String?
-    let onBack: () -> Void
 
     @State private var webAuthSession: ASWebAuthenticationSession?
-    @State private var agreedToTerms = false
     @State private var showTerms = false
     @State private var showPrivacy = false
+    @State private var agreedToTerms = false
+    @State private var errorDismissTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 20) {
-            HStack {
-                Button(action: onBack) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                        Text("戻る")
-                    }
-                    .foregroundColor(.gray)
-                    .font(.subheadline)
-                }
-                Spacer()
-            }
-
             VStack(spacing: 8) {
-                Text(userType == .jobSeeker ? "求職者として始める" : "事業者として始める")
+                Text("Bytersを始める")
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("アカウントを作成またはログイン")
+                Text("アカウントタイプを選んでログイン")
                     .font(.subheadline)
                     .foregroundColor(.gray)
             }
+
+            // User Type Selector (inline toggle)
+            HStack(spacing: 0) {
+                Button(action: { withAnimation { selectedUserType = .jobSeeker } }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.title3)
+                        Text("働きたい")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(selectedUserType == .jobSeeker ? Color.blue : Color.clear)
+                    .foregroundColor(selectedUserType == .jobSeeker ? .white : .gray)
+                }
+
+                Button(action: { withAnimation { selectedUserType = .employer } }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "building.2.fill")
+                            .font(.title3)
+                        Text("募集したい")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(selectedUserType == .employer ? Color.green : Color.clear)
+                    .foregroundColor(selectedUserType == .employer ? .white : .gray)
+                }
+            }
+            .background(Color.gray.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             VStack(spacing: 12) {
                 // LINE Login Button - Primary
                 Button(action: {
-                    if agreedToTerms {
-                        startNativeAuth(provider: .line)
-                    } else {
-                        errorMessage = "利用規約とプライバシーポリシーに同意してください"
-                    }
+                    startNativeAuth(provider: .line)
                 }) {
                     HStack(spacing: 12) {
                         Image(systemName: "message.fill")
@@ -433,51 +457,13 @@ struct SocialLoginView: View {
                     .background(Color(red: 0, green: 0.72, blue: 0))
                     .foregroundColor(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .opacity(agreedToTerms ? 1.0 : 0.5)
                 }
                 .accessibilityLabel("LINEでログイン")
-                .accessibilityHint(agreedToTerms ? "LINEアカウントでログインします" : "先に利用規約に同意してください")
-
-                // Apple Sign In Button
-                Button(action: {
-                    if agreedToTerms {
-                        startNativeAuth(provider: .apple)
-                    } else {
-                        errorMessage = "利用規約とプライバシーポリシーに同意してください"
-                    }
-                }) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "apple.logo")
-                            .font(.title2)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Appleで続ける")
-                                .fontWeight(.semibold)
-                            Text("Apple IDでログイン")
-                                .font(.caption)
-                                .opacity(0.7)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .padding(.horizontal, 20)
-                    .background(Color.black)
-                    .foregroundColor(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .opacity(agreedToTerms ? 1.0 : 0.5)
-                }
-                .accessibilityLabel("Appleでログイン")
-                .accessibilityHint(agreedToTerms ? "Apple IDでログインします" : "先に利用規約に同意してください")
+                .accessibilityHint("LINEアカウントでログインします")
 
                 // Google Login Button
                 Button(action: {
-                    if agreedToTerms {
-                        startNativeAuth(provider: .google)
-                    } else {
-                        errorMessage = "利用規約とプライバシーポリシーに同意してください"
-                    }
+                    startNativeAuth(provider: .google)
                 }) {
                     HStack(spacing: 12) {
                         ZStack {
@@ -509,11 +495,41 @@ struct SocialLoginView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                     )
-                    .opacity(agreedToTerms ? 1.0 : 0.5)
                 }
                 .accessibilityLabel("Googleでログイン")
-                .accessibilityHint(agreedToTerms ? "Googleアカウントでログインします" : "先に利用規約に同意してください")
+                .accessibilityHint("Googleアカウントでログインします")
+
+                // Apple Sign In Button
+                Button(action: {
+                    startNativeAuth(provider: .apple)
+                }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "apple.logo")
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Appleで続ける")
+                                .fontWeight(.semibold)
+                            Text("Apple IDでログイン")
+                                .font(.caption)
+                                .opacity(0.7)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 20)
+                    .background(Color.black)
+                    .foregroundColor(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .accessibilityLabel("Appleでログイン")
+                .accessibilityHint("Apple IDでログインします")
+
             }
+            .disabled(!agreedToTerms || isLoading)
+            .opacity(agreedToTerms ? 1.0 : 0.5)
 
             if let error = errorMessage {
                 HStack {
@@ -522,41 +538,53 @@ struct SocialLoginView: View {
                     Text(error)
                         .font(.caption)
                         .foregroundColor(.red)
+                    Spacer()
+                    Button(action: { errorMessage = nil }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                    }
                 }
                 .padding()
                 .background(Color.red.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .transition(.opacity)
             }
 
             // Terms Agreement
             VStack(spacing: 8) {
-                HStack(alignment: .top, spacing: 8) {
-                    Button(action: { agreedToTerms.toggle() }) {
+                Button(action: { agreedToTerms.toggle() }) {
+                    HStack(alignment: .top, spacing: 8) {
                         Image(systemName: agreedToTerms ? "checkmark.square.fill" : "square")
                             .foregroundColor(agreedToTerms ? .blue : .gray)
                             .font(.title3)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) {
-                            Button(action: { showTerms = true }) {
-                                Text("利用規約")
-                                    .underline()
-                                    .foregroundColor(.blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Button(action: { showTerms = true }) {
+                                    Text("利用規約")
+                                        .underline()
+                                        .foregroundColor(.blue)
+                                }
+                                Text("と")
+                                    .foregroundColor(.gray)
+                                Button(action: { showPrivacy = true }) {
+                                    Text("プライバシーポリシー")
+                                        .underline()
+                                        .foregroundColor(.blue)
+                                }
                             }
-                            Text("と")
-                                .foregroundColor(.gray)
-                            Button(action: { showPrivacy = true }) {
-                                Text("プライバシーポリシー")
-                                    .underline()
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        .font(.caption)
-                        Text("に同意します")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            Text("に同意します")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
                     }
+                }
+                .buttonStyle(.plain)
+
+                if !agreedToTerms {
+                    Text("まず利用規約にチェックを入れてソーシャルボタンを押してください")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
                 }
             }
             .padding(.top, 8)
@@ -583,6 +611,35 @@ struct SocialLoginView: View {
         }
     }
 
+    // MARK: - 共通ログイン完了処理
+
+    private func completeLogin(with loginResponse: LoginResponse, provider: SocialAuthProvider) {
+        KeychainHelper.save(key: "auth_token", value: loginResponse.accessToken)
+        APIClient.shared.invalidateTokenCache()
+        authManager.markAsSocialLogin()
+        authManager.setActiveUserType(selectedUserType)
+        UserDefaults.standard.set(selectedUserType.rawValue, forKey: "cached_user_type")
+        authManager.currentUser = loginResponse.user
+        authManager.isAuthenticated = true
+        authManager.cacheCurrentUser()
+        authManager.markLoginSuccess()
+        AnalyticsService.shared.track(AnalyticsService.eventLoginSuccess, properties: ["provider": provider.rawValue])
+        appState.onLoginSuccess(userType: selectedUserType)
+        isLoading = false
+    }
+
+    /// エラーメッセージを表示し、5秒後に自動消去する
+    private func showError(_ message: String) {
+        errorMessage = message
+        errorDismissTask?.cancel()
+        errorDismissTask = Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            if !Task.isCancelled {
+                withAnimation { errorMessage = nil }
+            }
+        }
+    }
+
     // MARK: - Native SDK Auth
 
     private func startNativeAuth(provider: SocialAuthProvider) {
@@ -597,7 +654,7 @@ struct SocialLoginView: View {
                 case .google:
                     guard let vc = getPresentingViewController() else {
                         isLoading = false
-                        errorMessage = "画面の取得に失敗しました"
+                        showError("画面の取得に失敗しました")
                         return
                     }
                     result = try await SocialAuthService.shared.signInWithGoogle(presentingVC: vc)
@@ -605,7 +662,7 @@ struct SocialLoginView: View {
                 case .line:
                     guard let vc = getPresentingViewController() else {
                         isLoading = false
-                        errorMessage = "画面の取得に失敗しました"
+                        showError("画面の取得に失敗しました")
                         return
                     }
                     result = try await SocialAuthService.shared.signInWithLINE(presentingVC: vc)
@@ -640,39 +697,39 @@ struct SocialLoginView: View {
                     )
                 }
 
-                KeychainHelper.save(key: "auth_token", value: loginResponse.accessToken)
-                authManager.currentUser = loginResponse.user
-                authManager.isAuthenticated = true
-                appState.onLoginSuccess()
-                isLoading = false
+                completeLogin(with: loginResponse, provider: provider)
 
             } catch let error as SocialAuthError {
-                isLoading = false
                 switch error {
                 case .cancelled:
+                    isLoading = false
                     break // User cancelled - no error message
-                case .notConfigured:
-                    // Fallback to web-based OAuth (Apple has no web fallback)
-                    if provider != .apple {
-                        fallbackToWebAuth(provider: provider)
-                    } else {
-                        errorMessage = error.errorDescription
-                    }
+                case .notConfigured where provider == .line:
+                    fallbackToWebAuth(provider: provider)
+                case .sdkError where provider == .line:
+                    fallbackToWebAuth(provider: provider)
                 default:
-                    // For SDK errors on Google/LINE, try web fallback
-                    if provider != .apple {
-                        fallbackToWebAuth(provider: provider)
-                    } else {
-                        errorMessage = error.errorDescription
+                    isLoading = false
+                    if let desc = error.errorDescription {
+                        showError(desc)
                     }
+                }
+            } catch let error as APIError {
+                isLoading = false
+                AnalyticsService.shared.track(AnalyticsService.eventLoginFailed, properties: ["provider": provider.rawValue, "error": error.localizedDescription])
+                switch error {
+                case .networkError:
+                    showError("サーバーに接続できません。ネットワークを確認してください。")
+                case .serverError(let message):
+                    showError("サーバーエラー: \(message)")
+                case .unauthorized:
+                    showError("認証に失敗しました。もう一度お試しください。")
+                default:
+                    showError("ログインに失敗しました: \(error.errorDescription ?? "不明なエラー")")
                 }
             } catch {
                 isLoading = false
-                if provider != .apple {
-                    fallbackToWebAuth(provider: provider)
-                } else {
-                    errorMessage = "認証に失敗しました: \(error.localizedDescription)"
-                }
+                showError("認証に失敗しました: \(error.localizedDescription)")
             }
         }
     }
@@ -765,73 +822,55 @@ struct SocialLoginView: View {
     }
 
     private func handleOAuthCallback(callbackURL: URL?, error: Error?, provider: String) {
-        if let error = error {
-            DispatchQueue.main.async {
+        Task { @MainActor in
+            if let error = error {
                 isLoading = false
                 let nsError = error as NSError
-                if nsError.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
-                    // User cancelled - no error message needed
-                } else {
-                    errorMessage = "認証エラー: \(error.localizedDescription)"
+                if nsError.code != ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                    showError("認証エラー: \(error.localizedDescription)")
                 }
+                return
             }
-            return
-        }
 
-        guard let callbackURL = callbackURL else {
-            DispatchQueue.main.async {
+            guard let callbackURL = callbackURL else {
                 isLoading = false
-                errorMessage = "認証に失敗しました"
+                showError("認証に失敗しました")
+                return
             }
-            return
-        }
 
-        let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
+            let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
 
-        if let errorParam = components?.queryItems?.first(where: { $0.name == "error" })?.value {
-            let message = components?.queryItems?.first(where: { $0.name == "message" })?.value ?? errorParam
-            DispatchQueue.main.async {
+            if let errorParam = components?.queryItems?.first(where: { $0.name == "error" })?.value {
+                let message = components?.queryItems?.first(where: { $0.name == "message" })?.value ?? errorParam
                 isLoading = false
-                errorMessage = "認証エラー: \(message)"
+                showError("認証エラー: \(message)")
+                return
             }
-            return
-        }
 
-        if let token = components?.queryItems?.first(where: { $0.name == "token" })?.value {
-            completeLoginWithToken(token)
-            return
-        }
+            if let token = components?.queryItems?.first(where: { $0.name == "token" })?.value {
+                completeLoginWithToken(token)
+                return
+            }
 
-        if let code = components?.queryItems?.first(where: { $0.name == "code" })?.value {
-            Task {
+            if let code = components?.queryItems?.first(where: { $0.name == "code" })?.value {
                 await exchangeCodeForToken(provider: provider, code: code)
+                return
             }
-            return
-        }
 
-        DispatchQueue.main.async {
             isLoading = false
-            errorMessage = "認証コードを取得できませんでした"
+            showError("認証コードを取得できませんでした")
         }
     }
 
     private func completeLoginWithToken(_ token: String) {
-        Task {
+        Task { @MainActor in
             do {
                 let user = try await fetchUserWithToken(token)
-
-                await MainActor.run {
-                    KeychainHelper.save(key: "auth_token", value: token)
-                    authManager.currentUser = user
-                    authManager.isAuthenticated = true
-                    appState.onLoginSuccess()
-                    isLoading = false
-                }
+                let response = LoginResponse(accessToken: token, user: user)
+                completeLogin(with: response, provider: .google)
             } catch {
-                await MainActor.run {
-                    isLoading = false
-                    errorMessage = "ユーザー情報の取得に失敗しました"
-                }
+                isLoading = false
+                showError("ユーザー情報の取得に失敗しました")
             }
         }
     }
@@ -852,13 +891,12 @@ struct SocialLoginView: View {
         return try decoder.decode(User.self, from: data)
     }
 
+    @MainActor
     private func exchangeCodeForToken(provider: String, code: String) async {
         let baseURL = StripeConfig.apiBaseURL
         guard let url = URL(string: "\(baseURL)/auth/mobile/\(provider)/callback") else {
-            await MainActor.run {
-                isLoading = false
-                errorMessage = "URLエラー"
-            }
+            isLoading = false
+            showError("URLエラー")
             return
         }
 
@@ -883,32 +921,19 @@ struct SocialLoginView: View {
                 let decoder = JSONDecoder()
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
                 let loginResponse = try decoder.decode(LoginResponse.self, from: data)
-
-                await MainActor.run {
-                    KeychainHelper.save(key: "auth_token", value: loginResponse.accessToken)
-                    authManager.currentUser = loginResponse.user
-                    authManager.isAuthenticated = true
-                    appState.onLoginSuccess()
-                    isLoading = false
-                }
+                let socialProvider = SocialAuthProvider(rawValue: provider) ?? .google
+                completeLogin(with: loginResponse, provider: socialProvider)
             } else {
+                isLoading = false
                 if let errorData = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                    await MainActor.run {
-                        isLoading = false
-                        errorMessage = errorData.detail
-                    }
+                    showError(errorData.detail)
                 } else {
-                    await MainActor.run {
-                        isLoading = false
-                        errorMessage = "ログインに失敗しました（\(httpResponse.statusCode)）"
-                    }
+                    showError("ログインに失敗しました（\(httpResponse.statusCode)）")
                 }
             }
         } catch {
-            await MainActor.run {
-                isLoading = false
-                errorMessage = "認証処理中にエラーが発生しました"
-            }
+            isLoading = false
+            showError("認証処理中にエラーが発生しました")
         }
     }
 }
@@ -950,6 +975,13 @@ struct PasswordResetView: View {
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .autocorrectionDisabled()
+                        .submitLabel(.done)
+
+                    if let emailErr = ValidationHelper.emailError(email) {
+                        Text(emailErr)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
 
                 if let success = successMessage {
@@ -993,9 +1025,10 @@ struct PasswordResetView: View {
                             }
                         }
                     }
-                    .disabled(email.isEmpty || isLoading)
+                    .disabled(!ValidationHelper.isValidEmail(email) || isLoading)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1056,3 +1089,4 @@ struct ErrorResponse: Codable {
         .environmentObject(AuthManager.shared)
         .environmentObject(AppState())
 }
+

@@ -18,18 +18,42 @@ enum APIError: Error, LocalizedError {
     case offline
     case rateLimited
     case maintenance
+    case timeout
 
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "無効なURLです"
         case .noData: return "データがありません"
-        case .decodingError: return "データの解析に失敗しました"
+        case .decodingError: return "データの読み込みに失敗しました。アプリを最新版にアップデートしてください。"
         case .serverError(let message): return message
-        case .unauthorized: return "認証が必要です"
-        case .networkError(let error): return error.localizedDescription
-        case .offline: return "オフラインです。ネットワーク接続を確認してください。"
-        case .rateLimited: return "リクエストが多すぎます。しばらくしてからお試しください。"
-        case .maintenance: return "現在メンテナンス中です。しばらくお待ちください。"
+        case .unauthorized: return "ログインの有効期限が切れました。再度ログインしてください。"
+        case .networkError: return "通信エラーが発生しました。電波状況を確認して、もう一度お試しください。"
+        case .offline: return "インターネットに接続されていません。Wi-Fiまたはモバイルデータ通信をオンにしてください。"
+        case .rateLimited: return "リクエストが集中しています。1分ほどお待ちいただき、再度お試しください。"
+        case .maintenance: return "ただいまメンテナンス中です。終了までしばらくお待ちください。"
+        case .timeout: return "サーバーからの応答がありません。しばらくしてからもう一度お試しください。"
+        }
+    }
+
+    /// ユーザーが取れるアクション
+    var recoverySuggestion: String? {
+        switch self {
+        case .unauthorized: return "ログイン画面に戻ります"
+        case .networkError, .offline: return "接続を確認してリトライしてください"
+        case .rateLimited: return "しばらくお待ちください"
+        case .timeout: return "リトライボタンを押してください"
+        case .decodingError: return "App Storeで最新版を確認してください"
+        default: return nil
+        }
+    }
+
+    /// リトライ可能かどうか
+    var isRetryable: Bool {
+        switch self {
+        case .networkError, .offline, .rateLimited, .timeout, .serverError:
+            return true
+        case .invalidURL, .noData, .decodingError, .unauthorized, .maintenance:
+            return false
         }
     }
 }
@@ -41,14 +65,41 @@ class APIClient {
     private let maxRetries = 2
     private let session: URLSession
 
+    /// Cached auth token to avoid repeated Keychain reads (IPC overhead)
+    private var _cachedToken: String?
+    private var _tokenCacheTime: Date?
+
     private var token: String? {
-        KeychainHelper.load(key: "auth_token")
+        // Re-read from Keychain at most every 5 minutes
+        if let cached = _cachedToken, let cacheTime = _tokenCacheTime,
+           Date().timeIntervalSince(cacheTime) < 300 {
+            return cached
+        }
+        let loaded = KeychainHelper.load(key: "auth_token")
+        _cachedToken = loaded
+        _tokenCacheTime = Date()
+        return loaded
     }
+
+    /// Call this when the token changes (login/logout) to invalidate cache
+    func invalidateTokenCache() {
+        _cachedToken = nil
+        _tokenCacheTime = nil
+    }
+
+    /// Reusable decoder to avoid repeated allocation
+    private let snakeCaseDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return decoder
+    }()
 
     private init() {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = 60
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 30
+        config.urlCache = URLCache(memoryCapacity: 10 * 1024 * 1024, diskCapacity: 50 * 1024 * 1024)
+        config.requestCachePolicy = .useProtocolCachePolicy
         session = URLSession(configuration: config)
     }
 
@@ -64,12 +115,9 @@ class APIClient {
         endpoint: String,
         method: String = "GET",
         body: [String: Any]? = nil,
-        requiresAuth: Bool = true
+        requiresAuth: Bool = true,
+        idempotencyKey: String? = nil
     ) async throws -> T {
-        guard await NetworkMonitor.shared.isConnected else {
-            throw APIError.offline
-        }
-
         guard let url = URL(string: "\(baseURL)\(endpoint)") else {
             throw APIError.invalidURL
         }
@@ -82,11 +130,16 @@ class APIClient {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
+        if let idempotencyKey = idempotencyKey {
+            request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+        }
+
         if let body = body {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
 
-        let isIdempotent = method == "GET" || method == "HEAD"
+        // べき等キー付きPOSTもリトライ安全とみなす
+        let isSafeToRetry = method == "GET" || method == "HEAD" || idempotencyKey != nil
         var lastError: Error = APIError.noData
 
         for attempt in 0...maxRetries {
@@ -125,33 +178,49 @@ class APIClient {
                     throw APIError.maintenance
                 }
 
-                if httpResponse.statusCode >= 500 && isIdempotent && attempt < maxRetries {
+                if httpResponse.statusCode >= 500 && isSafeToRetry && attempt < maxRetries {
                     lastError = APIError.serverError("サーバーエラー: \(httpResponse.statusCode)")
                     continue
                 }
 
+                if httpResponse.statusCode == 409 {
+                    // 競合エラー（重複応募など）を専用メッセージで返す
+                    if let errorResponse = try? snakeCaseDecoder.decode(ErrorResponse.self, from: data) {
+                        throw APIError.serverError(errorResponse.detail)
+                    }
+                    throw APIError.serverError("この操作は既に処理されています")
+                }
+
                 if httpResponse.statusCode >= 400 {
-                    if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                    if let errorResponse = try? snakeCaseDecoder.decode(ErrorResponse.self, from: data) {
                         throw APIError.serverError(errorResponse.detail)
                     }
                     throw APIError.serverError("サーバーエラー: \(httpResponse.statusCode)")
                 }
 
-                let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .convertFromSnakeCase
-
-                return try decoder.decode(T.self, from: data)
+                do {
+                    return try snakeCaseDecoder.decode(T.self, from: data)
+                } catch {
+                    #if DEBUG
+                    let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
+                    print("[API] Decoding \(T.self) failed: \(error)\nResponse: \(preview)")
+                    #endif
+                    throw APIError.decodingError
+                }
             } catch let error as APIError {
                 if case .unauthorized = error { throw error }
                 if case .maintenance = error { throw error }
                 lastError = error
-                if !isIdempotent || attempt >= maxRetries { throw error }
+                if !isSafeToRetry || attempt >= maxRetries { throw error }
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                lastError = APIError.networkError(error)
-                if !isIdempotent || attempt >= maxRetries {
-                    throw APIError.networkError(error)
+                // Check if truly offline at time of failure
+                let isOffline = await !NetworkMonitor.shared.isConnected
+                let apiError: APIError = isOffline ? .offline : .networkError(error)
+                lastError = apiError
+                if !isSafeToRetry || attempt >= maxRetries {
+                    throw apiError
                 }
             }
         }
@@ -196,15 +265,13 @@ class APIClient {
         }
 
         if httpResponse.statusCode >= 400 {
-            if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+            if let errorResponse = try? snakeCaseDecoder.decode(ErrorResponse.self, from: data) {
                 throw APIError.serverError(errorResponse.detail)
             }
             throw APIError.serverError("アップロードに失敗しました: \(httpResponse.statusCode)")
         }
 
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode(SimpleResponse.self, from: data)
+        return try snakeCaseDecoder.decode(SimpleResponse.self, from: data)
     }
 
     // MARK: - Auth Endpoints
@@ -242,7 +309,17 @@ class APIClient {
     }
 
     func getCurrentUser() async throws -> User {
-        return try await request(endpoint: "/auth/me")
+        let cacheKey = "current_user"
+        do {
+            let user: User = try await request(endpoint: "/auth/me")
+            CacheService.shared.save(user, forKey: cacheKey)
+            return user
+        } catch {
+            if let cached = CacheService.shared.load(User.self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     // MARK: - Social Auth (Native SDK)
@@ -322,43 +399,34 @@ class APIClient {
         if let prefecture = prefecture { body["prefecture"] = prefecture }
         if let city = city { body["city"] = city }
 
-        return try await request(
+        let user: User = try await request(
             endpoint: "/auth/profile",
             method: "PUT",
             body: body
         )
+        // Cache updated user locally for persistence
+        CacheService.shared.save(user, forKey: "current_user")
+        return user
     }
 
     func uploadProfileImage(imageData: Data) async throws -> SimpleResponse {
-        let boundary = UUID().uuidString
-        var body = Data()
-        body.appendString("--\(boundary)\r\n")
-        body.appendString("Content-Disposition: form-data; name=\"image\"; filename=\"profile.jpg\"\r\n")
-        body.appendString("Content-Type: image/jpeg\r\n\r\n")
-        body.append(imageData)
-        body.appendString("\r\n--\(boundary)--\r\n")
-
-        return try await requestData(
+        let base64Image = "data:image/jpeg;base64," + imageData.base64EncodedString()
+        return try await request(
             endpoint: "/auth/profile/image",
-            formData: body,
-            contentType: "multipart/form-data; boundary=\(boundary)"
+            method: "POST",
+            body: ["image": base64Image]
         )
     }
 
     func uploadEmployerLogo(imageData: Data) async throws -> SimpleResponse {
-        let boundary = UUID().uuidString
-        var body = Data()
-        body.appendString("--\(boundary)\r\n")
-        body.appendString("Content-Disposition: form-data; name=\"image\"; filename=\"logo.jpg\"\r\n")
-        body.appendString("Content-Type: image/jpeg\r\n\r\n")
-        body.append(imageData)
-        body.appendString("\r\n--\(boundary)--\r\n")
-
-        return try await requestData(
-            endpoint: "/employer/profile/image",
-            formData: body,
-            contentType: "multipart/form-data; boundary=\(boundary)"
+        let base64Image = "data:image/jpeg;base64," + imageData.base64EncodedString()
+        // Use employer profile PUT with logo_url field (no dedicated image endpoint)
+        let _: EmployerProfile = try await request(
+            endpoint: "/employer/profile",
+            method: "PUT",
+            body: ["logo_url": base64Image]
         )
+        return SimpleResponse(ok: true, message: "ロゴを更新しました")
     }
 
     // MARK: - Jobs Endpoints
@@ -381,7 +449,24 @@ class APIClient {
         queryParams.append("limit=\(limit)")
 
         let endpoint = "/search/jobs-enhanced?" + queryParams.joined(separator: "&")
-        return try await request(endpoint: endpoint, requiresAuth: false)
+
+        // For the default first page with no filters, use cache
+        let isDefaultQuery = search == nil && prefecture == nil && city == nil && category == nil && page == 1
+        let cacheKey = "jobs_page\(page)"
+
+        do {
+            let jobs: [Job] = try await request(endpoint: endpoint, requiresAuth: false)
+            if isDefaultQuery {
+                CacheService.shared.save(jobs, forKey: cacheKey)
+            }
+            return jobs
+        } catch {
+            // Fallback to cache when offline
+            if isDefaultQuery, let cached = CacheService.shared.load([Job].self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func getJobDetail(jobId: String) async throws -> Job {
@@ -393,102 +478,188 @@ class APIClient {
         if let message = message {
             body["message"] = message
         }
-        return try await request(
-            endpoint: "/jobs/\(jobId)/apply",
-            method: "POST",
-            body: body
-        )
+
+        let endpoint = "/jobs/\(jobId)/apply"
+        let idempotencyKey = "apply-\(jobId)-\(token ?? "anon")"
+
+        do {
+            let result: ApplicationResponse = try await request(
+                endpoint: endpoint,
+                method: "POST",
+                body: body,
+                idempotencyKey: idempotencyKey
+            )
+            CacheService.shared.remove(forKey: "my_applications")
+            return result
+        } catch let error as APIError {
+            // オフライン時はキューに保存して後で再送
+            if case .offline = error {
+                if let bodyData = try? JSONSerialization.data(withJSONObject: body) {
+                    await OfflineQueueManager.shared.enqueue(
+                        endpoint: endpoint,
+                        method: "POST",
+                        body: bodyData
+                    )
+                }
+            }
+            throw error
+        }
     }
 
     func getCategories() async throws -> [JobCategory] {
-        return try await request(endpoint: "/categories", requiresAuth: false)
+        do {
+            let categories: [JobCategory] = try await request(endpoint: "/categories", requiresAuth: false)
+            CacheService.shared.save(categories, forKey: "categories")
+            return categories
+        } catch {
+            if let cached = CacheService.shared.load([JobCategory].self, forKey: "categories", ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     // MARK: - Favorite Jobs
 
     func getFavoriteJobs() async throws -> [Job] {
-        return try await request(endpoint: "/favorites/jobs")
+        let cacheKey = "favorite_jobs"
+        do {
+            let jobs: [Job] = try await request(endpoint: "/favorites/jobs")
+            CacheService.shared.save(jobs, forKey: cacheKey)
+            return jobs
+        } catch {
+            if let cached = CacheService.shared.load([Job].self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func addFavoriteJob(jobId: String) async throws -> SimpleResponse {
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/favorites/jobs/\(jobId)",
             method: "POST"
         )
+        CacheService.shared.remove(forKey: "favorite_jobs")
+        return result
     }
 
     func removeFavoriteJob(jobId: String) async throws -> SimpleResponse {
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/favorites/jobs/\(jobId)",
             method: "DELETE"
         )
+        CacheService.shared.remove(forKey: "favorite_jobs")
+        return result
     }
 
     func getFavoriteEmployers() async throws -> [EmployerProfile] {
-        return try await request(endpoint: "/favorites/employers")
+        let cacheKey = "favorite_employers"
+        do {
+            let employers: [EmployerProfile] = try await request(endpoint: "/favorites/employers")
+            CacheService.shared.save(employers, forKey: cacheKey)
+            return employers
+        } catch {
+            if let cached = CacheService.shared.load([EmployerProfile].self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func addFavoriteEmployer(employerId: String) async throws -> SimpleResponse {
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/favorites/employers/\(employerId)",
             method: "POST"
         )
+        CacheService.shared.remove(forKey: "favorite_employers")
+        return result
     }
 
     func removeFavoriteEmployer(employerId: String) async throws -> SimpleResponse {
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/favorites/employers/\(employerId)",
             method: "DELETE"
         )
+        CacheService.shared.remove(forKey: "favorite_employers")
+        return result
     }
 
     // MARK: - Wallet Endpoints
 
     func getWallet() async throws -> Wallet {
-        return try await request(endpoint: "/wallet")
+        let cacheKey = "wallet"
+        do {
+            let wallet: Wallet = try await request(endpoint: "/wallet")
+            CacheService.shared.save(wallet, forKey: cacheKey)
+            return wallet
+        } catch {
+            if let cached = CacheService.shared.load(Wallet.self, forKey: cacheKey, ttl: 60 * 60) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func getTransactions() async throws -> [Transaction] {
-        let response: TransactionsResponse = try await request(endpoint: "/wallet/transactions")
-        return response.data
+        let cacheKey = "transactions"
+        do {
+            let response: TransactionsResponse = try await request(endpoint: "/wallet/transactions")
+            CacheService.shared.save(response.data, forKey: cacheKey)
+            return response.data
+        } catch {
+            if let cached = CacheService.shared.load([Transaction].self, forKey: cacheKey, ttl: 60 * 60) {
+                return cached
+            }
+            throw error
+        }
     }
 
     // MARK: - Bank Account Endpoints
 
     func getBankAccounts() async throws -> [BankAccount] {
-        let response: BankAccountsResponse = try await request(endpoint: "/wallet/bank-accounts")
-        return response.data
+        let cacheKey = "bank_accounts"
+        do {
+            let response: BankAccountsResponse = try await request(endpoint: "/wallet/bank-accounts")
+            CacheService.shared.save(response.data, forKey: cacheKey)
+            return response.data
+        } catch {
+            if let cached = CacheService.shared.load([BankAccount].self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func addBankAccount(
         bankName: String,
-        bankCode: String,
         branchName: String,
-        branchCode: String,
         accountType: String,
         accountNumber: String,
         accountHolderName: String
     ) async throws -> BankAccount {
-        return try await request(
+        let account: BankAccount = try await request(
             endpoint: "/wallet/bank-accounts",
             method: "POST",
             body: [
                 "bank_name": bankName,
-                "bank_code": bankCode,
                 "branch_name": branchName,
-                "branch_code": branchCode,
                 "account_type": accountType,
                 "account_number": accountNumber,
                 "account_holder_name": accountHolderName
             ]
         )
+        CacheService.shared.remove(forKey: "bank_accounts")
+        return account
     }
 
     func deleteBankAccount(accountId: String) async throws -> SimpleResponse {
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/wallet/bank-accounts/\(accountId)",
             method: "DELETE"
         )
+        CacheService.shared.remove(forKey: "bank_accounts")
+        return result
     }
 
     // MARK: - Withdrawal Endpoints
@@ -515,58 +686,74 @@ class APIClient {
     }
 
     func submitIdentityVerification(documentType: String, frontImageData: Data, backImageData: Data?) async throws -> SimpleResponse {
-        // For simplicity, using base64 encoding
-        let boundary = UUID().uuidString
-        var body = Data()
-
-        // Document type
-        body.appendString("--\(boundary)\r\n")
-        body.appendString("Content-Disposition: form-data; name=\"document_type\"\r\n\r\n")
-        body.appendString("\(documentType)\r\n")
-
-        // Front image
-        body.appendString("--\(boundary)\r\n")
-        body.appendString("Content-Disposition: form-data; name=\"front_image\"; filename=\"front.jpg\"\r\n")
-        body.appendString("Content-Type: image/jpeg\r\n\r\n")
-        body.append(frontImageData)
-        body.appendString("\r\n")
-
-        // Back image (optional)
+        var body: [String: Any] = [
+            "document_type": documentType,
+            "front_image": "data:image/jpeg;base64," + frontImageData.base64EncodedString()
+        ]
         if let backData = backImageData {
-            body.appendString("--\(boundary)\r\n")
-            body.appendString("Content-Disposition: form-data; name=\"back_image\"; filename=\"back.jpg\"\r\n")
-            body.appendString("Content-Type: image/jpeg\r\n\r\n")
-            body.append(backData)
-            body.appendString("\r\n")
+            body["back_image"] = "data:image/jpeg;base64," + backData.base64EncodedString()
         }
 
-        body.appendString("--\(boundary)--\r\n")
-
-        return try await requestData(
+        return try await request(
             endpoint: "/identity/submit",
             method: "POST",
-            formData: body,
-            contentType: "multipart/form-data; boundary=\(boundary)"
+            body: body
         )
     }
 
     // MARK: - Applications Endpoints
 
     func getMyApplications() async throws -> [Application] {
-        return try await request(endpoint: "/matching-applications/my")
+        let cacheKey = "my_applications"
+        do {
+            let apps: [Application] = try await request(endpoint: "/matching-applications/my")
+            CacheService.shared.save(apps, forKey: cacheKey)
+            return apps
+        } catch {
+            if let cached = CacheService.shared.load([Application].self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func cancelApplication(applicationId: String) async throws -> SimpleResponse {
-        return try await request(
-            endpoint: "/matching-applications/\(applicationId)/cancel",
-            method: "POST"
-        )
+        let endpoint = "/matching-applications/\(applicationId)/cancel"
+        let idempotencyKey = "cancel-\(applicationId)"
+
+        do {
+            let result: SimpleResponse = try await request(
+                endpoint: endpoint,
+                method: "POST",
+                idempotencyKey: idempotencyKey
+            )
+            CacheService.shared.remove(forKey: "my_applications")
+            return result
+        } catch let error as APIError {
+            if case .offline = error {
+                await OfflineQueueManager.shared.enqueue(
+                    endpoint: endpoint,
+                    method: "POST"
+                )
+            }
+            throw error
+        }
     }
 
     // MARK: - Work History Endpoints
 
     func getWorkHistory() async throws -> [WorkHistory] {
-        return try await request(endpoint: "/mypage/work-history")
+        let cacheKey = "work_history"
+        do {
+            let history: [WorkHistory] = try await request(endpoint: "/mypage/work-history")
+            CacheService.shared.save(history, forKey: cacheKey)
+            return history
+        } catch {
+            if let cached = CacheService.shared.load([WorkHistory].self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func getWorkCertificates() async throws -> [WorkCertificate] {
@@ -604,7 +791,7 @@ class APIClient {
         )
     }
 
-    // QR Code Check-in with location
+    // QR Code Check-in with location (idempotency key for duplicate prevention)
     func checkInWithQR(token: String, latitude: Double?, longitude: Double?, deviceTime: String) async throws -> CheckInResponse {
         var body: [String: Any] = [
             "token": token,
@@ -616,11 +803,30 @@ class APIClient {
         return try await request(
             endpoint: "/attendance/qr-check-in",
             method: "POST",
-            body: body
+            body: body,
+            idempotencyKey: "checkin-\(token)-\(deviceTime)"
         )
     }
 
-    // Check-out with location
+    // QR Code Check-out with location
+    func checkOutWithQR(token: String, latitude: Double?, longitude: Double?, deviceTime: String, breakMinutes: Int? = nil) async throws -> CheckOutResponse {
+        var body: [String: Any] = [
+            "token": token,
+            "device_time": deviceTime
+        ]
+        if let lat = latitude { body["latitude"] = lat }
+        if let lng = longitude { body["longitude"] = lng }
+        if let breakMin = breakMinutes { body["break_minutes"] = breakMin }
+
+        return try await request(
+            endpoint: "/attendance/qr-check-out",
+            method: "POST",
+            body: body,
+            idempotencyKey: "checkout-qr-\(token)-\(deviceTime)"
+        )
+    }
+
+    // Check-out with location (idempotency key for duplicate prevention)
     func checkOutWithLocation(applicationId: String, latitude: Double?, longitude: Double?, deviceTime: String, breakMinutes: Int? = nil) async throws -> CheckOutResponse {
         var body: [String: Any] = [
             "device_time": deviceTime
@@ -632,7 +838,8 @@ class APIClient {
         return try await request(
             endpoint: "/attendance/\(applicationId)/check-out",
             method: "POST",
-            body: body
+            body: body,
+            idempotencyKey: "checkout-\(applicationId)-\(deviceTime)"
         )
     }
 
@@ -713,11 +920,31 @@ class APIClient {
     // MARK: - Employer Endpoints
 
     func getEmployerStats() async throws -> EmployerStats {
-        return try await request(endpoint: "/employer/stats")
+        let cacheKey = "employer_stats"
+        do {
+            let stats: EmployerStats = try await request(endpoint: "/employer/stats")
+            CacheService.shared.save(stats, forKey: cacheKey)
+            return stats
+        } catch {
+            if let cached = CacheService.shared.load(EmployerStats.self, forKey: cacheKey, ttl: 60 * 60) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func getEmployerProfile() async throws -> EmployerProfile {
-        return try await request(endpoint: "/employer/profile")
+        let cacheKey = "employer_profile"
+        do {
+            let profile: EmployerProfile = try await request(endpoint: "/employer/profile")
+            CacheService.shared.save(profile, forKey: cacheKey)
+            return profile
+        } catch {
+            if let cached = CacheService.shared.load(EmployerProfile.self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func getPublicEmployerProfile(employerId: String) async throws -> EmployerProfile {
@@ -742,15 +969,31 @@ class APIClient {
         if let contactPhone = contactPhone { body["phone"] = contactPhone }
         if let contactEmail = contactEmail { body["email"] = contactEmail }
 
-        return try await request(
+        let profile: EmployerProfile = try await request(
             endpoint: "/employer/profile",
             method: "PUT",
             body: body
         )
+        CacheService.shared.save(profile, forKey: "employer_profile")
+        return profile
     }
 
     func getEmployerJobs() async throws -> [Job] {
-        return try await request(endpoint: "/employer/jobs")
+        let cacheKey = "employer_jobs"
+        do {
+            let jobs: [Job] = try await request(endpoint: "/employer/jobs")
+            CacheService.shared.save(jobs, forKey: cacheKey)
+            return jobs
+        } catch {
+            if let cached = CacheService.shared.load([Job].self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
+    }
+
+    func invalidateEmployerJobsCache() {
+        CacheService.shared.remove(forKey: "employer_jobs")
     }
 
     func createJob(
@@ -790,11 +1033,14 @@ class APIClient {
         if let benefits = benefits { body["benefits"] = benefits }
         if let paymentType = paymentType { body["payment_type"] = paymentType }
 
-        return try await request(
+        let job: Job = try await request(
             endpoint: "/employer/jobs",
             method: "POST",
             body: body
         )
+        invalidateEmployerJobsCache()
+        CacheService.shared.remove(forKey: "jobs_page1")
+        return job
     }
 
     func createJobWithImages(
@@ -815,7 +1061,8 @@ class APIClient {
         benefits: String?,
         images: [String],
         thumbnailIndex: Int,
-        paymentType: String? = nil
+        paymentType: String? = nil,
+        videoBase64: String? = nil
     ) async throws -> Job {
         var body: [String: Any] = [
             "title": title,
@@ -842,40 +1089,75 @@ class APIClient {
             body["thumbnail_index"] = thumbnailIndex
         }
 
-        return try await request(
+        // Add video as base64
+        if let videoBase64 = videoBase64 {
+            body["video"] = videoBase64
+        }
+
+        let job: Job = try await request(
             endpoint: "/employer/jobs",
             method: "POST",
             body: body
         )
+        invalidateEmployerJobsCache()
+        CacheService.shared.remove(forKey: "jobs_page1")
+        return job
     }
 
     func updateJob(jobId: String, updates: [String: Any]) async throws -> Job {
-        return try await request(
+        let job: Job = try await request(
             endpoint: "/employer/jobs/\(jobId)",
             method: "PUT",
             body: updates
         )
+        invalidateEmployerJobsCache()
+        CacheService.shared.remove(forKey: "jobs_page1")
+        return job
     }
 
     func deleteJob(jobId: String) async throws -> SimpleResponse {
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/employer/jobs/\(jobId)",
             method: "DELETE"
         )
+        invalidateEmployerJobsCache()
+        CacheService.shared.remove(forKey: "jobs_page1")
+        return result
     }
 
     func publishJob(jobId: String) async throws -> Job {
-        return try await request(
+        let job: Job = try await request(
             endpoint: "/employer/jobs/\(jobId)/publish",
             method: "POST"
         )
+        invalidateEmployerJobsCache()
+        CacheService.shared.remove(forKey: "jobs_page1")
+        return job
     }
 
     func closeJob(jobId: String) async throws -> SimpleResponse {
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/employer/jobs/\(jobId)/close",
             method: "PUT"
         )
+        invalidateEmployerJobsCache()
+        CacheService.shared.remove(forKey: "jobs_page1")
+        return result
+    }
+
+    func cancelShift(jobId: String, reason: String, notifyWorkers: Bool) async throws -> SimpleResponse {
+        let body: [String: Any] = [
+            "reason": reason,
+            "notify_workers": notifyWorkers
+        ]
+        let result: SimpleResponse = try await request(
+            endpoint: "/employer/jobs/\(jobId)/cancel",
+            method: "POST",
+            body: body
+        )
+        invalidateEmployerJobsCache()
+        CacheService.shared.remove(forKey: "jobs_page1")
+        return result
     }
 
     func repostJob(jobId: String, workDate: String?, hourlyRate: Int?, requiredPeople: Int?) async throws -> Job {
@@ -883,39 +1165,61 @@ class APIClient {
         if let workDate = workDate { body["work_date"] = workDate }
         if let hourlyRate = hourlyRate { body["hourly_rate"] = hourlyRate }
         if let requiredPeople = requiredPeople { body["required_people"] = requiredPeople }
-        return try await request(
+        let job: Job = try await request(
             endpoint: "/employer/jobs/\(jobId)/repost",
             method: "POST",
             body: body
         )
+        invalidateEmployerJobsCache()
+        CacheService.shared.remove(forKey: "jobs_page1")
+        return job
     }
 
     func getEmployerApplications() async throws -> [Application] {
-        return try await request(endpoint: "/employer/applications")
+        let cacheKey = "employer_applications"
+        do {
+            let apps: [Application] = try await request(endpoint: "/employer/applications")
+            CacheService.shared.save(apps, forKey: cacheKey)
+            return apps
+        } catch {
+            if let cached = CacheService.shared.load([Application].self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func approveApplication(applicationId: String) async throws -> Application {
-        return try await request(
+        let result: Application = try await request(
             endpoint: "/employer/applications/\(applicationId)/approve",
-            method: "POST"
+            method: "POST",
+            idempotencyKey: "approve-\(applicationId)"
         )
+        CacheService.shared.remove(forKey: "employer_applications")
+        return result
     }
 
     func rejectApplication(applicationId: String, reason: String?) async throws -> Application {
         var body: [String: Any] = [:]
         if let reason = reason { body["reason"] = reason }
-        return try await request(
+        let result: Application = try await request(
             endpoint: "/employer/applications/\(applicationId)/reject",
             method: "POST",
-            body: body
+            body: body,
+            idempotencyKey: "reject-\(applicationId)"
         )
+        CacheService.shared.remove(forKey: "employer_applications")
+        return result
     }
 
     func reportNoShow(applicationId: String) async throws -> SimpleResponse {
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/employer/applications/\(applicationId)/no-show",
-            method: "POST"
+            method: "POST",
+            idempotencyKey: "noshow-\(applicationId)"
         )
+        CacheService.shared.remove(forKey: "employer_applications")
+        return result
     }
 
     // MARK: - Payment Endpoints (Stripe)
@@ -987,14 +1291,6 @@ class APIClient {
         )
     }
 
-    // Auto-pay after checkout (called by backend, but can trigger manually)
-    func processCheckoutPayment(applicationId: String) async throws -> PaymentChargeResponse {
-        return try await request(
-            endpoint: "/payment/checkout-payment/\(applicationId)",
-            method: "POST"
-        )
-    }
-
     // Manual payment for manual settlement jobs
     func submitManualPayment(
         timesheetId: String,
@@ -1020,6 +1316,12 @@ class APIClient {
                 "idempotency_key": idempotencyKey
             ]
         )
+    }
+
+    // MARK: - Platform Fee
+
+    func getPlatformFeePercent() async throws -> PlatformFeeResponse {
+        return try await request(endpoint: "/settings/platform-fee")
     }
 
     // MARK: - Notifications
@@ -1095,14 +1397,6 @@ class APIClient {
 
     func getJobReviews(jobId: String) async throws -> [Review] {
         return try await request(endpoint: "/reviews/job/\(jobId)")
-    }
-
-    func getEmployerReviews(employerId: String) async throws -> [Review] {
-        return try await request(endpoint: "/reviews/employer/\(employerId)")
-    }
-
-    func getWorkerReviews(workerId: String) async throws -> [Review] {
-        return try await request(endpoint: "/reviews/worker/\(workerId)")
     }
 
     func getPendingReviews() async throws -> [PendingReview] {
@@ -1370,13 +1664,6 @@ class APIClient {
             endpoint: "/qualifications",
             method: "POST",
             body: body
-        )
-    }
-
-    func deleteQualification(qualificationId: String) async throws -> SimpleResponse {
-        return try await request(
-            endpoint: "/qualifications/\(qualificationId)",
-            method: "DELETE"
         )
     }
 
@@ -1845,9 +2132,7 @@ extension APIClient {
 
     func addAdminBankAccount(
         bankName: String,
-        bankCode: String,
         branchName: String,
-        branchCode: String,
         accountType: String,
         accountNumber: String,
         accountHolderName: String
@@ -1857,9 +2142,7 @@ extension APIClient {
             method: "POST",
             body: [
                 "bank_name": bankName,
-                "bank_code": bankCode,
                 "branch_name": branchName,
-                "branch_code": branchCode,
                 "account_type": accountType,
                 "account_number": accountNumber,
                 "account_holder_name": accountHolderName
@@ -2276,6 +2559,7 @@ struct HealthStatus: Codable {
     let version: String?
     let database: String?
     let timestamp: String?
+    let estimatedEndTime: String?
 }
 
 // MARK: - Tax Documents
@@ -2451,7 +2735,17 @@ extension APIClient {
 
 extension APIClient {
     func getWorkerScore() async throws -> WorkerScore {
-        return try await request(endpoint: "/worker/score")
+        let cacheKey = "worker_score"
+        do {
+            let score: WorkerScore = try await request(endpoint: "/worker/score")
+            CacheService.shared.save(score, forKey: cacheKey)
+            return score
+        } catch {
+            if let cached = CacheService.shared.load(WorkerScore.self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func getPenalties() async throws -> [Penalty] {
@@ -2465,7 +2759,17 @@ extension APIClient {
     func getMonthlySummary(month: String? = nil) async throws -> MonthlySummary {
         var endpoint = "/worker/monthly-summary"
         if let month = month { endpoint += "?month=\(month)" }
-        return try await request(endpoint: endpoint)
+        let cacheKey = "monthly_summary_\(month ?? "current")"
+        do {
+            let summary: MonthlySummary = try await request(endpoint: endpoint)
+            CacheService.shared.save(summary, forKey: cacheKey)
+            return summary
+        } catch {
+            if let cached = CacheService.shared.load(MonthlySummary.self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+                return cached
+            }
+            throw error
+        }
     }
 
     func getMonthlySummaries() async throws -> [MonthlySummary] {
@@ -2555,4 +2859,82 @@ struct ReliableWorker: Codable, Identifiable {
     let goodRate: Int
     let lastWorkedAt: String?
     let categories: [String]?
+}
+
+// MARK: - Bulk Message
+
+extension APIClient {
+    func sendBulkMessage(workerIds: [String], message: String, jobId: String?) async throws -> SimpleResponse {
+        var body: [String: Any] = [
+            "worker_ids": workerIds,
+            "message": message
+        ]
+        if let jobId = jobId { body["job_id"] = jobId }
+        return try await request(endpoint: "/employer/bulk-message", method: "POST", body: body)
+    }
+
+    func getJobWorkers(jobId: String?) async throws -> [JobWorker] {
+        let endpoint = jobId.map { "/employer/jobs/\($0)/workers" } ?? "/employer/workers"
+        return try await request(endpoint: endpoint)
+    }
+}
+
+struct JobWorker: Codable, Identifiable {
+    let id: String
+    let name: String
+    let profileImageUrl: String?
+}
+
+// MARK: - CSV Export
+
+extension APIClient {
+    func requestCSVExport(type: String, dateRange: String) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/employer/export/csv",
+            method: "POST",
+            body: ["type": type, "date_range": dateRange]
+        )
+    }
+}
+
+// MARK: - Saved Searches
+
+extension APIClient {
+    func getSavedSearches() async throws -> [SavedSearch] {
+        return try await request(endpoint: "/saved-searches")
+    }
+
+    func deleteSavedSearch(searchId: String) async throws -> SimpleResponse {
+        return try await request(endpoint: "/saved-searches/\(searchId)", method: "DELETE")
+    }
+}
+
+// MARK: - Job Alerts
+
+extension APIClient {
+    func getJobAlerts() async throws -> JobAlertSettings {
+        return try await request(endpoint: "/job-alerts")
+    }
+
+    func saveJobAlerts(_ settings: JobAlertSettings) async throws -> SimpleResponse {
+        return try await request(
+            endpoint: "/job-alerts",
+            method: "PUT",
+            body: [
+                "enabled": settings.enabled,
+                "keywords": settings.keywords,
+                "min_hourly_wage": settings.minHourlyWage as Any,
+                "preferred_areas": settings.preferredAreas,
+                "preferred_categories": settings.preferredCategories
+            ]
+        )
+    }
+}
+
+struct JobAlertSettings: Codable {
+    var enabled: Bool
+    var keywords: [String]
+    var minHourlyWage: Int?
+    var preferredAreas: [String]
+    var preferredCategories: [String]
 }

@@ -1,18 +1,63 @@
 import SwiftUI
 import PhotosUI
 
-// MARK: - Character Extension for Katakana
+// MARK: - Japanese Text Helpers
 
 private extension Character {
     var isKatakana: Bool {
         guard let scalar = unicodeScalars.first else { return false }
         return (0x30A0...0x30FF).contains(scalar.value)
     }
+
+    var isHiragana: Bool {
+        guard let scalar = unicodeScalars.first else { return false }
+        return (0x3040...0x309F).contains(scalar.value)
+    }
+}
+
+private extension String {
+    /// ひらがなをカタカナに変換
+    func toKatakana() -> String {
+        var result = ""
+        for scalar in unicodeScalars {
+            if (0x3040...0x309F).contains(scalar.value),
+               let katakana = Unicode.Scalar(scalar.value + 0x60) {
+                result.unicodeScalars.append(katakana)
+            } else {
+                result.unicodeScalars.append(scalar)
+            }
+        }
+        return result
+    }
+
+    /// カタカナ（＋スペース・長音）として有効か
+    var isValidBankAccountName: Bool {
+        let trimmed = trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return false }
+        return trimmed.allSatisfy { char in
+            char.isKatakana || char == "　" || char == " " || char == "ー"
+        }
+    }
+}
+
+// MARK: - MyPage Navigation Destinations
+
+enum MyPageDestination: Hashable {
+    case walletDetail, bankAccountList, withdrawal, transactionHistory, taxDocuments
+    case upcomingWork, applicationHistory, workHistory, workCertificateList
+    case favorites, favoriteEmployers, pendingReviews, myReviews, jobAlertSettings, savedSearches
+    case workerScoreDetail, penaltyHistory, monthlySummaries, earningsGoal, qualifications, badges
+    case profileEdit, identityVerification, timesheetAdjustment, changePassword
+    case notificationList, notificationSettings, emailSettings, locationSettings, appearanceSettings, languageSettings, mutedEmployers
+    case referralProgram
+    case helpCenter, faq, contact, bugReport, feedbackHistory
+    case termsOfService, privacyPolicy
 }
 
 struct MyPageView: View {
     @EnvironmentObject var authManager: AuthManager
     @StateObject private var viewModel = MyPageViewModel()
+    @State private var navigationPath = NavigationPath()
     @State private var showDeleteAccountAlert = false
     @State private var showDeleteAccountFinalConfirm = false
     @State private var isDeletingAccount = false
@@ -29,7 +74,7 @@ struct MyPageView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 0) {
                     // Error Display
@@ -41,283 +86,177 @@ struct MyPageView: View {
                             .padding(.top, 8)
                     }
 
-                    // Profile Header
-                    ProfileHeaderView(user: authManager.currentUser)
-                        .padding(.bottom, 16)
+                    // Profile Header with Edit Button
+                    ProfileHeaderView(user: authManager.currentUser, onEditProfile: {
+                        navigationPath.append(MyPageDestination.profileEdit)
+                    })
+                    .padding(.bottom, 16)
+
+                    // Worker Rank Section
+                    if let score = viewModel.workerScore {
+                        MyPageWorkerRankCard(score: score)
+                            .padding(.horizontal)
+                            .padding(.bottom, 12)
+                    }
+
+                    // Monthly Summary Section
+                    if let summary = viewModel.monthlySummary {
+                        MyPageMonthlySummaryCard(summary: summary)
+                            .padding(.horizontal)
+                            .padding(.bottom, 12)
+                    }
 
                     // Menu Sections
                     VStack(spacing: 12) {
                         // Wallet Section
                         MenuSection(title: "ウォレット") {
-                            NavigationLink(destination: WalletDetailView()) {
-                                MenuRow(
-                                    icon: "yensign.circle.fill",
-                                    iconColor: .green,
-                                    title: "残高",
-                                    value: "¥\(viewModel.walletBalance.formatted())"
-                                )
+                            MenuNavRow(icon: "yensign.circle.fill", iconColor: .green, title: "残高", value: "¥\(viewModel.walletBalance.formatted())") {
+                                navigationPath.append(MyPageDestination.walletDetail)
                             }
-
-                            NavigationLink(destination: BankAccountListView()) {
-                                MenuRow(
-                                    icon: "building.columns.fill",
-                                    iconColor: .blue,
-                                    title: "銀行口座",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "building.columns.fill", iconColor: .blue, title: "銀行口座") {
+                                navigationPath.append(MyPageDestination.bankAccountList)
                             }
-
-                            NavigationLink(destination: WithdrawalView()) {
-                                MenuRow(
-                                    icon: "arrow.down.circle.fill",
-                                    iconColor: .purple,
-                                    title: "出金申請",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "arrow.down.circle.fill", iconColor: .purple, title: "出金申請") {
+                                navigationPath.append(MyPageDestination.withdrawal)
                             }
-
-                            NavigationLink(destination: TransactionHistoryView()) {
-                                MenuRow(
-                                    icon: "list.bullet.rectangle.fill",
-                                    iconColor: .orange,
-                                    title: "取引履歴",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "list.bullet.rectangle.fill", iconColor: .orange, title: "取引履歴") {
+                                navigationPath.append(MyPageDestination.transactionHistory)
                             }
-
-                            NavigationLink(destination: TaxDocumentsView()) {
-                                MenuRow(
-                                    icon: "doc.text.fill",
-                                    iconColor: .blue,
-                                    title: "源泉徴収票",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "doc.text.fill", iconColor: .blue, title: "源泉徴収票") {
+                                navigationPath.append(MyPageDestination.taxDocuments)
                             }
                         }
 
                         // Work Section
                         MenuSection(title: "お仕事") {
-                            NavigationLink(destination: UpcomingWorkView()) {
-                                MenuRow(
-                                    icon: "calendar.badge.clock",
-                                    iconColor: .blue,
-                                    title: "予定のお仕事",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "calendar.badge.clock", iconColor: .blue, title: "予定のお仕事") {
+                                navigationPath.append(MyPageDestination.upcomingWork)
                             }
-
-                            NavigationLink(destination: ApplicationHistoryView()) {
-                                MenuRow(
-                                    icon: "doc.text.fill",
-                                    iconColor: .orange,
-                                    title: "応募履歴",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "doc.text.fill", iconColor: .orange, title: "応募履歴") {
+                                navigationPath.append(MyPageDestination.applicationHistory)
                             }
-
-                            NavigationLink(destination: WorkHistoryView()) {
-                                MenuRow(
-                                    icon: "clock.fill",
-                                    iconColor: .purple,
-                                    title: "勤務履歴",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "clock.fill", iconColor: .purple, title: "勤務履歴") {
+                                navigationPath.append(MyPageDestination.workHistory)
                             }
-
-                            NavigationLink(destination: FavoritesView()) {
-                                MenuRow(
-                                    icon: "heart.fill",
-                                    iconColor: .red,
-                                    title: "お気に入り",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "doc.text.fill", iconColor: .teal, title: "就業証明書") {
+                                navigationPath.append(MyPageDestination.workCertificateList)
                             }
-
-                            NavigationLink(destination: PendingReviewsView()) {
-                                MenuRow(
-                                    icon: "star.fill",
-                                    iconColor: .yellow,
-                                    title: "レビューを書く",
-                                    value: viewModel.pendingReviewCount > 0 ? "\(viewModel.pendingReviewCount)件" : nil,
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "heart.fill", iconColor: .red, title: "お気に入り求人") {
+                                navigationPath.append(MyPageDestination.favorites)
                             }
-
-                            NavigationLink(destination: MyReviewsView()) {
-                                MenuRow(
-                                    icon: "star.bubble.fill",
-                                    iconColor: .blue,
-                                    title: "レビュー履歴",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "building.2.fill", iconColor: .pink, title: "お気に入り事業者") {
+                                navigationPath.append(MyPageDestination.favoriteEmployers)
+                            }
+                            MenuNavRow(icon: "star.fill", iconColor: .yellow, title: "レビューを書く", value: viewModel.pendingReviewCount > 0 ? "\(viewModel.pendingReviewCount)件" : nil) {
+                                navigationPath.append(MyPageDestination.pendingReviews)
+                            }
+                            MenuNavRow(icon: "star.bubble.fill", iconColor: .blue, title: "レビュー履歴") {
+                                navigationPath.append(MyPageDestination.myReviews)
+                            }
+                            MenuNavRow(icon: "bell.badge.fill", iconColor: .teal, title: "ジョブアラート") {
+                                navigationPath.append(MyPageDestination.jobAlertSettings)
+                            }
+                            MenuNavRow(icon: "magnifyingglass.circle.fill", iconColor: .indigo, title: "保存した検索条件") {
+                                navigationPath.append(MyPageDestination.savedSearches)
                             }
                         }
 
                         // Growth Section
                         MenuSection(title: "スキルアップ") {
-                            NavigationLink(destination: EarningsGoalView()) {
-                                MenuRow(
-                                    icon: "target",
-                                    iconColor: .green,
-                                    title: "収入目標",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "chart.line.uptrend.xyaxis", iconColor: .purple, title: "ワーカーランク・信頼度", value: viewModel.workerScore?.rankDisplay) {
+                                navigationPath.append(MyPageDestination.workerScoreDetail)
                             }
-
-                            NavigationLink(destination: QualificationsView()) {
-                                MenuRow(
-                                    icon: "checkmark.seal.fill",
-                                    iconColor: .blue,
-                                    title: "資格・免許",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "exclamationmark.triangle.fill", iconColor: .orange, title: "ペナルティ履歴", value: viewModel.penaltyCount > 0 ? "\(viewModel.penaltyCount)件" : nil) {
+                                navigationPath.append(MyPageDestination.penaltyHistory)
                             }
-
-                            NavigationLink(destination: BadgesView()) {
-                                MenuRow(
-                                    icon: "star.circle.fill",
-                                    iconColor: .yellow,
-                                    title: "バッジ",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "chart.bar.fill", iconColor: .blue, title: "月次レポート") {
+                                navigationPath.append(MyPageDestination.monthlySummaries)
+                            }
+                            MenuNavRow(icon: "target", iconColor: .green, title: "収入目標") {
+                                navigationPath.append(MyPageDestination.earningsGoal)
+                            }
+                            MenuNavRow(icon: "checkmark.seal.fill", iconColor: .blue, title: "資格・免許") {
+                                navigationPath.append(MyPageDestination.qualifications)
+                            }
+                            MenuNavRow(icon: "star.circle.fill", iconColor: .yellow, title: "バッジ") {
+                                navigationPath.append(MyPageDestination.badges)
                             }
                         }
 
                         // Account Section
                         MenuSection(title: "アカウント") {
-                            NavigationLink(destination: ProfileEditView()) {
-                                MenuRow(
-                                    icon: "person.fill",
-                                    iconColor: .blue,
-                                    title: "プロフィール編集",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "person.fill", iconColor: .blue, title: "プロフィール編集") {
+                                navigationPath.append(MyPageDestination.profileEdit)
                             }
-
-                            NavigationLink(destination: IdentityVerificationView()) {
-                                MenuRow(
-                                    icon: "checkmark.shield.fill",
-                                    iconColor: .green,
-                                    title: "本人確認",
-                                    value: authManager.currentUser?.identityStatusDisplay ?? "未提出"
-                                )
+                            MenuNavRow(icon: "checkmark.shield.fill", iconColor: .green, title: "本人確認", value: authManager.currentUser?.identityStatusDisplay ?? "未提出", valueColor: identityStatusColor(authManager.currentUser?.identityVerificationStatus)) {
+                                navigationPath.append(MyPageDestination.identityVerification)
                             }
-
-                            NavigationLink(destination: TimesheetAdjustmentView()) {
-                                MenuRow(
-                                    icon: "clock.arrow.2.circlepath",
-                                    iconColor: .purple,
-                                    title: "勤務時間修正",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "clock.arrow.2.circlepath", iconColor: .purple, title: "勤務時間修正") {
+                                navigationPath.append(MyPageDestination.timesheetAdjustment)
                             }
-
-                            NavigationLink(destination: ChangePasswordView()) {
-                                MenuRow(
-                                    icon: "lock.fill",
-                                    iconColor: .gray,
-                                    title: "パスワード変更",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "lock.fill", iconColor: .gray, title: "パスワード変更") {
+                                navigationPath.append(MyPageDestination.changePassword)
                             }
                         }
 
                         // Settings Section
                         MenuSection(title: "設定") {
-                            NavigationLink(destination: NotificationListView()) {
-                                MenuRow(
-                                    icon: "bell.badge.fill",
-                                    iconColor: .orange,
-                                    title: "通知一覧",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "bell.badge.fill", iconColor: .orange, title: "通知一覧") {
+                                navigationPath.append(MyPageDestination.notificationList)
                             }
-
-                            NavigationLink(destination: JobSeekerNotificationSettingsView()) {
-                                MenuRow(
-                                    icon: "bell.fill",
-                                    iconColor: .red,
-                                    title: "通知設定",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "bell.fill", iconColor: .red, title: "通知設定") {
+                                navigationPath.append(MyPageDestination.notificationSettings)
                             }
-
-                            NavigationLink(destination: EmailSettingsView()) {
-                                MenuRow(
-                                    icon: "envelope.fill",
-                                    iconColor: .blue,
-                                    title: "メール設定",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "envelope.fill", iconColor: .blue, title: "メール設定") {
+                                navigationPath.append(MyPageDestination.emailSettings)
                             }
-
-                            NavigationLink(destination: LocationSettingsView()) {
-                                MenuRow(
-                                    icon: "location.fill",
-                                    iconColor: .green,
-                                    title: "エリア設定",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "location.fill", iconColor: .green, title: "エリア設定") {
+                                navigationPath.append(MyPageDestination.locationSettings)
                             }
+                            MenuNavRow(icon: "moon.fill", iconColor: .indigo, title: "表示設定") {
+                                navigationPath.append(MyPageDestination.appearanceSettings)
+                            }
+                            MenuNavRow(icon: "globe", iconColor: .teal, title: "言語設定") {
+                                navigationPath.append(MyPageDestination.languageSettings)
+                            }
+                            MenuNavRow(icon: "nosign", iconColor: .red, title: "ブロックした事業者") {
+                                navigationPath.append(MyPageDestination.mutedEmployers)
+                            }
+                        }
 
-                            NavigationLink(destination: MutedEmployersView()) {
-                                MenuRow(
-                                    icon: "speaker.slash.fill",
-                                    iconColor: .gray,
-                                    title: "ミュート管理",
-                                    showChevron: true
-                                )
+                        // Referral Section
+                        MenuSection(title: "友達紹介") {
+                            MenuNavRow(icon: "person.2.fill", iconColor: .orange, title: "友達を招待して特典GET") {
+                                navigationPath.append(MyPageDestination.referralProgram)
                             }
                         }
 
                         // Support Section
                         MenuSection(title: "サポート") {
-                            NavigationLink(destination: FAQView()) {
-                                MenuRow(
-                                    icon: "questionmark.circle.fill",
-                                    iconColor: .blue,
-                                    title: "よくある質問",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "book.fill", iconColor: .blue, title: "ヘルプセンター") {
+                                navigationPath.append(MyPageDestination.helpCenter)
                             }
-
-                            NavigationLink(destination: ContactView()) {
-                                MenuRow(
-                                    icon: "envelope.fill",
-                                    iconColor: .gray,
-                                    title: "お問い合わせ",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "questionmark.circle.fill", iconColor: .blue, title: "よくある質問") {
+                                navigationPath.append(MyPageDestination.faq)
                             }
-
-                            NavigationLink(destination: BugReportView()) {
-                                MenuRow(
-                                    icon: "ant.fill",
-                                    iconColor: .red,
-                                    title: "バグ報告・機能リクエスト",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "envelope.fill", iconColor: .gray, title: "お問い合わせ") {
+                                navigationPath.append(MyPageDestination.contact)
+                            }
+                            MenuNavRow(icon: "ant.fill", iconColor: .red, title: "バグ報告・機能リクエスト") {
+                                navigationPath.append(MyPageDestination.bugReport)
+                            }
+                            MenuNavRow(icon: "clock.arrow.circlepath", iconColor: .purple, title: "フィードバック履歴") {
+                                navigationPath.append(MyPageDestination.feedbackHistory)
                             }
                         }
 
                         // Legal Section
                         MenuSection(title: "法的情報") {
-                            NavigationLink(destination: TermsOfServiceView()) {
-                                MenuRow(
-                                    icon: "doc.text.fill",
-                                    iconColor: .gray,
-                                    title: "利用規約",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "doc.text.fill", iconColor: .gray, title: "利用規約") {
+                                navigationPath.append(MyPageDestination.termsOfService)
                             }
-
-                            NavigationLink(destination: PrivacyPolicyView()) {
-                                MenuRow(
-                                    icon: "hand.raised.fill",
-                                    iconColor: .gray,
-                                    title: "プライバシーポリシー",
-                                    showChevron: true
-                                )
+                            MenuNavRow(icon: "hand.raised.fill", iconColor: .gray, title: "プライバシーポリシー") {
+                                navigationPath.append(MyPageDestination.privacyPolicy)
                             }
                         }
 
@@ -328,7 +267,7 @@ struct MyPageView: View {
                                 Text("Byters")
                                     .font(.caption)
                                     .foregroundColor(.gray)
-                                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
+                                Text("バージョン \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))")
                                     .font(.caption2)
                                     .foregroundColor(.gray.opacity(0.7))
                             }
@@ -388,13 +327,91 @@ struct MyPageView: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("マイページ")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: MyPageDestination.self) { destination in
+                destinationView(for: destination)
+            }
             .refreshable {
                 await viewModel.loadData()
             }
         }
         .task {
             await viewModel.loadData()
+        }
+        .overlay {
+            if isDeletingAccount {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.white)
+                        Text("アカウントを削除中...")
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(32)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
+        .allowsHitTesting(!isDeletingAccount)
+    }
+
+    @ViewBuilder
+    private func destinationView(for destination: MyPageDestination) -> some View {
+        switch destination {
+        case .walletDetail: WalletDetailView()
+        case .bankAccountList: BankAccountListView()
+        case .withdrawal: WithdrawalView()
+        case .transactionHistory: TransactionHistoryView()
+        case .taxDocuments: TaxDocumentsView()
+        case .upcomingWork: UpcomingWorkView()
+        case .applicationHistory: ApplicationHistoryView()
+        case .workHistory: WorkHistoryView()
+        case .workCertificateList: WorkCertificateListView()
+        case .favorites: FavoritesView()
+        case .favoriteEmployers: FavoriteEmployersView()
+        case .pendingReviews: PendingReviewsView()
+        case .myReviews: MyReviewsView()
+        case .jobAlertSettings: JobAlertSettingsView()
+        case .savedSearches: SavedSearchesView()
+        case .workerScoreDetail: WorkerScoreDetailView()
+        case .penaltyHistory: PenaltyHistoryView()
+        case .monthlySummaries: MonthlySummariesView()
+        case .earningsGoal: EarningsGoalView()
+        case .qualifications: QualificationsView()
+        case .badges: BadgesView()
+        case .profileEdit: ProfileEditView()
+        case .identityVerification: IdentityVerificationView()
+        case .timesheetAdjustment: TimesheetAdjustmentView()
+        case .changePassword: ChangePasswordView()
+        case .notificationList: NotificationListView()
+        case .notificationSettings: JobSeekerNotificationSettingsView()
+        case .emailSettings: EmailSettingsView()
+        case .locationSettings: LocationSettingsView()
+        case .appearanceSettings: AppearanceSettingsView()
+        case .languageSettings: LanguageSettingsView()
+        case .mutedEmployers: MutedEmployersView()
+        case .referralProgram: ReferralProgramView()
+        case .helpCenter: HelpCenterView()
+        case .faq: FAQView()
+        case .contact: ContactView()
+        case .bugReport: BugReportView()
+        case .feedbackHistory: FeedbackHistoryView()
+        case .termsOfService: TermsOfServiceView()
+        case .privacyPolicy: PrivacyPolicyView()
+        }
+    }
+
+    private func identityStatusColor(_ status: String?) -> Color {
+        switch status {
+        case "pending": return .orange
+        case "approved": return .green
+        case "rejected": return .red
+        default: return .gray
         }
     }
 }
@@ -403,6 +420,7 @@ struct MyPageView: View {
 
 struct ProfileHeaderView: View {
     let user: User?
+    var onEditProfile: (() -> Void)?
 
     private var profileCompletion: (percentage: Int, missing: [String]) {
         var filled = 0
@@ -422,13 +440,7 @@ struct ProfileHeaderView: View {
     var body: some View {
         VStack(spacing: 12) {
             if let imageUrl = user?.profileImageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 80, height: 80)
-                        .clipShape(Circle())
-                } placeholder: {
+                CachedAsyncImage(url: url) {
                     Circle()
                         .fill(Color.blue.opacity(0.2))
                         .frame(width: 80, height: 80)
@@ -438,6 +450,9 @@ struct ProfileHeaderView: View {
                                 .foregroundColor(.blue)
                         )
                 }
+                .scaledToFill()
+                .frame(width: 80, height: 80)
+                .clipShape(Circle())
             } else {
                 Circle()
                     .fill(Color.blue.opacity(0.2))
@@ -506,8 +521,35 @@ struct ProfileHeaderView: View {
                             .font(.caption2)
                             .foregroundColor(.orange)
                     }
+
+                    // Profile edit button
+                    Button(action: { onEditProfile?() }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "pencil.circle.fill")
+                            Text("プロフィールを完成させる")
+                                .fontWeight(.semibold)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.blue)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .padding(.top, 4)
                 }
                 .padding(.horizontal, 24)
+                .padding(.top, 4)
+            } else {
+                // Profile complete - show edit button
+                Button(action: { onEditProfile?() }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "pencil")
+                        Text("プロフィール編集")
+                    }
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+                }
                 .padding(.top, 4)
             }
         }
@@ -546,6 +588,7 @@ struct MenuRow: View {
     let iconColor: Color
     let title: String
     var value: String? = nil
+    var valueColor: Color? = nil
     var showChevron: Bool = false
 
     var body: some View {
@@ -562,18 +605,55 @@ struct MenuRow: View {
 
             if let value = value {
                 Text(value)
-                    .foregroundColor(.gray)
+                    .foregroundColor(valueColor ?? .gray)
                     .font(.subheadline)
             }
 
-            if showChevron || value == nil {
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+        .padding()
+        .contentShape(Rectangle())
+    }
+}
+
+/// Button-based navigation row for reliable tap handling in ScrollView
+struct MenuNavRow: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    var value: String? = nil
+    var valueColor: Color? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                    .foregroundColor(iconColor)
+                    .frame(width: 28)
+
+                Text(title)
+                    .foregroundColor(.primary)
+
+                Spacer()
+
+                if let value = value {
+                    Text(value)
+                        .foregroundColor(valueColor ?? .gray)
+                        .font(.subheadline)
+                }
+
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
+            .padding()
+            .contentShape(Rectangle())
         }
-        .padding()
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
     }
 }
 
@@ -583,24 +663,600 @@ struct MenuRow: View {
 class MyPageViewModel: ObservableObject {
     @Published var walletBalance: Int = 0
     @Published var pendingReviewCount: Int = 0
+    @Published var workerScore: WorkerScore?
+    @Published var monthlySummary: MonthlySummary?
+    @Published var penaltyCount: Int = 0
     @Published var errorMessage: String?
 
     private let api = APIClient.shared
 
     func loadData() async {
+        async let walletTask: Void = loadWallet()
+        async let reviewsTask: Void = loadPendingReviews()
+        async let scoreTask: Void = loadWorkerScore()
+        async let summaryTask: Void = loadMonthlySummary()
+        async let penaltiesTask: Void = loadPenalties()
+
+        _ = await (walletTask, reviewsTask, scoreTask, summaryTask, penaltiesTask)
+    }
+
+    private func loadWallet() async {
         do {
             let wallet = try await api.getWallet()
             walletBalance = wallet.balance
         } catch {
-            errorMessage = error.localizedDescription
+            // Non-critical
         }
+    }
 
+    private func loadPendingReviews() async {
         do {
             let pendingReviews = try await api.getPendingReviews()
             pendingReviewCount = pendingReviews.count
         } catch {
-            errorMessage = error.localizedDescription
+            // Non-critical
         }
+    }
+
+    private func loadWorkerScore() async {
+        do {
+            workerScore = try await api.getWorkerScore()
+        } catch {
+            // Non-critical
+        }
+    }
+
+    private func loadMonthlySummary() async {
+        do {
+            monthlySummary = try await api.getMonthlySummary()
+        } catch {
+            // Non-critical
+        }
+    }
+
+    private func loadPenalties() async {
+        do {
+            let penalties = try await api.getPenalties()
+            penaltyCount = penalties.count
+        } catch {
+            // Non-critical
+        }
+    }
+}
+
+// MARK: - Wallet Detail View
+
+// MARK: - Worker Rank Card (MyPage)
+
+struct MyPageWorkerRankCard: View {
+    let score: WorkerScore
+
+    private var rankColor: Color {
+        switch score.rank {
+        case "diamond": return .purple
+        case "gold": return .yellow
+        case "silver": return .gray
+        case "bronze": return .orange
+        default: return .blue
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: score.rankIcon)
+                    .font(.title2)
+                    .foregroundColor(rankColor)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(score.rankDisplay)
+                        .font(.headline)
+                        .foregroundColor(rankColor)
+                    Text("信頼度スコア: \(score.reliabilityScore)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(score.completedJobs)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    Text("完了したお仕事")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+            }
+
+            HStack(spacing: 16) {
+                VStack(spacing: 2) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "hand.thumbsup.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.green)
+                        Text("\(score.goodRatePercent)%")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                    }
+                    Text("高評価率")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+
+                Divider().frame(height: 24)
+
+                VStack(spacing: 2) {
+                    Text("\(score.canceledJobs)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    Text("キャンセル")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+
+                Divider().frame(height: 24)
+
+                VStack(spacing: 2) {
+                    Text("\(score.noShowCount)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(score.noShowCount > 0 ? .red : .primary)
+                    Text("無断欠勤")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+
+                Divider().frame(height: 24)
+
+                VStack(spacing: 2) {
+                    Text("\(score.penalties)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(score.penalties > 0 ? .orange : .primary)
+                    Text("ペナルティ")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+            }
+
+            if let nextRank = score.nextRankJobs, nextRank > 0 {
+                VStack(spacing: 4) {
+                    HStack {
+                        Text("次のランクまで")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                        Spacer()
+                        Text("あと\(nextRank)件")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(rankColor)
+                    }
+                    ProgressView(value: Double(score.completedJobs), total: Double(score.completedJobs + nextRank))
+                        .tint(rankColor)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Monthly Summary Card (MyPage)
+
+struct MyPageMonthlySummaryCard: View {
+    let summary: MonthlySummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("今月のサマリー")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+
+            HStack(spacing: 0) {
+                VStack(spacing: 2) {
+                    Text("¥\(summary.totalEarnings.formatted())")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                    Text("収入")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+
+                Divider().frame(height: 30)
+
+                VStack(spacing: 2) {
+                    Text("\(summary.totalJobs)件")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                    Text("お仕事")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+
+                Divider().frame(height: 30)
+
+                VStack(spacing: 2) {
+                    Text(String(format: "%.1fh", summary.totalHours))
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.orange)
+                    Text("勤務時間")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+
+                Divider().frame(height: 30)
+
+                VStack(spacing: 2) {
+                    Text("¥\(summary.averageHourlyRate.formatted())")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.purple)
+                    Text("平均時給")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Worker Score Detail View
+
+struct WorkerScoreDetailView: View {
+    @StateObject private var viewModel = WorkerScoreDetailViewModel()
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                if viewModel.isLoading {
+                    SkeletonList(count: 3)
+                } else if let score = viewModel.score {
+                    MyPageWorkerRankCard(score: score)
+                        .padding(.horizontal)
+
+                    // Rank Explanation
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("ランク制度について")
+                            .font(.headline)
+
+                        RankExplanationRow(rank: "ダイヤモンド", icon: "diamond.fill", color: .purple, requirement: "50件以上完了 & 高評価90%以上")
+                        RankExplanationRow(rank: "ゴールド", icon: "star.circle.fill", color: .yellow, requirement: "30件以上完了 & 高評価80%以上")
+                        RankExplanationRow(rank: "シルバー", icon: "medal.fill", color: .gray, requirement: "15件以上完了 & 高評価70%以上")
+                        RankExplanationRow(rank: "ブロンズ", icon: "shield.fill", color: .orange, requirement: "5件以上完了")
+                        RankExplanationRow(rank: "ビギナー", icon: "person.fill", color: .blue, requirement: "開始時")
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+
+                    // Tips
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("ランクアップのコツ")
+                            .font(.headline)
+
+                        TipRow(icon: "checkmark.circle.fill", color: .green, text: "お仕事を最後までやり遂げましょう")
+                        TipRow(icon: "clock.fill", color: .blue, text: "遅刻・早退をしないようにしましょう")
+                        TipRow(icon: "xmark.circle.fill", color: .red, text: "無断欠勤はペナルティの対象です")
+                        TipRow(icon: "star.fill", color: .yellow, text: "良いレビューをもらうとスコアが上がります")
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("ワーカーランク")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await viewModel.loadData()
+        }
+    }
+}
+
+struct RankExplanationRow: View {
+    let rank: String
+    let icon: String
+    let color: Color
+    let requirement: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rank)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(requirement)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+        }
+    }
+}
+
+struct TipRow: View {
+    let icon: String
+    let color: Color
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+                .frame(width: 20)
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+@MainActor
+class WorkerScoreDetailViewModel: ObservableObject {
+    @Published var score: WorkerScore?
+    @Published var isLoading = true
+
+    func loadData() async {
+        isLoading = true
+        do {
+            score = try await APIClient.shared.getWorkerScore()
+        } catch {
+            // Handle error
+        }
+        isLoading = false
+    }
+}
+
+// MARK: - Penalty History View
+
+struct PenaltyHistoryView: View {
+    @StateObject private var viewModel = PenaltyHistoryViewModel()
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                if viewModel.isLoading {
+                    SkeletonList(count: 3)
+                } else if viewModel.penalties.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(.green)
+                        Text("ペナルティなし")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                        Text("このまま良い勤務を続けましょう！")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.top, 60)
+                } else {
+                    ForEach(viewModel.penalties) { penalty in
+                        PenaltyRow(penalty: penalty)
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("ペナルティ履歴")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await viewModel.loadData()
+        }
+    }
+}
+
+struct PenaltyRow: View {
+    let penalty: Penalty
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: penalty.typeIcon)
+                .foregroundColor(.orange)
+                .frame(width: 32, height: 32)
+                .background(Color.orange.opacity(0.1))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(penalty.typeDisplay)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                if let jobTitle = penalty.jobTitle {
+                    Text(jobTitle)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+
+                if let reason = penalty.reason {
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                if let date = penalty.createdAt {
+                    Text(date.prefix(10).replacingOccurrences(of: "-", with: "/"))
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+            }
+
+            Spacer()
+
+            Text("-\(penalty.penaltyPoints)pt")
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(.red)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+@MainActor
+class PenaltyHistoryViewModel: ObservableObject {
+    @Published var penalties: [Penalty] = []
+    @Published var isLoading = true
+
+    func loadData() async {
+        isLoading = true
+        do {
+            penalties = try await APIClient.shared.getPenalties()
+        } catch {
+            // Handle error
+        }
+        isLoading = false
+    }
+}
+
+// MARK: - Monthly Summaries View
+
+struct MonthlySummariesView: View {
+    @StateObject private var viewModel = MonthlySummariesViewModel()
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                if viewModel.isLoading {
+                    SkeletonList(count: 3)
+                } else if viewModel.summaries.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "chart.bar")
+                            .font(.system(size: 48))
+                            .foregroundColor(.gray)
+                        Text("まだ勤務データがありません")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.top, 60)
+                } else {
+                    ForEach(viewModel.summaries, id: \.month) { summary in
+                        MonthlySummaryRow(summary: summary)
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            .padding(.vertical)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("月次レポート")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await viewModel.loadData()
+        }
+    }
+}
+
+struct MonthlySummaryRow: View {
+    let summary: MonthlySummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(summary.month)
+                .font(.headline)
+
+            HStack(spacing: 0) {
+                VStack(spacing: 2) {
+                    Text("¥\(summary.totalEarnings.formatted())")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                    Text("収入")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+
+                Divider().frame(height: 30)
+
+                VStack(spacing: 2) {
+                    Text("\(summary.totalJobs)件")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                    Text("お仕事")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+
+                Divider().frame(height: 30)
+
+                VStack(spacing: 2) {
+                    Text(String(format: "%.1fh", summary.totalHours))
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                    Text("時間")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+
+                Divider().frame(height: 30)
+
+                VStack(spacing: 2) {
+                    Text(String(format: "%.0f%%", summary.completionRate * 100))
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(summary.completionRate >= 0.9 ? .green : .orange)
+                    Text("完了率")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+            }
+
+            if let topCategory = summary.topCategory {
+                HStack(spacing: 4) {
+                    Image(systemName: "tag.fill")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                    Text("よく働いたカテゴリ: \(topCategory)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+@MainActor
+class MonthlySummariesViewModel: ObservableObject {
+    @Published var summaries: [MonthlySummary] = []
+    @Published var isLoading = true
+
+    func loadData() async {
+        isLoading = true
+        do {
+            summaries = try await APIClient.shared.getMonthlySummaries()
+        } catch {
+            // Handle error
+        }
+        isLoading = false
     }
 }
 
@@ -792,15 +1448,26 @@ struct TransactionHistoryView: View {
             }
 
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                SkeletonList(count: 4)
             } else if viewModel.transactions.isEmpty {
-                Text("取引履歴はありません")
-                    .foregroundColor(.gray)
-                    .frame(maxWidth: .infinity)
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray.opacity(0.5))
+                    Text("取引履歴はありません")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    Text("お仕事を完了すると報酬が記録されます")
+                        .font(.caption)
+                        .foregroundColor(.gray.opacity(0.8))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
             } else {
                 ForEach(viewModel.transactions) { transaction in
-                    TransactionRow(transaction: transaction)
+                    NavigationLink(destination: TransactionDetailView(transaction: transaction)) {
+                        TransactionRow(transaction: transaction)
+                    }
                 }
             }
         }
@@ -844,6 +1511,145 @@ struct TransactionRow: View {
     }
 }
 
+// MARK: - Transaction Detail / Receipt
+
+struct TransactionDetailView: View {
+    let transaction: Transaction
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Receipt Header
+                VStack(spacing: 8) {
+                    Image(systemName: transaction.isPositive ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(transaction.isPositive ? .green : .red)
+
+                    Text("\(transaction.isPositive ? "+" : "-")¥\(abs(transaction.amount).formatted())")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+
+                    Text(transaction.typeDisplay)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 24)
+
+                // Details Card
+                VStack(spacing: 0) {
+                    ReceiptRow(label: "種類", value: transaction.typeDisplay)
+                    Divider()
+
+                    if let desc = transaction.description {
+                        ReceiptRow(label: "内容", value: desc)
+                        Divider()
+                    }
+
+                    if let jobTitle = transaction.jobTitle {
+                        ReceiptRow(label: "お仕事", value: jobTitle)
+                        Divider()
+                    }
+
+                    ReceiptRow(label: "金額", value: "¥\(abs(transaction.amount).formatted())")
+                    Divider()
+
+                    if let status = transaction.status {
+                        ReceiptRow(label: "ステータス", value: statusDisplay(status))
+                        Divider()
+                    }
+
+                    if let date = transaction.createdAt {
+                        ReceiptRow(label: "日時", value: formatReceiptDate(date))
+                        Divider()
+                    }
+
+                    ReceiptRow(label: "取引ID", value: String(transaction.id.prefix(12)) + "...")
+                }
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+                .padding(.horizontal)
+
+                // Share as receipt
+                ShareLink(
+                    item: receiptText,
+                    subject: Text("Byters 取引明細"),
+                    message: Text("取引明細")
+                ) {
+                    Label("領収書を共有", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .padding(.horizontal)
+            }
+            .padding(.bottom, 32)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("取引明細")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var receiptText: String {
+        var lines = [
+            "── Byters 取引明細 ──",
+            "",
+            "種類: \(transaction.typeDisplay)",
+            "金額: ¥\(abs(transaction.amount).formatted())",
+        ]
+        if let desc = transaction.description { lines.append("内容: \(desc)") }
+        if let jobTitle = transaction.jobTitle { lines.append("お仕事: \(jobTitle)") }
+        if let status = transaction.status { lines.append("ステータス: \(statusDisplay(status))") }
+        if let date = transaction.createdAt { lines.append("日時: \(formatReceiptDate(date))") }
+        lines.append("取引ID: \(transaction.id)")
+        lines.append("")
+        lines.append("──────────────────")
+        return lines.joined(separator: "\n")
+    }
+
+    private func statusDisplay(_ status: String) -> String {
+        switch status {
+        case "completed": return "完了"
+        case "pending": return "処理中"
+        case "failed": return "失敗"
+        default: return status
+        }
+    }
+
+    private func formatReceiptDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: dateString) {
+            let display = DateFormatter()
+            display.locale = Locale(identifier: "ja_JP")
+            display.dateFormat = "yyyy年M月d日 HH:mm"
+            return display.string(from: date)
+        }
+        return dateString
+    }
+}
+
+private struct ReceiptRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .font(.subheadline)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+}
+
 @MainActor
 class TransactionHistoryViewModel: ObservableObject {
     @Published var transactions: [Transaction] = []
@@ -880,8 +1686,7 @@ struct BankAccountListView: View {
             }
 
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                SkeletonList(count: 2)
             } else if viewModel.accounts.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "building.columns")
@@ -1018,31 +1823,39 @@ struct AddBankAccountView: View {
     var onSuccess: () -> Void
 
     @State private var bankName = ""
-    @State private var bankCode = ""
     @State private var branchName = ""
-    @State private var branchCode = ""
     @State private var accountType = "ordinary"
     @State private var accountNumber = ""
     @State private var accountHolderName = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showBankSelection = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("銀行情報") {
-                    TextField("銀行名", text: $bankName)
-                    TextField("銀行コード（4桁）", text: $bankCode)
-                        .keyboardType(.numberPad)
-                        .onChange(of: bankCode) { _, newValue in
-                            bankCode = String(newValue.filter { $0.isNumber }.prefix(4))
+                    Button {
+                        showBankSelection = true
+                    } label: {
+                        HStack {
+                            Text("銀行名")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if bankName.isEmpty {
+                                Text("選択してください")
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text(bankName)
+                                    .foregroundColor(.blue)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
+                    }
                     TextField("支店名", text: $branchName)
-                    TextField("支店コード（3桁）", text: $branchCode)
-                        .keyboardType(.numberPad)
-                        .onChange(of: branchCode) { _, newValue in
-                            branchCode = String(newValue.filter { $0.isNumber }.prefix(3))
-                        }
+                        .submitLabel(.done)
                 }
 
                 Section("口座情報") {
@@ -1059,17 +1872,20 @@ struct AddBankAccountView: View {
 
                     TextField("口座名義（カタカナ）", text: $accountHolderName)
                         .textContentType(.name)
-                        .onChange(of: accountHolderName) { _, newValue in
-                            // 全角スペースとカタカナのみ許可
-                            accountHolderName = newValue.filter { char in
-                                char.isKatakana || char == "　" || char == " " || char == "ー"
-                            }
-                        }
+                        .submitLabel(.done)
 
-                    if !accountHolderName.isEmpty && !isValidKatakana(accountHolderName) {
-                        Text("口座名義はカタカナで入力してください")
-                            .font(.caption)
-                            .foregroundColor(.orange)
+                    if !accountHolderName.isEmpty {
+                        if accountHolderName.toKatakana().isValidBankAccountName {
+                            if accountHolderName != accountHolderName.toKatakana() {
+                                Text("ひらがなは自動でカタカナに変換されます")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            }
+                        } else {
+                            Text("口座名義はカタカナまたはひらがなで入力してください")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
                     }
                 }
 
@@ -1093,6 +1909,7 @@ struct AddBankAccountView: View {
                     .disabled(isLoading || !isValid)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("銀行口座を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1100,23 +1917,18 @@ struct AddBankAccountView: View {
                     Button("キャンセル") { dismiss() }
                 }
             }
+            .sheet(isPresented: $showBankSelection) {
+                BankSelectionView(selectedBankName: $bankName)
+            }
         }
     }
 
     var isValid: Bool {
         !bankName.isEmpty &&
-        bankCode.count == 4 &&
         !branchName.isEmpty &&
-        branchCode.count == 3 &&
         accountNumber.count == 7 &&
         !accountHolderName.isEmpty &&
-        isValidKatakana(accountHolderName)
-    }
-
-    private func isValidKatakana(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return false }
-        return trimmed.allSatisfy { $0.isKatakana || $0 == "　" || $0 == " " || $0 == "ー" }
+        accountHolderName.toKatakana().isValidBankAccountName
     }
 
     func addAccount() {
@@ -1125,14 +1937,13 @@ struct AddBankAccountView: View {
 
         Task {
             do {
+                let katakanaName = accountHolderName.toKatakana()
                 _ = try await APIClient.shared.addBankAccount(
                     bankName: bankName,
-                    bankCode: bankCode,
                     branchName: branchName,
-                    branchCode: branchCode,
                     accountType: accountType,
                     accountNumber: accountNumber,
-                    accountHolderName: accountHolderName
+                    accountHolderName: katakanaName
                 )
                 onSuccess()
                 dismiss()
@@ -1161,6 +1972,29 @@ struct WithdrawalView: View {
                     Text("¥\(viewModel.wallet?.balance.formatted() ?? "0")")
                         .font(.headline)
                 }
+                if let wallet = viewModel.wallet,
+                   let available = wallet.availableBalance,
+                   available != wallet.balance {
+                    HStack {
+                        Text("出金可能額")
+                        Spacer()
+                        Text("¥\(available.formatted())")
+                            .font(.headline)
+                            .foregroundColor(.green)
+                    }
+                }
+                if viewModel.withdrawalFee > 0 {
+                    HStack {
+                        Text("出金手数料")
+                        Spacer()
+                        Text("¥\(viewModel.withdrawalFee.formatted())")
+                            .font(.subheadline)
+                            .foregroundColor(.orange)
+                    }
+                    Text("※ 出金額から手数料が差し引かれます")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
             }
 
             Section("出金先口座") {
@@ -1186,6 +2020,21 @@ struct WithdrawalView: View {
                 Text("最低出金額: ¥1,000")
                     .font(.caption)
                     .foregroundColor(.gray)
+            }
+
+            Section("着金目安") {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(.blue)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("翌営業日〜2営業日")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("Stripe経由で登録済みの銀行口座へ振り込まれます。土日祝日を挟む場合は翌営業日以降の着金となります。")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
 
             if let error = viewModel.errorMessage {
@@ -1245,7 +2094,7 @@ struct WithdrawalView: View {
                 Task { await viewModel.requestWithdrawal(accountId: accountId, amount: amountInt) }
             }
         } message: {
-            Text("¥\(amount)を出金申請しますか？\n処理には1〜3営業日かかります。")
+            Text("¥\(amount)を出金申請しますか？\n登録済みの銀行口座へ翌営業日〜2営業日で着金します。")
         }
         .task {
             await viewModel.loadData()
@@ -1255,7 +2104,7 @@ struct WithdrawalView: View {
     var canSubmit: Bool {
         guard let accountId = selectedAccountId, !accountId.isEmpty,
               let amountInt = Int(amount), amountInt >= 1000,
-              let balance = viewModel.wallet?.balance, amountInt <= balance else {
+              let wallet = viewModel.wallet, amountInt <= wallet.availableAmount else {
             return false
         }
         return !viewModel.isLoading
@@ -1267,6 +2116,7 @@ class WithdrawalViewModel: ObservableObject {
     @Published var wallet: Wallet?
     @Published var accounts: [BankAccount] = []
     @Published var withdrawals: [WithdrawalRequest] = []
+    @Published var withdrawalFee: Int = 250
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -1290,14 +2140,15 @@ class WithdrawalViewModel: ObservableObject {
             // 出金前に最新の残高を再取得して検証
             let latestWallet = try await api.getWallet()
             wallet = latestWallet
-            guard amount <= latestWallet.balance else {
-                errorMessage = "残高不足です。現在の出金可能額: ¥\(latestWallet.balance)"
+            guard amount <= latestWallet.availableAmount else {
+                errorMessage = "残高不足です。現在の出金可能額: ¥\(latestWallet.availableAmount.formatted())"
                 isLoading = false
                 return
             }
 
             let request = try await api.requestWithdrawal(bankAccountId: accountId, amount: amount)
             withdrawals.insert(request, at: 0)
+            AnalyticsService.shared.track(AnalyticsService.eventWithdrawalRequested, properties: ["amount": String(amount)])
             await loadData()
         } catch {
             errorMessage = error.localizedDescription
@@ -1354,9 +2205,7 @@ struct ApplicationHistoryView: View {
             }
 
             if viewModel.isLoading {
-                Spacer()
-                ProgressView("読み込み中...")
-                Spacer()
+                SkeletonList(count: 4)
             } else if let error = viewModel.errorMessage {
                 Spacer()
                 VStack(spacing: 12) {
@@ -1553,8 +2402,7 @@ struct WorkHistoryView: View {
             }
 
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                SkeletonList(count: 4)
             } else if viewModel.workHistory.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "clock")
@@ -1647,6 +2495,8 @@ struct ProfileEditView: View {
     @State private var showingSaved = false
     @State private var saveError: String?
     @State private var showImagePicker = false
+    @State private var showImageSourceSheet = false
+    @State private var imageSourceType: UIImagePickerController.SourceType = .photoLibrary
     @State private var selectedImage: UIImage?
     @State private var isUploadingImage = false
 
@@ -1672,21 +2522,18 @@ struct ProfileEditView: View {
                                 .clipShape(Circle())
                         } else if let imageUrl = authManager.currentUser?.profileImageUrl,
                                   let url = URL(string: imageUrl) {
-                            AsyncImage(url: url) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 80, height: 80)
-                                    .clipShape(Circle())
-                            } placeholder: {
+                            CachedAsyncImage(url: url) {
                                 defaultAvatar
                             }
+                            .scaledToFill()
+                            .frame(width: 80, height: 80)
+                            .clipShape(Circle())
                         } else {
                             defaultAvatar
                         }
 
                         Button(isUploadingImage ? "アップロード中..." : "画像を変更") {
-                            showImagePicker = true
+                            showImageSourceSheet = true
                         }
                         .font(.caption)
                         .disabled(isUploadingImage)
@@ -1698,14 +2545,38 @@ struct ProfileEditView: View {
             Section("基本情報") {
                 TextField("名前", text: $name)
                     .textContentType(.name)
+                    .submitLabel(.done)
+                    .onChange(of: name) { _, newValue in
+                        if newValue.count > 50 { name = String(newValue.prefix(50)) }
+                    }
+
+                if let nameErr = ValidationHelper.nameError(name) {
+                    Text(nameErr)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+
                 TextField("電話番号", text: $phone)
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)
+
+                if let phoneErr = ValidationHelper.phoneError(phone) {
+                    Text(phoneErr)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
             }
 
             Section("自己紹介") {
                 TextEditor(text: $bio)
                     .frame(height: 100)
+                    .onChange(of: bio) { _, newValue in
+                        if newValue.count > 500 { bio = String(newValue.prefix(500)) }
+                    }
+                Text("\(bio.count)/500")
+                    .font(.caption2)
+                    .foregroundColor(bio.count > 450 ? .orange : .gray)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             Section("居住地") {
@@ -1716,10 +2587,13 @@ struct ProfileEditView: View {
                     }
                 }
                 TextField("市区町村", text: $city)
+                    .submitLabel(.done)
             }
 
             Section {
-                Button(action: saveProfile) {
+                Button(action: {
+                    Task { await saveProfile() }
+                }) {
                     if isLoading {
                         ProgressView()
                             .frame(maxWidth: .infinity)
@@ -1728,9 +2602,10 @@ struct ProfileEditView: View {
                             .frame(maxWidth: .infinity)
                     }
                 }
-                .disabled(isLoading)
+                .disabled(isLoading || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (!phone.isEmpty && !ValidationHelper.isValidPhone(phone)))
             }
         }
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("プロフィール編集")
         .alert("保存しました", isPresented: $showingSaved) {
             Button("OK") {}
@@ -1745,7 +2620,20 @@ struct ProfileEditView: View {
             }
         }
         .sheet(isPresented: $showImagePicker) {
-            ImagePicker(image: $selectedImage)
+            ImagePicker(image: $selectedImage, sourceType: imageSourceType)
+        }
+        .confirmationDialog("画像を選択", isPresented: $showImageSourceSheet) {
+            Button("フォトライブラリから選択") {
+                imageSourceType = .photoLibrary
+                showImagePicker = true
+            }
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("カメラで撮影") {
+                    imageSourceType = .camera
+                    showImagePicker = true
+                }
+            }
+            Button("キャンセル", role: .cancel) {}
         }
         .onChange(of: selectedImage) { _, newImage in
             if let image = newImage {
@@ -1763,6 +2651,11 @@ struct ProfileEditView: View {
 
     private func uploadImage(_ image: UIImage) async {
         guard let imageData = image.jpegData(compressionQuality: 0.7) else { return }
+        let maxSize = 5 * 1024 * 1024 // 5MB
+        if imageData.count > maxSize {
+            saveError = "画像サイズが大きすぎます（最大5MB）。別の画像を選択してください。"
+            return
+        }
         isUploadingImage = true
         do {
             _ = try await APIClient.shared.uploadProfileImage(imageData: imageData)
@@ -1773,25 +2666,27 @@ struct ProfileEditView: View {
         isUploadingImage = false
     }
 
-    func saveProfile() {
+    func saveProfile() async {
         isLoading = true
         saveError = nil
-        Task {
-            do {
-                let updated = try await APIClient.shared.updateProfile(
-                    name: name.isEmpty ? nil : name,
-                    phone: phone.isEmpty ? nil : phone,
-                    bio: bio.isEmpty ? nil : bio,
-                    prefecture: prefecture.isEmpty ? nil : prefecture,
-                    city: city.isEmpty ? nil : city
-                )
-                authManager.currentUser = updated
-                showingSaved = true
-            } catch {
-                saveError = "プロフィールの保存に失敗しました。もう一度お試しください。"
-            }
-            isLoading = false
+        do {
+            let updated = try await APIClient.shared.updateProfile(
+                name: name.isEmpty ? nil : name,
+                phone: phone.isEmpty ? nil : phone,
+                bio: bio.isEmpty ? nil : bio,
+                prefecture: prefecture.isEmpty ? nil : prefecture,
+                city: city.isEmpty ? nil : city
+            )
+            authManager.currentUser = updated
+            authManager.cacheCurrentUser()
+            showingSaved = true
+            AnalyticsService.shared.track(AnalyticsService.eventProfileUpdated)
+        } catch let apiError as APIError {
+            saveError = apiError.localizedDescription
+        } catch {
+            saveError = "プロフィールの保存に失敗しました。通信状況を確認してもう一度お試しください。"
         }
+        isLoading = false
     }
 }
 
@@ -1799,51 +2694,240 @@ struct ProfileEditView: View {
 
 struct IdentityVerificationView: View {
     @StateObject private var viewModel = IdentityVerificationViewModel()
-    @State private var showingImagePicker = false
+    @State private var showingFrontImagePicker = false
+    @State private var showingBackImagePicker = false
     @State private var selectedImage: UIImage?
+    @State private var selectedBackImage: UIImage?
     @State private var documentType = "drivers_license"
+    @State private var showResubmitForm = false
+    @State private var showSubmitSuccess = false
 
     var body: some View {
         Form {
+            // Error display
             if let error = viewModel.errorMessage {
                 Section {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(.red)
+                    Label {
+                        Text(error)
+                            .font(.caption)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                    }
+                    .foregroundColor(.red)
                 }
             }
 
+            // Status badge section
             Section("現在のステータス") {
-                HStack {
-                    Text("本人確認")
-                    Spacer()
-                    Text(viewModel.verification?.statusDisplay ?? "未提出")
+                HStack(spacing: 12) {
+                    Image(systemName: statusIcon)
+                        .font(.title2)
                         .foregroundColor(statusColor)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("本人確認")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Text(viewModel.verification?.statusDisplay ?? "未提出")
+                            .font(.headline)
+                            .foregroundColor(statusColor)
+                    }
+
+                    Spacer()
+
+                    // Color-coded status badge
+                    Text(statusBadgeText)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(statusColor)
+                        .clipShape(Capsule())
+                }
+                .padding(.vertical, 4)
+
+                // Submitted date
+                if let submittedAt = viewModel.verification?.submittedAt {
+                    HStack {
+                        Text("提出日")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(submittedAt.prefix(10))
+                            .font(.subheadline)
+                    }
+                }
+
+                // Document type
+                if let docType = viewModel.verification?.documentType {
+                    HStack {
+                        Text("書類の種類")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(documentTypeDisplay(docType))
+                            .font(.subheadline)
+                    }
                 }
             }
 
-            if viewModel.verification?.status != "approved" {
-                Section("書類を提出") {
+            // Pending status info
+            if viewModel.verification?.status == "pending" {
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "clock.fill")
+                            .foregroundColor(.orange)
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("審査中です")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("書類の確認には通常1〜3営業日かかります。審査完了後、通知でお知らせします。")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            // Approved status info
+            if viewModel.verification?.status == "approved" {
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundColor(.green)
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("本人確認が完了しています")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("お仕事への応募が可能です。")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            // Rejection reason and re-submit section
+            if viewModel.verification?.status == "rejected" {
+                // Rejection reason card
+                Section("却下理由") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.red)
+                                .font(.title3)
+                            Text("本人確認が却下されました")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.red)
+                        }
+
+                        Divider()
+
+                        // Show the rejection reason prominently
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("理由")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+
+                            Text(viewModel.verification?.rejectionReason ?? "理由が提供されていません。サポートにお問い合わせください。")
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.red.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                        Text("内容を確認の上、書類を再提出してください。")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                // Re-submit button
+                if !showResubmitForm {
+                    Section {
+                        Button(action: { showResubmitForm = true }) {
+                            HStack {
+                                Image(systemName: "arrow.counterclockwise")
+                                Text("書類を再提出する")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .foregroundColor(.white)
+                            .padding(.vertical, 8)
+                        }
+                        .listRowBackground(Color.blue)
+                    }
+                }
+            }
+
+            // Submission form: show for "none" status, or when re-submitting after rejection
+            if viewModel.verification?.status == nil
+                || viewModel.verification?.status == "none"
+                || showResubmitForm {
+                Section(showResubmitForm ? "再提出" : "書類を提出") {
                     Picker("書類の種類", selection: $documentType) {
                         Text("運転免許証").tag("drivers_license")
-                        Text("マイナンバーカード").tag("my_number")
+                        Text("マイナンバーカード").tag("my_number_card")
                         Text("パスポート").tag("passport")
                         Text("在留カード").tag("residence_card")
                     }
+                }
 
-                    Button(action: { showingImagePicker = true }) {
+                Section("表面") {
+                    Button(action: { showingFrontImagePicker = true }) {
                         HStack {
                             Image(systemName: "camera")
-                            Text(selectedImage == nil ? "書類を撮影する" : "書類を撮り直す")
+                            Text(selectedImage == nil ? "表面を撮影する" : "表面を撮り直す")
                         }
                     }
 
-                    if selectedImage != nil {
-                        Image(uiImage: selectedImage!)
+                    if let image = selectedImage {
+                        Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
                             .frame(height: 150)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
+                }
+
+                Section("裏面（任意）") {
+                    Button(action: { showingBackImagePicker = true }) {
+                        HStack {
+                            Image(systemName: "camera")
+                            Text(selectedBackImage == nil ? "裏面を撮影する" : "裏面を撮り直す")
+                        }
+                    }
+
+                    if let backImage = selectedBackImage {
+                        HStack {
+                            Image(uiImage: backImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(height: 150)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                            Button(action: { selectedBackImage = nil }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+
+                    Text("運転免許証・在留カードは裏面も提出すると審査がスムーズになります")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
 
                 if selectedImage != nil {
@@ -1853,32 +2937,53 @@ struct IdentityVerificationView: View {
                                 ProgressView()
                                     .frame(maxWidth: .infinity)
                             } else {
-                                Text("提出する")
-                                    .frame(maxWidth: .infinity)
+                                HStack {
+                                    Image(systemName: "paperplane.fill")
+                                    Text(showResubmitForm ? "再提出する" : "提出する")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
                             }
                         }
                         .disabled(viewModel.isLoading)
                     }
                 }
-            }
 
-            if viewModel.verification?.status == "rejected" {
-                Section {
-                    Text("却下理由: \(viewModel.verification?.rejectionReason ?? "不明")")
-                        .foregroundColor(.red)
+                // Cancel re-submit
+                if showResubmitForm {
+                    Section {
+                        Button(action: {
+                            showResubmitForm = false
+                            selectedImage = nil
+                        }) {
+                            Text("キャンセル")
+                                .frame(maxWidth: .infinity)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
             }
         }
         .navigationTitle("本人確認")
-        .sheet(isPresented: $showingImagePicker) {
+        .sheet(isPresented: $showingFrontImagePicker) {
             ImagePicker(image: $selectedImage)
+        }
+        .sheet(isPresented: $showingBackImagePicker) {
+            ImagePicker(image: $selectedBackImage)
+        }
+        .alert("提出完了", isPresented: $showSubmitSuccess) {
+            Button("OK") {}
+        } message: {
+            Text("本人確認書類を提出しました。審査には通常1〜3営業日かかります。結果は通知でお知らせします。")
         }
         .task {
             await viewModel.loadData()
         }
     }
 
-    var statusColor: Color {
+    // MARK: - Status Helpers
+
+    private var statusColor: Color {
         switch viewModel.verification?.status {
         case "approved": return .green
         case "pending": return .orange
@@ -1887,11 +2992,60 @@ struct IdentityVerificationView: View {
         }
     }
 
-    func submitVerification() {
+    private var statusIcon: String {
+        switch viewModel.verification?.status {
+        case "approved": return "checkmark.shield.fill"
+        case "pending": return "clock.badge.questionmark"
+        case "rejected": return "xmark.shield.fill"
+        default: return "shield.slash"
+        }
+    }
+
+    private var statusBadgeText: String {
+        switch viewModel.verification?.status {
+        case "approved": return "確認済み"
+        case "pending": return "審査中"
+        case "rejected": return "却下"
+        default: return "未提出"
+        }
+    }
+
+    private func documentTypeDisplay(_ type: String) -> String {
+        switch type {
+        case "drivers_license": return "運転免許証"
+        case "my_number_card": return "マイナンバーカード"
+        case "passport": return "パスポート"
+        case "residence_card": return "在留カード"
+        default: return type
+        }
+    }
+
+    private func submitVerification() {
         guard let image = selectedImage, let imageData = image.jpegData(compressionQuality: 0.8) else { return }
+        let maxSize = 10 * 1024 * 1024 // 10MB
+        if imageData.count > maxSize {
+            viewModel.errorMessage = "表面の画像サイズが大きすぎます（最大10MB）。別の画像を選択してください。"
+            return
+        }
+
+        var backImageData: Data?
+        if let backImage = selectedBackImage {
+            guard let backData = backImage.jpegData(compressionQuality: 0.8) else { return }
+            if backData.count > maxSize {
+                viewModel.errorMessage = "裏面の画像サイズが大きすぎます（最大10MB）。別の画像を選択してください。"
+                return
+            }
+            backImageData = backData
+        }
 
         Task {
-            await viewModel.submit(documentType: documentType, frontImage: imageData)
+            await viewModel.submit(documentType: documentType, frontImage: imageData, backImage: backImageData)
+            if viewModel.errorMessage == nil {
+                showResubmitForm = false
+                selectedImage = nil
+                selectedBackImage = nil
+                showSubmitSuccess = true
+            }
         }
     }
 }
@@ -1912,10 +3066,11 @@ class IdentityVerificationViewModel: ObservableObject {
         }
     }
 
-    func submit(documentType: String, frontImage: Data) async {
+    func submit(documentType: String, frontImage: Data, backImage: Data? = nil) async {
         isLoading = true
+        errorMessage = nil
         do {
-            _ = try await api.submitIdentityVerification(documentType: documentType, frontImageData: frontImage, backImageData: nil)
+            _ = try await api.submitIdentityVerification(documentType: documentType, frontImageData: frontImage, backImageData: backImage)
             await loadData()
         } catch {
             errorMessage = error.localizedDescription
@@ -1928,12 +3083,13 @@ class IdentityVerificationViewModel: ObservableObject {
 
 struct ImagePicker: UIViewControllerRepresentable {
     @Binding var image: UIImage?
+    var sourceType: UIImagePickerController.SourceType = .photoLibrary
     @Environment(\.dismiss) var dismiss
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
-        picker.sourceType = .camera
+        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(sourceType) ? sourceType : .photoLibrary
         return picker
     }
 
@@ -1971,11 +3127,11 @@ struct FAQView: View {
             ("どんなお仕事がありますか？", "飲食店、イベントスタッフ、軽作業など様々な短期のお仕事があります。アプリの検索機能でエリアや職種を絞り込んで探せます。"),
             ("応募してからどれくらいで結果がわかりますか？", "事業者によって異なりますが、通常1〜3日以内に結果がチャットで通知されます。"),
             ("キャンセルはできますか？", "勤務日の前日までキャンセル可能です。当日キャンセルは評価に影響する場合があります。"),
-            ("出勤・退勤はどうやって記録しますか？", "勤務先に設置されたQRコードをアプリで読み取ることで出退勤を記録できます。"),
+            ("出勤・退勤はどうやって記録しますか？", "勤務先に設置されたQRコードをアプリで読み取ることで出退勤を記録できます。出勤時と退勤時にそれぞれQRコードをスキャンしてください。"),
         ]),
         ("報酬・出金について", [
-            ("報酬はいつ受け取れますか？", "勤務完了後、事業者が承認すると即座にウォレットに反映されます。出金申請から1〜3営業日で銀行口座に振り込まれます。"),
-            ("出金手数料はかかりますか？", "出金手数料は無料です。"),
+            ("報酬はいつ受け取れますか？", "勤務完了後、事業者が承認すると即座にウォレットに反映されます。出金申請から翌営業日〜2営業日で登録済みの銀行口座に振り込まれます。"),
+            ("出金手数料はかかりますか？", "出金時に所定の手数料がかかります。手数料はウォレットの出金申請画面でご確認いただけます。"),
             ("最低出金額はありますか？", "最低出金額は1,000円からとなっています。"),
         ]),
         ("アカウントについて", [
@@ -2038,8 +3194,19 @@ struct ContactView: View {
 
             Section("お問い合わせ内容") {
                 TextField("件名", text: $subject)
+                    .submitLabel(.done)
+                    .onChange(of: subject) { _, newValue in
+                        if newValue.count > 100 { subject = String(newValue.prefix(100)) }
+                    }
                 TextEditor(text: $message)
                     .frame(height: 150)
+                    .onChange(of: message) { _, newValue in
+                        if newValue.count > 2000 { message = String(newValue.prefix(2000)) }
+                    }
+                Text("\(message.count)/2000")
+                    .font(.caption2)
+                    .foregroundColor(message.count > 1800 ? .orange : .gray)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             if let error = errorMessage {
@@ -2072,6 +3239,7 @@ struct ContactView: View {
                 }
             }
         }
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("お問い合わせ")
         .alert("送信完了", isPresented: $showSuccessAlert) {
             Button("OK") {
@@ -2126,8 +3294,7 @@ struct PendingReviewsView: View {
             }
 
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                SkeletonList(count: 3)
             } else if viewModel.pendingReviews.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "star")
@@ -2245,7 +3412,7 @@ struct SubmitReviewView: View {
                             Image(systemName: ratingType == "good" ? "hand.thumbsup.fill" : "hand.thumbsup")
                                 .font(.system(size: 40))
                                 .foregroundColor(ratingType == "good" ? .green : .gray)
-                            Text("Good")
+                            Text("良い")
                                 .font(.headline)
                                 .foregroundColor(ratingType == "good" ? .green : .gray)
                         }
@@ -2257,7 +3424,7 @@ struct SubmitReviewView: View {
                             Image(systemName: ratingType == "bad" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
                                 .font(.system(size: 40))
                                 .foregroundColor(ratingType == "bad" ? .red : .gray)
-                            Text("Bad")
+                            Text("悪い")
                                 .font(.headline)
                                 .foregroundColor(ratingType == "bad" ? .red : .gray)
                         }
@@ -2358,14 +3525,15 @@ struct MyReviewsView: View {
     var body: some View {
         List {
             if let error = viewModel.errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
+                Section {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
             }
 
             if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                SkeletonList(count: 3)
             } else if viewModel.reviews.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "star.bubble")
@@ -2377,8 +3545,34 @@ struct MyReviewsView: View {
                 .frame(maxWidth: .infinity)
                 .padding()
             } else {
-                ForEach(viewModel.reviews) { review in
-                    MyReviewRow(review: review)
+                // Average Rating Section
+                Section {
+                    VStack(spacing: 8) {
+                        Text(String(format: "%.1f", viewModel.averageRating))
+                            .font(.system(size: 40, weight: .bold))
+                            .foregroundColor(.primary)
+
+                        HStack(spacing: 4) {
+                            ForEach(1...5, id: \.self) { star in
+                                Image(systemName: myReviewsStarImageName(for: star, rating: viewModel.averageRating))
+                                    .font(.title3)
+                                    .foregroundColor(.orange)
+                            }
+                        }
+
+                        Text("\(viewModel.reviews.count)件のレビュー")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                }
+
+                // Reviews List
+                Section("受け取ったレビュー") {
+                    ForEach(viewModel.reviews) { review in
+                        MyReviewRow(review: review)
+                    }
                 }
             }
         }
@@ -2391,6 +3585,17 @@ struct MyReviewsView: View {
             await viewModel.loadData()
         }
     }
+
+    private func myReviewsStarImageName(for star: Int, rating: Double) -> String {
+        let threshold = Double(star)
+        if rating >= threshold {
+            return "star.fill"
+        } else if rating >= threshold - 0.5 {
+            return "star.leadinghalf.filled"
+        } else {
+            return "star"
+        }
+    }
 }
 
 struct MyReviewRow: View {
@@ -2399,19 +3604,36 @@ struct MyReviewRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                HStack(spacing: 2) {
-                    ForEach(1...5, id: \.self) { star in
-                        Image(systemName: star <= review.rating ? "star.fill" : "star")
-                            .font(.caption)
-                            .foregroundColor(.yellow)
+                // Reviewer avatar
+                Circle()
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.blue)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(review.reviewerName ?? "匿名ユーザー")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
+                    // Star rating
+                    HStack(spacing: 2) {
+                        ForEach(1...5, id: \.self) { star in
+                            Image(systemName: star <= review.rating ? "star.fill" : "star")
+                                .font(.system(size: 12))
+                                .foregroundColor(.orange)
+                        }
                     }
                 }
 
                 Spacer()
 
                 if let date = review.createdAt {
-                    Text(formatDate(date))
-                        .font(.caption)
+                    Text(myReviewFormatDate(date))
+                        .font(.caption2)
                         .foregroundColor(.gray)
                 }
             }
@@ -2419,13 +3641,23 @@ struct MyReviewRow: View {
             if let comment = review.comment, !comment.isEmpty {
                 Text(comment)
                     .font(.subheadline)
+                    .foregroundColor(.primary)
+                    .lineLimit(5)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 
-    private func formatDate(_ dateString: String) -> String {
+    private func myReviewFormatDate(_ dateString: String) -> String {
         let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.locale = Locale(identifier: "ja_JP")
+            displayFormatter.dateFormat = "yyyy/MM/dd"
+            return displayFormatter.string(from: date)
+        }
+        formatter.formatOptions = [.withInternetDateTime]
         if let date = formatter.date(from: dateString) {
             let displayFormatter = DateFormatter()
             displayFormatter.locale = Locale(identifier: "ja_JP")
@@ -2441,6 +3673,12 @@ class MyReviewsViewModel: ObservableObject {
     @Published var reviews: [Review] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+
+    var averageRating: Double {
+        guard !reviews.isEmpty else { return 0 }
+        let total = reviews.reduce(0) { $0 + $1.rating }
+        return Double(total) / Double(reviews.count)
+    }
 
     private let api = APIClient.shared
 

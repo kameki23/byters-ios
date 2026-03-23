@@ -1,9 +1,54 @@
 import SwiftUI
 
+// MARK: - Appearance Settings View
+
+struct AppearanceSettingsView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        Form {
+            Section("テーマ") {
+                Picker("外観モード", selection: $appState.appearanceMode) {
+                    Label("システム設定に従う", systemImage: "iphone").tag(0)
+                    Label("ライトモード", systemImage: "sun.max.fill").tag(1)
+                    Label("ダークモード", systemImage: "moon.fill").tag(2)
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            }
+
+            Section {
+                Text("「システム設定に従う」を選択すると、iPhoneの設定に合わせて自動的に切り替わります。")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("表示設定")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 // MARK: - Job Seeker Notification Settings View
 
 struct JobSeekerNotificationSettingsView: View {
     @StateObject private var viewModel = NotificationSettingsViewModel()
+    @AppStorage("quiet_hours_enabled") private var quietHoursEnabled = false
+    @AppStorage("quiet_hours_start") private var quietHoursStart: Double = 22 * 3600 // 22:00
+    @AppStorage("quiet_hours_end") private var quietHoursEnd: Double = 7 * 3600   // 07:00
+
+    private var startDate: Binding<Date> {
+        Binding(
+            get: { Calendar.current.startOfDay(for: Date()).addingTimeInterval(quietHoursStart) },
+            set: { quietHoursStart = $0.timeIntervalSince(Calendar.current.startOfDay(for: $0)) }
+        )
+    }
+
+    private var endDate: Binding<Date> {
+        Binding(
+            get: { Calendar.current.startOfDay(for: Date()).addingTimeInterval(quietHoursEnd) },
+            set: { quietHoursEnd = $0.timeIntervalSince(Calendar.current.startOfDay(for: $0)) }
+        )
+    }
 
     var body: some View {
         Form {
@@ -15,6 +60,15 @@ struct JobSeekerNotificationSettingsView: View {
 
             Section(header: Text("メッセージ")) {
                 Toggle("チャットメッセージ", isOn: $viewModel.settings.chatMessages)
+            }
+
+            Section(header: Text("静音時間"), footer: Text("設定した時間帯は通知音が鳴りません。緊急の勤務リマインダーは除きます。")) {
+                Toggle("静音時間を有効にする", isOn: $quietHoursEnabled)
+
+                if quietHoursEnabled {
+                    DatePicker("開始", selection: startDate, displayedComponents: .hourAndMinute)
+                    DatePicker("終了", selection: endDate, displayedComponents: .hourAndMinute)
+                }
             }
 
             Section(header: Text("その他")) {
@@ -308,36 +362,55 @@ struct MutedEmployersView: View {
                     .foregroundColor(.red)
             }
 
-            if viewModel.mutedEmployers.isEmpty {
-                Text("ミュートしている事業者はありません")
-                    .foregroundColor(.gray)
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
+            if !viewModel.isLoading && viewModel.mutedEmployers.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "person.crop.circle.badge.xmark")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    Text("ブロックした事業者はいません")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Text("求人詳細やチャットからブロックした事業者がここに表示されます")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             } else {
                 ForEach(viewModel.mutedEmployers) { employer in
-                    HStack {
+                    HStack(spacing: 12) {
+                        Image(systemName: "building.2.fill")
+                            .font(.title3)
+                            .foregroundColor(.gray)
+                            .frame(width: 40, height: 40)
+                            .background(Color(.systemGray6))
+                            .clipShape(Circle())
+
                         VStack(alignment: .leading, spacing: 4) {
                             Text(employer.employerName)
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                            Text("ミュート日: \(formatDate(employer.mutedAt))")
+                            Text("ブロック日: \(formatDate(employer.mutedAt))")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                         }
 
                         Spacer()
-
-                        Button("解除") {
-                            Task { await viewModel.unmuteEmployer(id: employer.employerId) }
-                        }
-                        .font(.caption)
-                        .foregroundColor(.blue)
+                    }
+                }
+                .onDelete { indexSet in
+                    for index in indexSet {
+                        let employer = viewModel.mutedEmployers[index]
+                        Task { await viewModel.unmuteEmployer(id: employer.employerId) }
                     }
                 }
             }
         }
         .listStyle(.plain)
-        .navigationTitle("ミュートした事業者")
+        .navigationTitle("ブロックした事業者")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadMutedEmployers()
@@ -556,13 +629,33 @@ struct TimesheetAdjustmentRequestSheet: View {
                 Section(header: Text("修正希望時間")) {
                     TextField("出勤時刻（例: 09:00）", text: $requestedCheckIn)
                         .keyboardType(.numbersAndPunctuation)
+
+                    if let timeErr = ValidationHelper.timeFormatError(requestedCheckIn) {
+                        Text(timeErr)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+
                     TextField("退勤時刻（例: 18:00）", text: $requestedCheckOut)
                         .keyboardType(.numbersAndPunctuation)
+
+                    if let timeErr = ValidationHelper.timeFormatError(requestedCheckOut) {
+                        Text(timeErr)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
 
                 Section(header: Text("修正理由")) {
                     TextEditor(text: $reason)
                         .frame(height: 100)
+                        .onChange(of: reason) { _, newValue in
+                            if newValue.count > 500 { reason = String(newValue.prefix(500)) }
+                        }
+                    Text("\(reason.count)/500")
+                        .font(.caption2)
+                        .foregroundColor(reason.count > 450 ? .orange : .gray)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
 
                 if let error = errorMessage {
@@ -583,7 +676,9 @@ struct TimesheetAdjustmentRequestSheet: View {
                     Button("送信") {
                         Task { await submitRequest() }
                     }
-                    .disabled(reason.isEmpty || selectedApplicationId.isEmpty || isLoading)
+                    .disabled(reason.isEmpty || selectedApplicationId.isEmpty || isLoading ||
+                             (!requestedCheckIn.isEmpty && !ValidationHelper.isValidTimeFormat(requestedCheckIn)) ||
+                             (!requestedCheckOut.isEmpty && !ValidationHelper.isValidTimeFormat(requestedCheckOut)))
                 }
             }
             .task {
@@ -1101,6 +1196,167 @@ struct BugReportView: View {
     }
 }
 
+// MARK: - Feedback History View
+
+struct FeedbackHistoryView: View {
+    @State private var feedbackItems: [FeedbackItem] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView("読み込み中...")
+            } else if let error = errorMessage {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Button("再試行") { Task { await loadFeedback() } }
+                        .buttonStyle(.bordered)
+                }
+            } else if feedbackItems.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "envelope.open")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    Text("フィードバック履歴がありません")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                }
+                .padding()
+            } else {
+                List(feedbackItems) { item in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(feedbackCategoryLabel(item.category))
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(feedbackCategoryColor(item.category).opacity(0.15))
+                                .foregroundColor(feedbackCategoryColor(item.category))
+                                .clipShape(Capsule())
+
+                            Spacer()
+
+                            Text(feedbackStatusLabel(item.status))
+                                .font(.caption)
+                                .foregroundColor(feedbackStatusColor(item.status))
+                        }
+
+                        Text(item.title)
+                            .font(.headline)
+
+                        Text(item.description)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .lineLimit(3)
+
+                        if let response = item.response, !response.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("返信:")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.blue)
+                                Text(response)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(8)
+                            .background(Color.blue.opacity(0.05))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+
+                        Text(formatDate(item.createdAt))
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle("フィードバック履歴")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await loadFeedback()
+        }
+        .refreshable {
+            await loadFeedback()
+        }
+    }
+
+    private func loadFeedback() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            feedbackItems = try await APIClient.shared.getFeedbackHistory()
+        } catch {
+            errorMessage = "フィードバック履歴の読み込みに失敗しました"
+        }
+        isLoading = false
+    }
+
+    private func feedbackCategoryLabel(_ category: String) -> String {
+        switch category {
+        case "bug": return "バグ報告"
+        case "feature": return "機能リクエスト"
+        case "improvement": return "改善提案"
+        default: return "その他"
+        }
+    }
+
+    private func feedbackCategoryColor(_ category: String) -> Color {
+        switch category {
+        case "bug": return .red
+        case "feature": return .blue
+        case "improvement": return .green
+        default: return .gray
+        }
+    }
+
+    private func feedbackStatusLabel(_ status: String) -> String {
+        switch status {
+        case "open": return "受付中"
+        case "in_progress": return "対応中"
+        case "resolved": return "解決済み"
+        case "closed": return "クローズ"
+        default: return status
+        }
+    }
+
+    private func feedbackStatusColor(_ status: String) -> Color {
+        switch status {
+        case "open": return .orange
+        case "in_progress": return .blue
+        case "resolved": return .green
+        case "closed": return .gray
+        default: return .secondary
+        }
+    }
+
+    private func formatDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.locale = Locale(identifier: "ja_JP")
+            displayFormatter.dateFormat = "yyyy年M月d日"
+            return displayFormatter.string(from: date)
+        }
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.locale = Locale(identifier: "ja_JP")
+            displayFormatter.dateFormat = "yyyy年M月d日"
+            return displayFormatter.string(from: date)
+        }
+        return dateString
+    }
+}
+
 // MARK: - Terms of Service View
 
 struct TermsOfServiceView: View {
@@ -1138,18 +1394,14 @@ struct WebPageView: View {
         Group {
             if loadFailed {
                 ScrollView {
-                    VStack(spacing: 16) {
-                        Image(systemName: "wifi.slash")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray)
-                        Text("ページを読み込めませんでした")
-                            .font(.headline)
-                            .foregroundColor(.gray)
-                        Text("インターネット接続を確認してください")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                    VStack(alignment: .leading, spacing: 16) {
+                        if title == "利用規約" {
+                            FallbackTermsContent()
+                        } else {
+                            FallbackPrivacyContent()
+                        }
                     }
-                    .padding(.top, 80)
+                    .padding()
                 }
             } else {
                 WebViewRepresentable(url: url, isLoading: $isLoading, loadFailed: $loadFailed)
@@ -1202,6 +1454,170 @@ struct WebViewRepresentable: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             parent.isLoading = false
             parent.loadFailed = true
+        }
+    }
+}
+
+// MARK: - Fallback Terms Content
+
+private struct FallbackTermsContent: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Byters 利用規約")
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Group {
+                sectionTitle("第1条（適用）")
+                sectionBody("本規約は、Byters（以下「本サービス」）の利用に関する条件を定めるものです。ユーザーは本規約に同意の上、本サービスを利用するものとします。")
+
+                sectionTitle("第2条（アカウント登録）")
+                sectionBody("ユーザーは正確な情報を提供し、アカウントを登録する必要があります。虚偽の情報による登録は禁止します。アカウントの管理はユーザー自身の責任とします。")
+
+                sectionTitle("第3条（サービス内容）")
+                sectionBody("本サービスは、求職者と事業者を結ぶ短期アルバイトマッチングプラットフォームです。求人情報の掲載、応募、マッチング、チャット、決済等の機能を提供します。")
+
+                sectionTitle("第4条（禁止事項）")
+                sectionBody("以下の行為を禁止します：法令違反行為、虚偽情報の登録、他のユーザーへの迷惑行為、本サービスの不正利用、知的財産権の侵害、その他運営が不適切と判断する行為。")
+
+                sectionTitle("第5条（手数料）")
+                sectionBody("事業者は求人マッチング成立時に所定の手数料を支払うものとします。手数料率はサービス内に表示される通りとします。")
+
+                sectionTitle("第6条（免責事項）")
+                sectionBody("本サービスは現状有姿で提供されます。運営はサービスの中断、データの損失等について、故意または重過失の場合を除き責任を負いません。")
+
+                sectionTitle("第7条（変更・終了）")
+                sectionBody("運営は本規約およびサービス内容を変更できるものとします。重要な変更は事前に通知します。")
+            }
+
+            Text("最終更新日: 2025年2月1日")
+                .font(.caption)
+                .foregroundColor(.gray)
+                .padding(.top, 8)
+        }
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.headline)
+            .padding(.top, 4)
+    }
+
+    private func sectionBody(_ text: String) -> some View {
+        Text(text)
+            .font(.body)
+            .foregroundColor(.secondary)
+    }
+}
+
+// MARK: - Fallback Privacy Content
+
+private struct FallbackPrivacyContent: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Byters プライバシーポリシー")
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Group {
+                sectionTitle("1. 収集する情報")
+                sectionBody("本サービスでは以下の情報を収集します：氏名、メールアドレス、電話番号、位置情報（出勤確認時）、プロフィール写真、銀行口座情報（報酬支払い用）、利用履歴。")
+
+                sectionTitle("2. 情報の利用目的")
+                sectionBody("収集した情報は以下の目的で利用します：サービスの提供・運営、本人確認、求人マッチング、報酬の支払い、お問い合わせ対応、サービスの改善。")
+
+                sectionTitle("3. 情報の第三者提供")
+                sectionBody("ユーザーの同意なく個人情報を第三者に提供することはありません。ただし、法令に基づく場合、マッチング相手への必要最小限の情報提供を除きます。")
+
+                sectionTitle("4. 情報の保護")
+                sectionBody("個人情報は暗号化通信（SSL/TLS）により保護されます。銀行口座情報等の機密情報は適切なセキュリティ対策を講じて管理します。")
+
+                sectionTitle("5. 位置情報について")
+                sectionBody("出勤時のQRコードスキャン時にのみ位置情報を取得します。位置情報は出勤場所の確認目的にのみ使用し、常時追跡は行いません。")
+
+                sectionTitle("6. データの削除")
+                sectionBody("ユーザーはアカウント削除により個人情報の削除を請求できます。削除後、法令で保存が義務付けられている情報を除き、速やかに削除します。")
+
+                sectionTitle("7. お問い合わせ")
+                sectionBody("プライバシーに関するお問い合わせは、アプリ内のお問い合わせフォームよりご連絡ください。")
+            }
+
+            Text("最終更新日: 2025年2月1日")
+                .font(.caption)
+                .foregroundColor(.gray)
+                .padding(.top, 8)
+        }
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.headline)
+            .padding(.top, 4)
+    }
+
+    private func sectionBody(_ text: String) -> some View {
+        Text(text)
+            .font(.body)
+            .foregroundColor(.secondary)
+    }
+}
+
+// MARK: - Language Settings View
+
+struct LanguageSettingsView: View {
+    @AppStorage("app_language") private var appLanguage: String = "system"
+
+    private let languages: [(id: String, name: String, nativeName: String)] = [
+        ("system", "システム設定に従う", ""),
+        ("ja", "日本語", "Japanese"),
+        ("en", "English", "英語"),
+        ("vi", "Tiếng Việt", "ベトナム語"),
+        ("zh-Hans", "简体中文", "中国語（簡体）")
+    ]
+
+    var body: some View {
+        Form {
+            Section("言語 / Language") {
+                ForEach(languages, id: \.id) { lang in
+                    Button(action: {
+                        appLanguage = lang.id
+                        applyLanguage(lang.id)
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(lang.name)
+                                    .foregroundColor(.primary)
+                                if !lang.nativeName.isEmpty {
+                                    Text(lang.nativeName)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if appLanguage == lang.id {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Section {
+                Text("言語を変更すると、アプリの再起動後に反映されます。")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("言語設定")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func applyLanguage(_ langId: String) {
+        if langId == "system" {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.set([langId], forKey: "AppleLanguages")
         }
     }
 }

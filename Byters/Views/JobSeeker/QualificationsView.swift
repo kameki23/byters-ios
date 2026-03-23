@@ -6,6 +6,7 @@ import PhotosUI
 struct QualificationsView: View {
     @StateObject private var viewModel = QualificationsViewModel()
     @State private var showAddSheet = false
+    @State private var showAddSuccess = false
 
     var body: some View {
         Group {
@@ -44,7 +45,15 @@ struct QualificationsView: View {
             }
         }
         .sheet(isPresented: $showAddSheet) {
-            AddQualificationSheet { await viewModel.loadQualifications() }
+            AddQualificationSheet {
+                await viewModel.loadQualifications()
+                showAddSuccess = true
+            }
+        }
+        .alert("資格を提出しました", isPresented: $showAddSuccess) {
+            Button("OK") {}
+        } message: {
+            Text("資格の審査には通常1〜3営業日かかります。結果は通知でお知らせします。")
         }
         .task {
             await viewModel.loadQualifications()
@@ -262,8 +271,12 @@ struct AddQualificationSheet: View {
             }
             .onChange(of: selectedImage) { _, newValue in
                 Task {
-                    if let data = try? await newValue?.loadTransferable(type: Data.self) {
-                        imageData = data
+                    do {
+                        if let data = try await newValue?.loadTransferable(type: Data.self) {
+                            imageData = data
+                        }
+                    } catch {
+                        errorMessage = "画像の読み込みに失敗しました。別の画像をお試しください。"
                     }
                 }
             }
@@ -314,12 +327,16 @@ class QualificationsViewModel: ObservableObject {
 
     private let api = APIClient.shared
 
+    @Published var errorMessage: String?
+
     func loadQualifications() async {
         isLoading = true
+        errorMessage = nil
         do {
             qualifications = try await api.getQualifications()
         } catch {
-            _ = error
+            errorMessage = "資格情報の読み込みに失敗しました"
+            AnalyticsService.shared.trackError(error, context: "loadQualifications")
         }
         isLoading = false
     }

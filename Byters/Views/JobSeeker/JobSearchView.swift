@@ -8,35 +8,130 @@ struct JobSearchView: View {
     @State private var showFilters = false
     @State private var showMap = false
     @State private var showFavorites = false
+    @FocusState private var isSearchFieldFocused: Bool
+    @State private var searchHistory: [String] = UserDefaults.standard.stringArray(forKey: "search_history") ?? []
+    @State private var searchMode: SearchMode = .keyword
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    enum SearchMode: String, CaseIterable {
+        case keyword = "キーワード"
+        case station = "駅名"
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Search Bar
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
-
-                    TextField("キーワードで検索", text: $searchText)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .onSubmit {
-                            Task {
-                                await viewModel.search()
+                // Search Mode Toggle + Search Bar
+                VStack(spacing: 8) {
+                    // Search mode picker
+                    HStack(spacing: 0) {
+                        ForEach(SearchMode.allCases, id: \.rawValue) { mode in
+                            Button(action: { searchMode = mode }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: mode == .keyword ? "magnifyingglass" : "tram.fill")
+                                        .font(.caption2)
+                                    Text(mode.rawValue)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                                .background(searchMode == mode ? Color.blue : Color.clear)
+                                .foregroundColor(searchMode == mode ? .white : .gray)
                             }
                         }
+                    }
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.blue.opacity(0.3), lineWidth: 1))
+                    .padding(.horizontal)
+                    .padding(.top, 8)
 
-                    if !searchText.isEmpty {
-                        Button(action: { searchText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
+                    // Search Bar
+                    HStack {
+                        Image(systemName: searchMode == .keyword ? "magnifyingglass" : "tram.fill")
+                            .foregroundColor(.gray)
+
+                        TextField(searchMode == .keyword ? "キーワードで検索" : "駅名で検索（例: 渋谷、新宿）", text: $searchText)
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .focused($isSearchFieldFocused)
+                            .submitLabel(.search)
+                            .accessibilityLabel(searchMode == .keyword ? "求人キーワード検索" : "駅名検索")
+                            .onSubmit {
+                                saveSearchHistory(searchText)
+                                if searchMode == .station {
+                                    viewModel.keyword = searchText + "駅"
+                                }
+                                Task {
+                                    await viewModel.search()
+                                }
+                            }
+
+                        if !searchText.isEmpty {
+                            Button(action: { searchText = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                            }
+                            .accessibilityLabel("検索テキストをクリア")
                         }
                     }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
                 }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal)
-                .padding(.top)
+
+                // Search History
+                if isSearchFieldFocused && searchText.isEmpty && !searchHistory.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Text("最近の検索")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button("履歴を削除") {
+                                clearSearchHistory()
+                            }
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .accessibilityLabel("検索履歴をすべて削除")
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+
+                        ForEach(searchHistory, id: \.self) { historyItem in
+                            Button(action: {
+                                searchText = historyItem
+                                viewModel.keyword = historyItem
+                                isSearchFieldFocused = false
+                                saveSearchHistory(historyItem)
+                                Task { await viewModel.search() }
+                            }) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                    Text(historyItem)
+                                        .font(.subheadline)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Image(systemName: "arrow.up.left")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 10)
+                            }
+                            .buttonStyle(.plain)
+
+                            Divider().padding(.leading, 44)
+                        }
+                    }
+                    .background(Color(.systemBackground))
+
+                    Spacer()
+                } else {
 
                 // Quick Filter Tabs
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -50,6 +145,8 @@ struct JobSearchView: View {
                             viewModel.selectedDateFilter = viewModel.selectedDateFilter == .today ? nil : .today
                             Task { await viewModel.search() }
                         }
+                        .accessibilityLabel("今日の求人で絞り込み")
+                        .accessibilityAddTraits(viewModel.selectedDateFilter == .today ? .isSelected : [])
 
                         // Tomorrow button
                         QuickFilterButton(
@@ -60,6 +157,8 @@ struct JobSearchView: View {
                             viewModel.selectedDateFilter = viewModel.selectedDateFilter == .tomorrow ? nil : .tomorrow
                             Task { await viewModel.search() }
                         }
+                        .accessibilityLabel("明日の求人で絞り込み")
+                        .accessibilityAddTraits(viewModel.selectedDateFilter == .tomorrow ? .isSelected : [])
 
                         // This week button
                         QuickFilterButton(
@@ -70,6 +169,8 @@ struct JobSearchView: View {
                             viewModel.selectedDateFilter = viewModel.selectedDateFilter == .thisWeek ? nil : .thisWeek
                             Task { await viewModel.search() }
                         }
+                        .accessibilityLabel("今週の求人で絞り込み")
+                        .accessibilityAddTraits(viewModel.selectedDateFilter == .thisWeek ? .isSelected : [])
 
                         Divider()
                             .frame(height: 30)
@@ -81,6 +182,7 @@ struct JobSearchView: View {
                         ) {
                             showFilters = true
                         }
+                        .accessibilityLabel("エリアフィルター: \(viewModel.selectedPrefecture ?? "未選択")")
 
                         // Wage filter
                         FilterChip(
@@ -89,6 +191,7 @@ struct JobSearchView: View {
                         ) {
                             showFilters = true
                         }
+                        .accessibilityLabel("時給フィルター: \(viewModel.selectedWageRange?.display ?? "未選択")")
 
                         // Category filter
                         FilterChip(
@@ -97,6 +200,7 @@ struct JobSearchView: View {
                         ) {
                             showFilters = true
                         }
+                        .accessibilityLabel("カテゴリフィルター: \(viewModel.selectedCategory ?? "未選択")")
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 8)
@@ -108,6 +212,7 @@ struct JobSearchView: View {
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
+                        .accessibilityLabel("検索結果: \(viewModel.jobs.count)件の求人")
 
                     Spacer()
 
@@ -120,6 +225,7 @@ struct JobSearchView: View {
                                 .font(.caption)
                                 .foregroundColor(.blue)
                         }
+                        .accessibilityLabel("すべてのフィルター条件をクリア")
                     }
                 }
                 .padding(.horizontal)
@@ -135,6 +241,7 @@ struct JobSearchView: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 100)
+                    .accessibilityLabel("表示モード切替: \(showMap ? "地図表示" : "リスト表示")")
 
                     Spacer()
 
@@ -152,6 +259,9 @@ struct JobSearchView: View {
                         Button(action: { viewModel.sortBy = .dateNearest }) {
                             Label("勤務日が近い順", systemImage: viewModel.sortBy == .dateNearest ? "checkmark" : "")
                         }
+                        Button(action: { viewModel.sortBy = .distance }) {
+                            Label("近い順", systemImage: viewModel.sortBy == .distance ? "checkmark" : "")
+                        }
                     } label: {
                         HStack {
                             Image(systemName: "arrow.up.arrow.down")
@@ -160,26 +270,40 @@ struct JobSearchView: View {
                         }
                         .foregroundColor(.primary)
                     }
+                    .accessibilityLabel("並び替え: \(viewModel.sortBy.display)")
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 8)
 
                 // Error Display
                 if let error = viewModel.errorMessage {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
+                    HStack(spacing: 10) {
+                        Image(systemName: "wifi.exclamationmark")
+                            .foregroundColor(.white)
+                            .font(.subheadline)
                         Text(error)
                             .font(.caption)
-                            .foregroundColor(.red)
+                            .foregroundColor(.white)
                         Spacer()
-                        Button("再試行") {
+                        Button(action: {
                             Task { await viewModel.search() }
+                        }) {
+                            Text("再試行")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .background(Color.white.opacity(0.25))
+                                .clipShape(Capsule())
                         }
-                        .font(.caption)
-                        .fontWeight(.medium)
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.red.opacity(0.85))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 // Results
@@ -192,42 +316,34 @@ struct JobSearchView: View {
                         }
                         .padding()
                     }
+                    .transition(.opacity)
                 } else if viewModel.jobs.isEmpty {
                     Spacer()
-                    EmptyStateView(
+                    EnhancedEmptyStateView(
                         icon: "magnifyingglass",
                         title: "求人が見つかりません",
-                        message: "検索条件を変更してお試しください"
+                        message: viewModel.hasActiveFilters
+                            ? "検索条件を変更してお試しください"
+                            : "現在表示できる求人がありません。\n後ほどお試しください。",
+                        actionLabel: viewModel.hasActiveFilters ? "フィルターをクリア" : nil,
+                        action: viewModel.hasActiveFilters ? {
+                            viewModel.clearFilters()
+                            Task { await viewModel.search() }
+                        } : nil
                     )
                     Spacer()
                 } else if showMap {
-                    JobMapView(jobs: viewModel.jobs)
+                    JobMapView(jobs: viewModel.jobs, userLocation: viewModel.userLocation)
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 16) {
-                            ForEach(viewModel.jobs) { job in
-                                NavigationLink(destination: JobDetailView(jobId: job.id)) {
-                                    JobListRow(
-                                        job: job,
-                                        isFavorite: viewModel.favoriteJobIds.contains(job.id),
-                                        onFavoriteToggle: {
-                                            let generator = UIImpactFeedbackGenerator(style: .light)
-                                            generator.impactOccurred()
-                                            Task {
-                                                await viewModel.toggleFavorite(jobId: job.id)
-                                            }
-                                        }
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                        }
-                        .padding()
+                        jobListContent
                     }
+                    .scrollDismissesKeyboard(.interactively)
                     .refreshable {
                         await viewModel.search()
                     }
                 }
+                } // end else (search history not shown)
             }
             .navigationTitle("求人検索")
             .navigationBarTitleDisplayMode(.inline)
@@ -252,11 +368,104 @@ struct JobSearchView: View {
         }
         .task {
             await viewModel.loadJobs()
-            await viewModel.loadFavorites()
         }
         .onChange(of: searchText) { _, newValue in
             viewModel.keyword = newValue
         }
+    }
+
+    // MARK: - Adaptive Job List Content
+
+    @ViewBuilder
+    private var jobListContent: some View {
+        if horizontalSizeClass == .regular {
+            // iPad: multi-column grid
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 300))],
+                spacing: 16
+            ) {
+                ForEach(viewModel.jobs) { job in
+                    NavigationLink(destination: JobDetailView(jobId: job.id)) {
+                        JobListRow(
+                            job: job,
+                            isFavorite: viewModel.favoriteJobIds.contains(job.id),
+                            onFavoriteToggle: {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                Task {
+                                    await viewModel.toggleFavorite(jobId: job.id)
+                                }
+                            }
+                        )
+                        .onAppear {
+                            if job.id == viewModel.jobs.last?.id {
+                                Task { await viewModel.loadMoreJobs() }
+                            }
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+            }
+            .padding()
+        } else {
+            // iPhone: single column
+            LazyVStack(spacing: 16) {
+                ForEach(viewModel.jobs) { job in
+                    NavigationLink(destination: JobDetailView(jobId: job.id)) {
+                        JobListRow(
+                            job: job,
+                            isFavorite: viewModel.favoriteJobIds.contains(job.id),
+                            onFavoriteToggle: {
+                                let generator = UIImpactFeedbackGenerator(style: .light)
+                                generator.impactOccurred()
+                                Task {
+                                    await viewModel.toggleFavorite(jobId: job.id)
+                                }
+                            }
+                        )
+                        .onAppear {
+                            if job.id == viewModel.jobs.last?.id {
+                                Task { await viewModel.loadMoreJobs() }
+                            }
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+            }
+            .padding()
+        }
+    }
+
+    // MARK: - Search History Helpers
+
+    private func saveSearchHistory(_ keyword: String) {
+        let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var history = searchHistory
+        history.removeAll { $0 == trimmed }
+        history.insert(trimmed, at: 0)
+        if history.count > 10 {
+            history = Array(history.prefix(10))
+        }
+        searchHistory = history
+        UserDefaults.standard.set(history, forKey: "search_history")
+    }
+
+    private func clearSearchHistory() {
+        searchHistory = []
+        UserDefaults.standard.removeObject(forKey: "search_history")
     }
 }
 
@@ -313,7 +522,7 @@ enum WageRange: CaseIterable {
 }
 
 enum SortOption {
-    case newest, wageHigh, wageLow, dateNearest
+    case newest, wageHigh, wageLow, dateNearest, distance
 
     var display: String {
         switch self {
@@ -321,6 +530,7 @@ enum SortOption {
         case .wageHigh: return "時給高い順"
         case .wageLow: return "時給低い順"
         case .dateNearest: return "日付近い順"
+        case .distance: return "近い順"
         }
     }
 }
@@ -353,6 +563,7 @@ enum DistanceFilter: CaseIterable {
 class JobSearchViewModel: ObservableObject {
     @Published var jobs: [Job] = []
     @Published var isLoading = false
+    @Published var isLoadingMore = false
     @Published var keyword = ""
     @Published var selectedPrefecture: String?
     @Published var selectedCity: String?
@@ -372,7 +583,10 @@ class JobSearchViewModel: ObservableObject {
     @Published var userLocation: CLLocationCoordinate2D?
     @Published var locationError: String?
     @Published var errorMessage: String?
+    @Published var hasMorePages = true
 
+    private var currentPage = 1
+    private let pageSize = 20
     private let api = APIClient.shared
     private let locationManager = LocationManager()
 
@@ -397,13 +611,39 @@ class JobSearchViewModel: ObservableObject {
 
     func loadJobs() async {
         isLoading = true
+        currentPage = 1
+        hasMorePages = true
         do {
-            jobs = try await api.getJobs()
+            let fetched = try await api.getJobs(page: 1, limit: pageSize)
+            jobs = fetched
+            hasMorePages = fetched.count >= pageSize
             categories = try await api.getCategories()
         } catch {
             errorMessage = "求人の読み込みに失敗しました"
         }
         isLoading = false
+    }
+
+    func loadMoreJobs() async {
+        guard !isLoadingMore && hasMorePages else { return }
+        isLoadingMore = true
+        let nextPage = currentPage + 1
+        do {
+            let fetched = try await api.getJobs(
+                search: keyword.isEmpty ? nil : keyword,
+                prefecture: selectedPrefecture,
+                city: selectedCity,
+                category: selectedCategory,
+                page: nextPage,
+                limit: pageSize
+            )
+            jobs.append(contentsOf: fetched)
+            currentPage = nextPage
+            hasMorePages = fetched.count >= pageSize
+        } catch {
+            // Silently fail for pagination
+        }
+        isLoadingMore = false
     }
 
     func loadFavorites() async {
@@ -417,6 +657,13 @@ class JobSearchViewModel: ObservableObject {
 
     func search() async {
         isLoading = true
+        currentPage = 1
+        hasMorePages = true
+        AnalyticsService.shared.track(AnalyticsService.eventSearchPerformed, properties: [
+            "keyword": keyword,
+            "prefecture": selectedPrefecture ?? "",
+            "category": selectedCategory ?? ""
+        ])
         do {
             var allJobs: [Job]
 
@@ -431,14 +678,18 @@ class JobSearchViewModel: ObservableObject {
                     radiusKm: radius,
                     category: selectedCategory
                 )
+                hasMorePages = false // Distance search returns all results
             } else {
-                // Standard search
+                // Standard search with pagination
                 allJobs = try await api.getJobs(
                     search: keyword.isEmpty ? nil : keyword,
                     prefecture: selectedPrefecture,
                     city: selectedCity,
-                    category: selectedCategory
+                    category: selectedCategory,
+                    page: 1,
+                    limit: pageSize
                 )
+                hasMorePages = allJobs.count >= pageSize
             }
 
             // Apply wage filter
@@ -491,7 +742,41 @@ class JobSearchViewModel: ObservableObject {
             return jobs.sorted { ($0.hourlyWage ?? 0) < ($1.hourlyWage ?? 0) }
         case .dateNearest:
             return jobs.sorted { ($0.workDate ?? "") < ($1.workDate ?? "") }
+        case .distance:
+            return sortJobsByDistance(jobs)
         }
+    }
+
+    private func sortJobsByDistance(_ jobs: [Job]) -> [Job] {
+        guard let userLoc = userLocation else {
+            // No user location available; fall back to original order
+            return jobs
+        }
+        return jobs.sorted { a, b in
+            let distA = haversineDistance(from: userLoc, toLat: a.latitude, toLng: a.longitude)
+            let distB = haversineDistance(from: userLoc, toLat: b.latitude, toLng: b.longitude)
+            // Jobs without coordinates get Double.greatestFiniteMagnitude so they sort to the end
+            return distA < distB
+        }
+    }
+
+    /// Returns distance in km using the Haversine formula, or Double.greatestFiniteMagnitude if coordinates are nil.
+    private func haversineDistance(from origin: CLLocationCoordinate2D, toLat lat: Double?, toLng lng: Double?) -> Double {
+        guard let lat = lat, let lng = lng else {
+            return Double.greatestFiniteMagnitude
+        }
+        let earthRadiusKm: Double = 6371.0
+        let dLat = degreesToRadians(lat - origin.latitude)
+        let dLng = degreesToRadians(lng - origin.longitude)
+        let a = sin(dLat / 2) * sin(dLat / 2) +
+                cos(degreesToRadians(origin.latitude)) * cos(degreesToRadians(lat)) *
+                sin(dLng / 2) * sin(dLng / 2)
+        let c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return earthRadiusKm * c
+    }
+
+    private func degreesToRadians(_ degrees: Double) -> Double {
+        return degrees * .pi / 180.0
     }
 
     func clearFilters() {
@@ -661,25 +946,122 @@ struct FilterSheetView: View {
 
 struct JobMapView: View {
     let jobs: [Job]
-    private let region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 35.6762, longitude: 139.6503),
-        span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
-    )
+    let userLocation: CLLocationCoordinate2D?
+
+    @State private var selectedCluster: MapClusterItem?
+
+    private static let tokyoCenter = CLLocationCoordinate2D(latitude: 35.6762, longitude: 139.6503)
+    private static let defaultSpan = MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
+    private static let clusterThreshold: Double = 0.005
+
+    private var mapRegion: MKCoordinateRegion {
+        let annotations = jobAnnotations
+
+        // If we have job annotations, fit the region to show all of them
+        if !annotations.isEmpty {
+            var minLat = annotations[0].coordinate.latitude
+            var maxLat = annotations[0].coordinate.latitude
+            var minLng = annotations[0].coordinate.longitude
+            var maxLng = annotations[0].coordinate.longitude
+
+            for annotation in annotations {
+                minLat = min(minLat, annotation.coordinate.latitude)
+                maxLat = max(maxLat, annotation.coordinate.latitude)
+                minLng = min(minLng, annotation.coordinate.longitude)
+                maxLng = max(maxLng, annotation.coordinate.longitude)
+            }
+
+            // Include user location in the bounds if available
+            if let userLoc = userLocation {
+                minLat = min(minLat, userLoc.latitude)
+                maxLat = max(maxLat, userLoc.latitude)
+                minLng = min(minLng, userLoc.longitude)
+                maxLng = max(maxLng, userLoc.longitude)
+            }
+
+            let center = CLLocationCoordinate2D(
+                latitude: (minLat + maxLat) / 2,
+                longitude: (minLng + maxLng) / 2
+            )
+            let span = MKCoordinateSpan(
+                latitudeDelta: max((maxLat - minLat) * 1.3, 0.01),
+                longitudeDelta: max((maxLng - minLng) * 1.3, 0.01)
+            )
+            return MKCoordinateRegion(center: center, span: span)
+        }
+
+        // No jobs — center on user location if available
+        if let userLoc = userLocation {
+            return MKCoordinateRegion(center: userLoc, span: Self.defaultSpan)
+        }
+
+        // Fallback to Tokyo
+        return MKCoordinateRegion(center: Self.tokyoCenter, span: Self.defaultSpan)
+    }
+
+    /// Cluster job annotations by rounding coordinates to the nearest `clusterThreshold`.
+    /// Jobs whose rounded lat/lng match are grouped into a single cluster marker.
+    private var clusteredItems: [MapClusterItem] {
+        let annotations = jobAnnotations
+        let threshold = Self.clusterThreshold
+
+        // Group by rounded coordinate key
+        var groups: [String: [JobAnnotation]] = [:]
+        for annotation in annotations {
+            let keyLat = (annotation.coordinate.latitude / threshold).rounded() * threshold
+            let keyLng = (annotation.coordinate.longitude / threshold).rounded() * threshold
+            let key = "\(keyLat),\(keyLng)"
+            groups[key, default: []].append(annotation)
+        }
+
+        return groups.map { (_, members) in
+            // Compute centroid of the group
+            let avgLat = members.map(\.coordinate.latitude).reduce(0, +) / Double(members.count)
+            let avgLng = members.map(\.coordinate.longitude).reduce(0, +) / Double(members.count)
+            return MapClusterItem(
+                jobs: members.map(\.job),
+                coordinate: CLLocationCoordinate2D(latitude: avgLat, longitude: avgLng)
+            )
+        }
+    }
 
     var body: some View {
-        Map(initialPosition: .region(region)) {
-            ForEach(jobAnnotations) { item in
-                Annotation(item.job.wageDisplay, coordinate: item.coordinate) {
-                    NavigationLink(destination: JobDetailView(jobId: item.job.id)) {
-                        Image(systemName: "briefcase.fill")
-                            .foregroundColor(.white)
-                            .padding(8)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                            .shadow(radius: 2)
+        Map(initialPosition: .region(mapRegion)) {
+            ForEach(clusteredItems) { item in
+                if item.isCluster {
+                    // Cluster marker – orange circle with count
+                    Annotation("\(item.jobs.count)件", coordinate: item.coordinate) {
+                        Button {
+                            selectedCluster = item
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 44, height: 44)
+                                    .shadow(radius: 3)
+                                Text("\(item.jobs.count)")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+                } else {
+                    // Single job marker – blue circle
+                    Annotation(item.jobs[0].wageDisplay, coordinate: item.coordinate) {
+                        NavigationLink(destination: JobDetailView(jobId: item.jobs[0].id)) {
+                            Image(systemName: "briefcase.fill")
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                                .shadow(radius: 2)
+                        }
                     }
                 }
             }
+        }
+        .sheet(item: $selectedCluster) { cluster in
+            ClusterJobListSheet(jobs: cluster.jobs)
         }
     }
 
@@ -690,6 +1072,59 @@ struct JobMapView: View {
             }
             return nil
         }
+    }
+}
+
+// MARK: - Cluster Model
+
+struct MapClusterItem: Identifiable {
+    let id = UUID()
+    let jobs: [Job]
+    let coordinate: CLLocationCoordinate2D
+
+    var isCluster: Bool { jobs.count > 1 }
+}
+
+// MARK: - Cluster Sheet
+
+struct ClusterJobListSheet: View {
+    let jobs: [Job]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(jobs) { job in
+                NavigationLink(destination: JobDetailView(jobId: job.id)) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(job.title)
+                            .font(.headline)
+                            .lineLimit(1)
+                        HStack {
+                            Text(job.wageDisplay)
+                                .font(.subheadline)
+                                .foregroundColor(.blue)
+                            Spacer()
+                            if let loc = job.locationDisplay as String?, !loc.isEmpty {
+                                Text(loc)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .listStyle(.plain)
+            .navigationTitle("付近の求人 (\(jobs.count)件)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -889,6 +1324,21 @@ struct JobListRow: View {
                 }
             }
 
+            // Badge-limited indicator
+            if let badges = job.requiredBadges, !badges.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 10))
+                    Text("バッジ限定")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundColor(.purple)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.purple.opacity(0.1))
+                .clipShape(Capsule())
+            }
+
             // Title
             Text(job.title)
                 .font(.headline)
@@ -905,6 +1355,26 @@ struct JobListRow: View {
                     Label(job.timeDisplay, systemImage: "clock.fill")
                         .font(.caption)
                         .foregroundColor(.gray)
+                }
+            }
+
+            // Perk Tags
+            let perks = job.perkTags
+            if !perks.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(perks.prefix(3), id: \.rawValue) { perk in
+                        HStack(spacing: 2) {
+                            Image(systemName: perk.icon)
+                                .font(.system(size: 9))
+                            Text(perk.rawValue)
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(listPerkColor(perk))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(listPerkColor(perk).opacity(0.1))
+                        .clipShape(Capsule())
+                    }
                 }
             }
 
@@ -943,6 +1413,14 @@ struct JobListRow: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+    }
+
+    private func listPerkColor(_ perk: JobPerk) -> Color {
+        switch perk {
+        case .transportation: return .blue
+        case .meal: return .orange
+        case .beginner: return .purple
+        }
     }
 
     private func formatWorkDate(_ dateString: String) -> String {
@@ -1003,43 +1481,29 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 // MARK: - Skeleton Loading
 
 struct JobSkeletonRow: View {
-    @State private var isAnimating = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 8) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 120, height: 12)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 200, height: 16)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 150, height: 12)
+                    SkeletonBlock(width: 120, height: 12)
+                    SkeletonBlock(width: 200, height: 16)
+                    SkeletonBlock(width: 150, height: 12)
                 }
                 Spacer()
                 Circle()
                     .fill(Color(.systemGray5))
                     .frame(width: 32, height: 32)
+                    .shimmer()
             }
             HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(.systemGray5))
-                    .frame(width: 80, height: 12)
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(.systemGray5))
-                    .frame(width: 60, height: 12)
+                SkeletonBlock(width: 80, height: 12)
+                SkeletonBlock(width: 60, height: 12)
             }
         }
         .padding()
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
-        .opacity(isAnimating ? 0.6 : 1.0)
-        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isAnimating)
-        .onAppear { isAnimating = true }
     }
 }
 

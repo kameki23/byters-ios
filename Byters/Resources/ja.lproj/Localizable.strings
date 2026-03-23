@@ -1,0 +1,794 @@
+/*
+  Localizable.strings (Japanese)
+  Byters
+
+  Japanese localization for Byters iOS app.
+  Base language: Japanese (ja)
+*/
+
+// =============================================================================
+// MARK: - Common Actions
+// =============================================================================
+
+"common.ok" = "OK";
+"common.cancel" = "キャンセル";
+"common.close" = "閉じる";
+"common.save" = "保存";
+"common.delete" = "削除";
+"common.edit" = "編集";
+"common.retry" = "再試行";
+"common.send" = "送信";
+"common.confirm" = "確認";
+"common.back" = "戻る";
+"common.next" = "次へ";
+"common.skip" = "スキップ";
+"common.done" = "完了";
+"common.apply" = "適用";
+"common.search" = "検索";
+"common.filter" = "フィルター";
+"common.sort" = "並び替え";
+"common.all" = "すべて";
+"common.none" = "指定なし";
+"common.loading" = "読み込み中...";
+"common.seeAll" = "すべて見る";
+"common.openSettings" = "設定を開く";
+"common.continueAction" = "このまま続ける";
+
+// =============================================================================
+// MARK: - Auth / Login
+// =============================================================================
+
+"auth.login" = "ログイン";
+"auth.register" = "登録";
+"auth.logout" = "ログアウト";
+"auth.password" = "パスワード";
+"auth.email" = "メールアドレス";
+"auth.authenticating" = "認証中...";
+"auth.adminLogin" = "管理者ログイン";
+"auth.adminOnly" = "このページは管理者専用です";
+"auth.credentials" = "認証情報";
+"auth.forgotPassword" = "パスワードを忘れた場合";
+"auth.passwordReset" = "パスワードリセット";
+"auth.passwordResetDescription" = "登録メールアドレスにパスワードリセットのリンクを送信します";
+"auth.sendResetEmail" = "リセットメールを送信";
+"auth.resetEmailSent" = "リセットメールを送信しました。メールをご確認ください。";
+"auth.resetEmailFailed" = "送信に失敗しました。メールアドレスをご確認ください。";
+"auth.adminAuthFailed" = "管理者認証に失敗しました";
+"auth.getStarted" = "Bytersを始める";
+"auth.selectTypeAndLogin" = "アカウントタイプを選んでログイン";
+"auth.selectAccountType" = "アカウントタイプを選択";
+"auth.selectTypeDescription" = "ご利用目的に合わせてお選びください";
+"auth.termsRequired" = "ログインするには利用規約への同意が必要です";
+"auth.agreeToTerms" = "に同意します";
+"auth.and" = "と";
+
+// Social Login
+"auth.social.continueWithLine" = "LINEで続ける";
+"auth.social.continueWithApple" = "Appleで続ける";
+"auth.social.continueWithGoogle" = "Googleで続ける";
+"auth.social.lineOneTap" = "ワンタップで簡単登録";
+"auth.social.appleLogin" = "Apple IDでログイン";
+"auth.social.googleLogin" = "Googleアカウントでログイン";
+
+// User Type
+"auth.userType.wantToWork" = "働きたい";
+"auth.userType.jobSeeker" = "求職者";
+"auth.userType.jobSeekerDescription" = "履歴書不要で今すぐお仕事エントリー";
+"auth.userType.wantToHire" = "募集したい";
+"auth.userType.employer" = "事業者";
+"auth.userType.employerDescription" = "最短3分で求人掲載・スタッフ採用";
+
+// =============================================================================
+// MARK: - Tab Titles (Job Seeker)
+// =============================================================================
+
+"tab.home" = "ホーム";
+"tab.search" = "検索";
+"tab.work" = "お仕事";
+"tab.chat" = "チャット";
+"tab.mypage" = "マイページ";
+
+// Tab Accessibility
+"tab.home.accessibility" = "ホームタブ";
+"tab.search.accessibility" = "求人検索タブ";
+"tab.work.accessibility" = "お仕事タブ";
+"tab.chat.accessibility" = "チャットタブ";
+"tab.mypage.accessibility" = "マイページタブ";
+
+// =============================================================================
+// MARK: - Tab Titles (Employer)
+// =============================================================================
+
+"tab.employer.dashboard" = "ダッシュボード";
+"tab.employer.jobManagement" = "求人管理";
+"tab.employer.applicants" = "応募者";
+"tab.employer.messages" = "メッセージ";
+"tab.employer.settings" = "設定";
+
+// =============================================================================
+// MARK: - Tab Titles (Admin)
+// =============================================================================
+
+"tab.admin.dashboard" = "ダッシュボード";
+"tab.admin.users" = "ユーザー";
+"tab.admin.jobs" = "求人";
+"tab.admin.notifications" = "通知";
+"tab.admin.settings" = "設定";
+
+// =============================================================================
+// MARK: - Home View
+// =============================================================================
+
+"home.title" = "ホーム";
+"home.todayJobs" = "今日働ける求人";
+"home.featuredJobs" = "おすすめの求人";
+"home.highWageJobs" = "高時給の求人";
+"home.recentApplications" = "最近の応募";
+"home.monthlySummary" = "今月のサマリー";
+"home.completeProfile" = "プロフィールを完成させよう";
+"home.notSet" = "未設定";
+"home.noJobs" = "求人がありません";
+"home.noJobsMessage" = "新しい求人が登録されるまでお待ちください";
+"home.jobsLoadFailed" = "求人の読み込みに失敗しました";
+
+// Quick Stats
+"home.stats.applying" = "応募中";
+"home.stats.scheduled" = "予定";
+"home.stats.balance" = "残高";
+
+// Monthly Summary
+"home.summary.income" = "収入";
+"home.summary.jobs" = "お仕事";
+"home.summary.hours" = "時間";
+"home.summary.completionRate" = "完了率";
+
+// Categories
+"home.categories" = "カテゴリから探す";
+"home.category.food" = "飲食";
+"home.category.lightWork" = "軽作業";
+"home.category.event" = "イベント";
+"home.category.office" = "オフィス";
+"home.category.sales" = "販売";
+"home.category.cleaning" = "清掃";
+"home.category.delivery" = "配送";
+"home.category.care" = "介護";
+
+// Worker Score
+"home.workerScore.completed" = "%d件完了";
+"home.workerScore.reliability" = "信頼度%d";
+"home.workerScore.nextRank" = "次のランクまであと%d件";
+
+// =============================================================================
+// MARK: - Job Search
+// =============================================================================
+
+"search.title" = "求人検索";
+"search.keyword" = "キーワードで検索";
+"search.resultCount" = "%d件の求人";
+"search.clearFilters" = "フィルターをクリア";
+"search.noResults" = "求人が見つかりません";
+"search.noResultsMessage" = "検索条件を変更してお試しください";
+"search.searchFailed" = "検索に失敗しました";
+"search.favorites" = "お気に入り一覧";
+
+// Date Filters
+"search.filter.today" = "今日";
+"search.filter.tomorrow" = "明日";
+"search.filter.thisWeek" = "今週";
+"search.filter.area" = "エリア";
+"search.filter.wage" = "時給";
+"search.filter.category" = "カテゴリ";
+"search.filter.workDate" = "勤務日";
+
+// Sort Options
+"search.sort.newest" = "新着順";
+"search.sort.wageHigh" = "時給が高い順";
+"search.sort.wageLow" = "時給が低い順";
+"search.sort.dateNearest" = "勤務日が近い順";
+"search.sort.wageHighShort" = "時給高い順";
+"search.sort.wageLowShort" = "時給低い順";
+"search.sort.dateNearestShort" = "日付近い順";
+
+// Filter Sheet
+"search.filterSheet.title" = "フィルター";
+"search.filterSheet.area" = "エリア";
+"search.filterSheet.prefecture" = "都道府県";
+"search.filterSheet.allAreas" = "すべて";
+"search.filterSheet.nearMe" = "現在地から検索";
+"search.filterSheet.getLocation" = "現在地を取得";
+"search.filterSheet.distance" = "距離";
+"search.filterSheet.hourlyWage" = "時給";
+"search.filterSheet.minWage" = "最低時給";
+"search.filterSheet.category" = "カテゴリ";
+"search.filterSheet.allCategories" = "すべて";
+"search.filterSheet.workDate" = "勤務日";
+
+// Wage Ranges
+"search.wage.any" = "指定なし";
+
+// Distance
+"search.distance.any" = "指定なし";
+"search.distance.within5km" = "5km以内";
+"search.distance.within10km" = "10km以内";
+"search.distance.within20km" = "20km以内";
+"search.distance.within30km" = "30km以内";
+"search.location.failed" = "位置情報の取得に失敗しました";
+
+// =============================================================================
+// MARK: - Job Detail
+// =============================================================================
+
+"jobDetail.loading" = "求人情報を読み込み中...";
+"jobDetail.loadFailed" = "求人情報の読み込みに失敗しました";
+"jobDetail.notFound" = "求人が見つかりません";
+"jobDetail.salary" = "給与";
+"jobDetail.workDate" = "勤務日";
+"jobDetail.time" = "時間";
+"jobDetail.remainingSlots" = "残り枠";
+"jobDetail.tbd" = "未定";
+"jobDetail.location" = "勤務地";
+"jobDetail.viewOnMap" = "地図で確認";
+"jobDetail.description" = "仕事内容";
+"jobDetail.noDescription" = "詳細情報なし";
+"jobDetail.requirements" = "応募条件";
+"jobDetail.benefits" = "待遇・福利厚生";
+"jobDetail.reviews" = "レビュー";
+"jobDetail.allReviews" = "レビュー一覧";
+"jobDetail.seeAllReviews" = "すべてのレビューを見る";
+"jobDetail.noReviews" = "まだレビューがありません";
+"jobDetail.employerRating" = "事業者評価 %d%%";
+"jobDetail.shareText" = "%@ - Bytersで短期バイトを見つけよう！";
+"jobDetail.addToFavorites" = "お気に入りに追加";
+"jobDetail.removeFromFavorites" = "お気に入りから削除";
+
+// Eligibility
+"jobDetail.eligible" = "応募可能";
+"jobDetail.notEligible" = "応募条件を満たしていません";
+"jobDetail.eligibilityCheckFailed" = "応募資格の確認に失敗しました";
+
+// Apply
+"jobDetail.apply" = "この求人に応募する";
+"jobDetail.applied" = "応募済み";
+"jobDetail.notEligibleButton" = "条件を満たしていません";
+"jobDetail.cannotApply" = "応募できません";
+"jobDetail.completeProfile" = "プロフィールを完成させてください";
+"jobDetail.completeProfileMessage" = "求人に応募するには、マイページからお名前を登録してください。";
+"jobDetail.applyMessage" = "応募メッセージ（任意）";
+"jobDetail.applyConfirm" = "応募確認";
+"jobDetail.applySubmit" = "応募する";
+"jobDetail.applyFailed" = "応募に失敗しました";
+
+// Job Status Labels
+"jobDetail.recruitmentClosed" = "募集終了";
+"jobDetail.remainingPeople" = "残%d名";
+"jobDetail.remainingPeopleAlt" = "残り%d名";
+"jobDetail.applicants" = "%d名応募";
+
+// =============================================================================
+// MARK: - Job Related
+// =============================================================================
+
+"job.job" = "求人";
+"job.application" = "応募";
+"job.hourlyWage" = "時給";
+"job.dailyWage" = "日給";
+"job.workLocation" = "勤務地";
+"job.companyName" = "企業名";
+"job.negotiable" = "要相談";
+"job.perHour" = "/時";
+"job.perDay" = "/日";
+
+// Job Status
+"job.status.active" = "募集中";
+"job.status.draft" = "下書き";
+"job.status.closed" = "募集終了";
+"job.status.expired" = "期限切れ";
+"job.status.pending" = "審査中";
+
+// Application Status
+"job.applicationStatus.pending" = "審査中";
+"job.applicationStatus.accepted" = "承認済み";
+"job.applicationStatus.rejected" = "不採用";
+"job.applicationStatus.completed" = "完了";
+
+// Perk Tags (displayed as-is from model)
+"job.perk.transportation" = "交通費支給";
+"job.perk.meal" = "食事付き";
+"job.perk.beginner" = "未経験歓迎";
+
+// Date Display
+"job.date.today" = "今日";
+"job.date.tomorrow" = "明日";
+
+// =============================================================================
+// MARK: - Work View
+// =============================================================================
+
+"work.title" = "お仕事";
+"work.qrCheckIn" = "QRコードで出勤打刻";
+"work.qrCheckInAccessibility" = "QRコードをスキャンして出勤打刻";
+"work.currentlyWorking" = "勤務中";
+"work.upcomingWork" = "予定のお仕事";
+"work.noUpcoming" = "予定なし";
+"work.noUpcomingMessage" = "承認された求人がここに表示されます";
+"work.history" = "お仕事履歴";
+"work.noHistory" = "まだ履歴がありません";
+"work.elapsedTime" = "経過時間";
+"work.estimatedEarnings" = "見込み報酬";
+
+// Check In / Out
+"work.checkIn" = "出勤";
+"work.checkOut" = "チェックアウト";
+"work.checkInProcessing" = "チェックイン中...";
+"work.checkOutProcessing" = "チェックアウト・決済処理中...";
+"work.checkInSuccess" = "チェックインしました！";
+"work.checkInFailed" = "チェックインに失敗しました";
+"work.checkOutFailed" = "チェックアウトに失敗しました";
+"work.checkOutConfirm" = "勤務を終了しますか？";
+"work.checkOutConfirmDetail" = "勤務を終了しますか？\n\n経過時間: %d時間%d分\n見込み報酬: ¥%@";
+"work.workComplete" = "お疲れ様でした！";
+"work.writeReview" = "レビューを書く";
+"work.reviewRequest" = "事業者へのレビューをお願いします";
+"work.canCheckIn" = "出勤可能";
+"work.untilStart" = "開始まで";
+"work.pastStartTime" = "開始時刻を過ぎています";
+"work.minutesRemaining" = "あと%d分";
+"work.hoursMinutesRemaining" = "あと%d時間%d分";
+"work.daysRemaining" = "あと%d日";
+
+// Cancel Application
+"work.cancelApplication" = "応募をキャンセル";
+"work.cancelApplicationConfirm" = "この応募をキャンセルしますか？\n当日キャンセルはペナルティの対象となる場合があります。";
+"work.cancelApplicationButton" = "キャンセルする";
+"work.cancelSuccess" = "応募をキャンセルしました";
+"work.cancelFailed" = "キャンセルに失敗しました";
+
+// QR Scanner
+"work.qrScan" = "QRスキャン";
+"work.qrScanTitle" = "QRコードをスキャン";
+"work.qrScanDescription" = "勤務先に設置されたQRコードをカメラで読み取ってください";
+"work.manualEntry" = "手動で入力";
+"work.manualEntryTitle" = "トークンを手動で入力";
+"work.checkInCode" = "チェックインコード";
+"work.cameraAccessRequired" = "カメラへのアクセスが必要です";
+"work.cameraAccessDescription" = "QRコードをスキャンするにはカメラへのアクセスを許可してください";
+
+// Location
+"work.locationDisabled" = "位置情報が無効です";
+"work.locationDisabledMessage" = "位置情報の権限が無効です。正確なチェックインのために、設定から位置情報を許可してください。";
+
+// =============================================================================
+// MARK: - Chat
+// =============================================================================
+
+"chat.title" = "チャット";
+"chat.noMessages" = "メッセージなし";
+"chat.noMessagesDescription" = "求人に応募するとチャットが開始されます";
+"chat.inputPlaceholder" = "メッセージを入力";
+"chat.fileSendFailed" = "ファイルの送信に失敗しました";
+"chat.comingSoon" = "準備中";
+"chat.callComingSoon" = "通話機能は近日公開予定です。";
+
+// =============================================================================
+// MARK: - Wallet
+// =============================================================================
+
+"wallet.title" = "ウォレット";
+"wallet.balance" = "残高";
+"wallet.withdrawal" = "出金申請";
+"wallet.bankAccount" = "銀行口座";
+"wallet.transactionHistory" = "取引履歴";
+"wallet.taxDocuments" = "源泉徴収票";
+
+// =============================================================================
+// MARK: - My Page
+// =============================================================================
+
+"mypage.title" = "マイページ";
+"mypage.user" = "ユーザー";
+
+// Wallet Section
+"mypage.wallet" = "ウォレット";
+"mypage.wallet.balance" = "残高";
+"mypage.wallet.bankAccount" = "銀行口座";
+"mypage.wallet.withdrawal" = "出金申請";
+"mypage.wallet.transactions" = "取引履歴";
+"mypage.wallet.taxDocuments" = "源泉徴収票";
+
+// Work Section
+"mypage.work" = "お仕事";
+"mypage.work.upcoming" = "予定のお仕事";
+"mypage.work.applicationHistory" = "応募履歴";
+"mypage.work.workHistory" = "勤務履歴";
+"mypage.work.favoriteJobs" = "お気に入り求人";
+"mypage.work.favoriteEmployers" = "お気に入り事業者";
+"mypage.work.writeReview" = "レビューを書く";
+"mypage.work.reviewHistory" = "レビュー履歴";
+
+// Growth Section
+"mypage.growth" = "スキルアップ";
+"mypage.growth.workerRank" = "ワーカーランク・信頼度";
+"mypage.growth.penaltyHistory" = "ペナルティ履歴";
+"mypage.growth.monthlyReport" = "月次レポート";
+"mypage.growth.earningsGoal" = "収入目標";
+"mypage.growth.qualifications" = "資格・免許";
+"mypage.growth.badges" = "バッジ";
+
+// Account Section
+"mypage.account" = "アカウント";
+"mypage.account.editProfile" = "プロフィール編集";
+"mypage.account.identityVerification" = "本人確認";
+"mypage.account.timesheetAdjustment" = "勤務時間修正";
+"mypage.account.changePassword" = "パスワード変更";
+
+// Settings Section
+"mypage.settings" = "設定";
+"mypage.settings.notificationList" = "通知一覧";
+"mypage.settings.notificationSettings" = "通知設定";
+"mypage.settings.emailSettings" = "メール設定";
+"mypage.settings.areaSettings" = "エリア設定";
+"mypage.settings.appearance" = "表示設定";
+"mypage.settings.muteManagement" = "ミュート管理";
+
+// Support Section
+"mypage.support" = "サポート";
+"mypage.support.faq" = "よくある質問";
+"mypage.support.contact" = "お問い合わせ";
+"mypage.support.bugReport" = "バグ報告・機能リクエスト";
+"mypage.support.feedbackHistory" = "フィードバック履歴";
+
+// Legal Section
+"mypage.legal" = "法的情報";
+"mypage.legal.terms" = "利用規約";
+"mypage.legal.privacy" = "プライバシーポリシー";
+
+// Profile
+"mypage.profile.name" = "名前";
+"mypage.profile.phone" = "電話番号";
+"mypage.profile.bio" = "自己紹介";
+"mypage.profile.prefecture" = "都道府県";
+"mypage.profile.profileImage" = "プロフィール画像";
+"mypage.profile.identityVerification" = "本人確認";
+"mypage.profile.identityVerified" = "本人確認済み";
+"mypage.profile.completionRate" = "プロフィール完成度";
+"mypage.profile.notSet" = "未設定";
+
+// Identity Verification Status
+"mypage.identity.pending" = "審査中";
+"mypage.identity.approved" = "確認済み";
+"mypage.identity.rejected" = "却下";
+"mypage.identity.notSubmitted" = "未提出";
+
+// Account Deletion
+"mypage.deleteAccount" = "アカウントを削除する";
+"mypage.deleteAccountTitle" = "アカウント削除";
+"mypage.deleteAccountMessage" = "アカウントを削除すると、すべてのデータが完全に削除され、元に戻すことはできません。本当に削除しますか？";
+"mypage.deleteAccountFinalTitle" = "最終確認";
+"mypage.deleteAccountFinalMessage" = "この操作は取り消せません。アカウントに関連するすべてのデータ（応募履歴、ウォレット、チャット等）が削除されます。";
+"mypage.deleteAccountConfirm" = "削除する";
+"mypage.deleteAccountFinalConfirm" = "完全に削除する";
+
+// =============================================================================
+// MARK: - Favorites
+// =============================================================================
+
+"favorites.title" = "お気に入り";
+"favorites.noFavorites" = "お気に入りはありません";
+"favorites.addHint" = "求人のハートマークをタップして\nお気に入りに追加しましょう";
+
+// =============================================================================
+// MARK: - Settings (Appearance)
+// =============================================================================
+
+"settings.appearance.title" = "表示設定";
+"settings.appearance.theme" = "テーマ";
+"settings.appearance.system" = "システム設定に従う";
+"settings.appearance.light" = "ライトモード";
+"settings.appearance.dark" = "ダークモード";
+"settings.appearance.systemDescription" = "「システム設定に従う」を選択すると、iPhoneの設定に合わせて自動的に切り替わります。";
+"settings.appearance.mode" = "外観モード";
+
+// =============================================================================
+// MARK: - Settings (Notifications)
+// =============================================================================
+
+"settings.notifications.work" = "お仕事関連";
+"settings.notifications.recommendedJobs" = "おすすめ求人";
+"settings.notifications.applicationUpdates" = "応募状況の更新";
+"settings.notifications.workReminder" = "勤務リマインダー";
+"settings.notifications.messages" = "メッセージ";
+"settings.notifications.chatMessages" = "チャットメッセージ";
+"settings.notifications.other" = "その他";
+"settings.notifications.marketing" = "お得な情報・キャンペーン";
+
+// =============================================================================
+// MARK: - Employer Views
+// =============================================================================
+
+"employer.dashboard" = "ダッシュボード";
+"employer.stats.active" = "掲載中";
+"employer.stats.applicants" = "応募者";
+"employer.stats.monthlyHires" = "今月の採用";
+"employer.stats.rating" = "評価";
+"employer.pendingApplications" = "%d件の未対応の応募があります";
+"employer.quickActions" = "クイックアクション";
+"employer.createJob" = "求人作成";
+"employer.checkApplications" = "応募確認";
+"employer.templates" = "テンプレート";
+"employer.bulkApproval" = "勤怠一括承認";
+"employer.reliableWorkers" = "信頼できるワーカー一覧";
+"employer.recentJobs" = "最近の求人";
+"employer.noJobs" = "まだ求人がありません";
+
+// =============================================================================
+// MARK: - Admin Views
+// =============================================================================
+
+"admin.dashboard" = "管理画面";
+"admin.overview" = "概要";
+"admin.totalUsers" = "総ユーザー";
+"admin.totalJobs" = "求人数";
+"admin.monthlyRevenue" = "今月の売上";
+"admin.pendingWithdrawals" = "出金申請";
+"admin.pendingIdentity" = "本人確認待ち";
+"admin.monthlyNewUsers" = "今月の新規登録";
+"admin.quickActions" = "クイックアクション";
+"admin.withdrawalProcessing" = "出金処理";
+"admin.identityVerification" = "本人確認";
+"admin.jobReview" = "求人審査";
+"admin.recentActivity" = "最近のアクティビティ";
+"admin.noActivity" = "アクティビティがありません";
+
+// =============================================================================
+// MARK: - Error Messages
+// =============================================================================
+
+"error.title" = "エラー";
+"error.generic" = "エラーが発生しました";
+"error.networkError" = "サーバーに接続できません。ネットワークを確認してください。";
+"error.serverError" = "サーバーエラー: %@";
+"error.authFailed" = "認証に失敗しました。もう一度お試しください。";
+"error.loginFailed" = "ログインに失敗しました: %@";
+"error.loginFailedWithCode" = "ログインに失敗しました（%d）";
+"error.authError" = "認証エラー: %@";
+"error.authStartFailed" = "認証を開始できませんでした";
+"error.authPreparationFailed" = "認証の準備に失敗しました: %@";
+"error.authProcessingFailed" = "認証処理中にエラーが発生しました";
+"error.authCodeFailed" = "認証コードを取得できませんでした";
+"error.userInfoFailed" = "ユーザー情報の取得に失敗しました";
+"error.screenFailed" = "画面の取得に失敗しました";
+"error.urlError" = "URLエラー";
+"error.unknownError" = "不明なエラー";
+"error.serverErrorWithCode" = "サーバーエラー(%d): %@";
+
+// =============================================================================
+// MARK: - App Subtitle
+// =============================================================================
+
+"app.subtitle" = "短期アルバイトマッチング";
+
+// =============================================================================
+// MARK: - Withholding Tax (源泉徴収)
+// =============================================================================
+
+"tax.title" = "源泉徴収のお知らせ";
+"tax.description" = "本日の報酬が9,800円を超えるため、源泉徴収税が適用されます。";
+"tax.grossEarnings" = "総報酬額";
+"tax.taxableAmount" = "課税対象額";
+"tax.withholdingTax" = "源泉徴収税（3.102%）";
+"tax.netEarnings" = "お受取額";
+"tax.confirmed" = "確認しました";
+"tax.info.threshold" = "日額9,800円以下の場合は非課税です";
+"tax.info.download" = "源泉徴収票はマイページからダウンロードできます";
+"tax.info.refund" = "確定申告で還付される場合があります";
+"tax.detail" = "源泉徴収の詳細を見る";
+
+// =============================================================================
+// MARK: - Schedule Conflict (スケジュール重複)
+// =============================================================================
+
+"conflict.title" = "スケジュール重複";
+"conflict.warning" = "スケジュールの確認";
+"conflict.overlap" = "既存の勤務と時間が重複しています";
+"conflict.tooClose" = "既存の勤務との間隔が1時間未満です（移動時間にご注意ください）";
+"conflict.sameDay" = "同じ日に別の勤務が入っています";
+"conflict.blocked" = "既存の勤務と時間が重複しているため、この求人に応募できません。";
+"conflict.proceedAnyway" = "確認して応募する";
+
+// =============================================================================
+// MARK: - Mandatory Review (必須レビュー)
+// =============================================================================
+
+"review.mandatory.title" = "レビューをお願いします";
+"review.mandatory.description" = "%d件の未レビューがあります。\nレビューを完了すると次の応募ができます。";
+"review.mandatory.blocked" = "レビューを先に完了してください";
+"review.mandatory.blockedMessage" = "%d件の未レビューがあります。レビューを完了すると応募できるようになります。";
+"review.writeNow" = "レビューを書く";
+"review.later" = "あとで";
+
+// =============================================================================
+// MARK: - Bulk Message (一括メッセージ)
+// =============================================================================
+
+"bulkMessage.title" = "一括メッセージ";
+"bulkMessage.recipients" = "送信先";
+"bulkMessage.selectAll" = "全選択";
+"bulkMessage.workers" = "%d名のワーカー";
+"bulkMessage.templates" = "テンプレート";
+"bulkMessage.message" = "メッセージ";
+"bulkMessage.send" = "%d名に送信";
+"bulkMessage.charLimit" = "%d/500";
+
+// =============================================================================
+// MARK: - CSV Export (データ出力)
+// =============================================================================
+
+"export.title" = "データエクスポート";
+"export.type" = "エクスポート種類";
+"export.attendance" = "勤怠データ";
+"export.payment" = "支払データ";
+"export.workers" = "ワーカーリスト";
+"export.period" = "期間";
+"export.startDate" = "開始日";
+"export.endDate" = "終了日";
+"export.thisMonth" = "今月";
+"export.lastMonth" = "先月";
+"export.threeMonths" = "3ヶ月";
+"export.doExport" = "CSVをエクスポート";
+"export.success" = "エクスポートが完了しました";
+
+// =============================================================================
+// MARK: - Job Alert (ジョブアラート)
+// =============================================================================
+
+"jobAlert.title" = "ジョブアラート設定";
+"jobAlert.keyword" = "キーワード";
+"jobAlert.keywordPlaceholder" = "例: カフェ、キッチン";
+"jobAlert.wage" = "時給";
+"jobAlert.timeRange" = "時間帯";
+"jobAlert.morning" = "朝";
+"jobAlert.afternoon" = "昼";
+"jobAlert.evening" = "夕方";
+"jobAlert.night" = "夜";
+"jobAlert.dayOfWeek" = "曜日";
+"jobAlert.notification" = "通知";
+"jobAlert.enable" = "アラートを有効にする";
+"jobAlert.save" = "保存する";
+
+// =============================================================================
+// MARK: - Saved Search (保存した検索)
+// =============================================================================
+
+"savedSearch.title" = "保存した検索条件";
+"savedSearch.empty" = "保存した検索条件はありません";
+"savedSearch.hint" = "求人検索画面で検索条件を保存できます";
+"savedSearch.results" = "%d件";
+
+// =============================================================================
+// MARK: - Photo Check-in (写真チェックイン)
+// =============================================================================
+
+"photoCheckin.title" = "チェックイン写真";
+"photoCheckin.description" = "到着確認のため、職場での写真を撮影してください。";
+"photoCheckin.take" = "撮影する";
+"photoCheckin.retake" = "撮り直す";
+"photoCheckin.confirm" = "この写真で確認";
+"photoCheckin.skip" = "スキップ";
+
+// =============================================================================
+// MARK: - Cancellation Policy (キャンセルポリシー)
+// =============================================================================
+
+"cancellation.title" = "キャンセルポリシー";
+"cancellation.72h" = "72時間前まで";
+"cancellation.24h" = "24〜72時間前";
+"cancellation.6h" = "6〜24時間前";
+"cancellation.0h" = "6時間以内";
+"cancellation.noPenalty" = "ペナルティなし";
+"cancellation.warning" = "注意";
+"cancellation.mildPenalty" = "軽度ペナルティ";
+"cancellation.severePenalty" = "重度ペナルティ";
+"cancellation.noShowWarning" = "無断キャンセルは信頼度に大きく影響します";
+
+// =============================================================================
+// MARK: - Employer Features (事業者機能)
+// =============================================================================
+
+"employer.bulkMessage" = "一括メッセージ";
+"employer.dataExport" = "データ出力";
+"employer.dataManagement" = "データ管理";
+
+// =============================================================================
+// MARK: - Legacy Japanese-Key Mappings
+// =============================================================================
+
+/* Tab Bar */
+"ホーム" = "ホーム";
+"さがす" = "さがす";
+"はたらく" = "はたらく";
+"チャット" = "チャット";
+"マイページ" = "マイページ";
+
+/* Auth */
+"ログイン" = "ログイン";
+"新規登録" = "新規登録";
+"メールアドレス" = "メールアドレス";
+"パスワード" = "パスワード";
+"パスワードを忘れた方" = "パスワードを忘れた方";
+
+/* Job Search */
+"求人を検索" = "求人を検索";
+"募集中" = "募集中";
+"募集終了" = "募集終了";
+"応募する" = "応募する";
+"お気に入り" = "お気に入り";
+"詳細" = "詳細";
+
+/* Work */
+"チェックイン" = "チェックイン";
+"チェックアウト" = "チェックアウト";
+"勤務中" = "勤務中";
+"休憩中" = "休憩中";
+"休憩開始" = "休憩開始";
+"休憩終了" = "休憩終了";
+
+/* MyPage */
+"プロフィール" = "プロフィール";
+"ウォレット" = "ウォレット";
+"銀行口座" = "銀行口座";
+"出金" = "出金";
+"勤務履歴" = "勤務履歴";
+"設定" = "設定";
+"本人確認" = "本人確認";
+
+/* Common */
+"キャンセル" = "キャンセル";
+"確認" = "確認";
+"保存" = "保存";
+"送信" = "送信";
+"削除" = "削除";
+"編集" = "編集";
+"閉じる" = "閉じる";
+"戻る" = "戻る";
+"次へ" = "次へ";
+"完了" = "完了";
+"エラー" = "エラー";
+"読み込み中..." = "読み込み中...";
+"データがありません" = "データがありません";
+"リトライ" = "リトライ";
+"ログアウト" = "ログアウト";
+
+/* Status */
+"審査中" = "審査中";
+"承認済み" = "承認済み";
+"却下" = "却下";
+"未提出" = "未提出";
+"処理待ち" = "処理待ち";
+"完了" = "完了";
+
+/* Reviews */
+"レビュー" = "レビュー";
+"レビューを書く" = "レビューを書く";
+"評価" = "評価";
+
+/* Notifications */
+"通知" = "通知";
+"通知設定" = "通知設定";
+
+/* Error messages */
+"ネットワーク接続を確認してください" = "ネットワーク接続を確認してください";
+"もう一度お試しください" = "もう一度お試しください";
+"認証が必要です。再度ログインしてください" = "認証が必要です。再度ログインしてください";
+
+/* Earnings */
+"今月の収入" = "今月の収入";
+"目標額" = "目標額";
+
+/* Chat */
+"メッセージを入力..." = "メッセージを入力...";
+"返信" = "返信";
+"既読" = "既読";
+
+/* Cancellation */
+"キャンセルポリシー" = "キャンセルポリシー";
+"ペナルティ" = "ペナルティ";

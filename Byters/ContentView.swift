@@ -3,6 +3,9 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var appState: AppState
+    @State private var showForceUpdate = false
+    @State private var isMaintenanceMode = false
+    @State private var maintenanceEndTime: String?
 
     private var needsOnboarding: Bool {
         guard let user = authManager.currentUser else { return false }
@@ -10,21 +13,32 @@ struct ContentView: View {
             && !UserDefaults.standard.bool(forKey: "onboarding_completed")
     }
 
+    /// Social login users skip email verification (already verified by provider)
+    private var needsEmailVerification: Bool {
+        guard let user = authManager.currentUser else { return false }
+        if authManager.isSocialLogin { return false }
+        return user.emailVerified == false
+    }
+
     var body: some View {
         Group {
-            if authManager.isLoading {
+            if isMaintenanceMode {
+                MaintenanceView(estimatedEndTime: maintenanceEndTime) {
+                    await checkMaintenanceStatus()
+                }
+            } else if authManager.isLoading {
                 SplashView()
             } else if authManager.isAuthenticated {
-                if authManager.currentUser?.emailVerified == false {
+                if needsEmailVerification {
                     EmailVerificationView()
                         .environmentObject(authManager)
-                } else if needsOnboarding {
+                } else if needsOnboarding && !authManager.isSocialLogin {
                     OnboardingView()
                         .environmentObject(authManager)
                 } else {
                     MainTabView()
                         .onAppear {
-                            appState.selectedTab = .mypage
+                            appState.navigateToDefaultPage(userType: authManager.userType)
                         }
                         .sheet(isPresented: $appState.isShowingJobDetail) {
                             if let jobId = appState.selectedJobId {
@@ -39,23 +53,84 @@ struct ContentView: View {
             }
         }
         .offlineBanner()
-        .animation(.easeInOut, value: authManager.isAuthenticated)
+        .preferredColorScheme(appState.colorScheme)
+        .animation(.easeInOut(duration: 0.25), value: authManager.isAuthenticated)
         .onChange(of: authManager.isAuthenticated) { _, newValue in
             if newValue {
-                appState.navigateToMyPage()
+                appState.navigateToDefaultPage(userType: authManager.userType)
             }
         }
         .task {
-            await checkAPIHealth()
+            async let health: Void = checkAPIHealth()
+            async let update: Void = checkForceUpdate()
+            _ = await (health, update)
+        }
+        .alert("アップデートが必要です", isPresented: $showForceUpdate) {
+            Button("App Storeを開く") {
+                if let url = URL(string: "https://apps.apple.com/app/byters/id6741090702") {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } message: {
+            Text("新しいバージョンが公開されています。最新版にアップデートしてください。")
+        }
+        .alert("セッション切れ", isPresented: $authManager.showSessionExpiredAlert) {
+            Button("OK") {
+                authManager.dismissSessionExpiredAlert()
+            }
+        } message: {
+            Text("セッションの有効期限が切れました。再度ログインしてください。")
         }
     }
 
     private func checkAPIHealth() async {
         do {
-            let _ = try await APIClient.shared.getHealthStatus()
+            let status = try await APIClient.shared.getHealthStatus()
+            await MainActor.run {
+                isMaintenanceMode = false
+                maintenanceEndTime = status.estimatedEndTime
+            }
+        } catch let error as APIError {
+            if case .maintenance = error {
+                await MainActor.run { isMaintenanceMode = true }
+            }
+            // Other errors - NetworkMonitor will show offline banner
         } catch {
             // API is not reachable - NetworkMonitor will show offline banner
         }
+    }
+
+    private func checkMaintenanceStatus() async {
+        await checkAPIHealth()
+    }
+
+    private func checkForceUpdate() async {
+        do {
+            let settings = try await APIClient.shared.getAppSettings()
+            if let minVersion = settings.minimumAppVersion {
+                let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+                if compareVersions(current: currentVersion, minimum: minVersion) {
+                    await MainActor.run { showForceUpdate = true }
+                }
+            }
+        } catch {
+            // Settings not available - skip force update check
+        }
+    }
+
+    /// Returns true if current version is less than minimum
+    private func compareVersions(current: String, minimum: String) -> Bool {
+        let currentParts = current.split(separator: ".").compactMap { Int($0) }
+        let minimumParts = minimum.split(separator: ".").compactMap { Int($0) }
+        let maxCount = max(currentParts.count, minimumParts.count)
+
+        for i in 0..<maxCount {
+            let c = i < currentParts.count ? currentParts[i] : 0
+            let m = i < minimumParts.count ? minimumParts[i] : 0
+            if c < m { return true }
+            if c > m { return false }
+        }
+        return false
     }
 }
 
@@ -179,8 +254,17 @@ struct OnboardingView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var name = ""
     @State private var prefecture = ""
+    @State private var birthDate = Calendar.current.date(byAdding: .year, value: -20, to: Date()) ?? Date()
     @State private var isLoading = false
     @State private var currentStep = 0
+    @State private var ageError: String?
+    @State private var saveError: String?
+
+    private let totalSteps = 5
+
+    private var age: Int {
+        Calendar.current.dateComponents([.year], from: birthDate, to: Date()).year ?? 0
+    }
 
     var body: some View {
         ZStack {
@@ -189,7 +273,7 @@ struct OnboardingView: View {
             VStack(spacing: 24) {
                 // Progress
                 HStack(spacing: 8) {
-                    ForEach(0..<3, id: \.self) { i in
+                    ForEach(0..<totalSteps, id: \.self) { i in
                         Capsule()
                             .fill(i <= currentStep ? Color.white : Color.white.opacity(0.3))
                             .frame(height: 4)
@@ -201,6 +285,35 @@ struct OnboardingView: View {
                 Spacer()
 
                 if currentStep == 0 {
+                    // Feature Highlights
+                    VStack(spacing: 20) {
+                        Text("Bytersでできること")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+
+                        VStack(spacing: 16) {
+                            OnboardingFeatureCard(
+                                icon: "magnifyingglass",
+                                title: "求人を検索",
+                                description: "あなたにぴったりの短期バイトを見つけよう"
+                            )
+
+                            OnboardingFeatureCard(
+                                icon: "qrcode",
+                                title: "QRで出退勤",
+                                description: "QRコードをスキャンして出勤・退勤を記録"
+                            )
+
+                            OnboardingFeatureCard(
+                                icon: "yensign.circle",
+                                title: "報酬を受け取る",
+                                description: "お仕事完了後にすぐ報酬をゲット"
+                            )
+                        }
+                        .padding(.horizontal, 32)
+                    }
+                } else if currentStep == 1 {
                     // Welcome
                     VStack(spacing: 16) {
                         Image(systemName: "hand.wave.fill")
@@ -215,7 +328,36 @@ struct OnboardingView: View {
                             .foregroundColor(.white.opacity(0.9))
                             .multilineTextAlignment(.center)
                     }
-                } else if currentStep == 1 {
+                } else if currentStep == 2 {
+                    // Birthday / Age verification
+                    VStack(spacing: 16) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 40))
+                            .foregroundColor(.white)
+                        Text("生年月日を入力してください")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        Text("本サービスは18歳以上の方がご利用いただけます")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
+
+                        DatePicker("生年月日", selection: $birthDate, in: ...Date(), displayedComponents: .date)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            .environment(\.locale, Locale(identifier: "ja_JP"))
+                            .background(Color.white.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal, 32)
+
+                        if let error = ageError {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.yellow)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                } else if currentStep == 3 {
                     // Name
                     VStack(spacing: 16) {
                         Image(systemName: "person.fill")
@@ -227,6 +369,7 @@ struct OnboardingView: View {
                             .foregroundColor(.white)
                         TextField("名前", text: $name)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .submitLabel(.done)
                             .padding(.horizontal, 40)
                     }
                 } else {
@@ -241,6 +384,7 @@ struct OnboardingView: View {
                             .foregroundColor(.white)
                         TextField("都道府県", text: $prefecture)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .submitLabel(.done)
                             .padding(.horizontal, 40)
                     }
                 }
@@ -255,7 +399,7 @@ struct OnboardingView: View {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                             }
-                            Text(currentStep == 2 ? "始める" : "次へ")
+                            Text(currentStep == totalSteps - 1 ? "始める" : "次へ")
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
@@ -264,10 +408,16 @@ struct OnboardingView: View {
                         .foregroundColor(.blue)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                    .disabled(isLoading || (currentStep == 1 && name.isEmpty))
-                    .opacity((currentStep == 1 && name.isEmpty) ? 0.5 : 1.0)
+                    .disabled(isLoading || (currentStep == 3 && name.isEmpty))
+                    .opacity((currentStep == 3 && name.isEmpty) ? 0.5 : 1.0)
 
-                    if currentStep > 0 {
+                    if let error = saveError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+
+                    if currentStep > 1 && currentStep != 2 {
                         Button(action: skipOnboarding) {
                             Text("スキップ")
                                 .foregroundColor(.white.opacity(0.7))
@@ -281,7 +431,16 @@ struct OnboardingView: View {
     }
 
     private func nextStep() {
-        if currentStep < 2 {
+        if currentStep == 2 {
+            // Age verification
+            if age < 18 {
+                ageError = "18歳未満の方はご利用いただけません"
+                return
+            }
+            ageError = nil
+        }
+
+        if currentStep < totalSteps - 1 {
             withAnimation { currentStep += 1 }
         } else {
             completeOnboarding()
@@ -290,20 +449,22 @@ struct OnboardingView: View {
 
     private func completeOnboarding() {
         isLoading = true
+        saveError = nil
         Task {
             do {
-                _ = try await APIClient.shared.updateProfile(
+                let updated = try await APIClient.shared.updateProfile(
                     name: name.isEmpty ? nil : name,
                     phone: nil,
                     bio: nil,
                     prefecture: prefecture.isEmpty ? nil : prefecture,
                     city: nil
                 )
-                await authManager.checkAuthStatus()
+                authManager.currentUser = updated
+                authManager.cacheCurrentUser()
+                UserDefaults.standard.set(true, forKey: "onboarding_completed")
             } catch {
-                // Profile save failed but proceed with onboarding to avoid blocking the user
+                saveError = "プロフィールの保存に失敗しました。もう一度お試しください。"
             }
-            UserDefaults.standard.set(true, forKey: "onboarding_completed")
             isLoading = false
         }
     }
@@ -313,6 +474,39 @@ struct OnboardingView: View {
         Task {
             await authManager.checkAuthStatus()
         }
+    }
+}
+
+// MARK: - Onboarding Feature Card
+
+struct OnboardingFeatureCard: View {
+    let icon: String
+    let title: String
+    let description: String
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(.blue)
+                .frame(width: 44, height: 44)
+                .background(Color.white)
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.8))
+            }
+
+            Spacer()
+        }
+        .padding()
+        .background(Color.white.opacity(0.15))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
