@@ -10,6 +10,7 @@ final class CacheService {
     private let defaultTTL: TimeInterval = 60 * 30 // 30 minutes
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private let writeQueue = DispatchQueue(label: "jp.byters.cache.write")
 
     private init() {
         let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
@@ -32,7 +33,7 @@ final class CacheService {
         let enc = self.encoder
         let cacheDir = self.cacheDirectory
         let fm = self.fileManager
-        Task.detached(priority: .utility) {
+        writeQueue.async {
             do {
                 let wrapper = CacheEntry(timestamp: Date(), data: try enc.encode(data))
                 let encoded = try enc.encode(wrapper)
@@ -63,6 +64,16 @@ final class CacheService {
             return nil
         }
 
+        return try? decoder.decode(type, from: entry.data)
+    }
+
+    /// Load cached data without TTL check (permanent until manually removed or overwritten).
+    func loadPermanent<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
+        let fileURL = fileURL(for: key)
+        guard let rawData = try? Data(contentsOf: fileURL),
+              let entry = try? decoder.decode(CacheEntry.self, from: rawData) else {
+            return nil
+        }
         return try? decoder.decode(type, from: entry.data)
     }
 

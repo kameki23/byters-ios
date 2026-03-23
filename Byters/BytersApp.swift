@@ -30,13 +30,32 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     ) {
         let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         Task {
-            do {
-                _ = try await APIClient.shared.registerDeviceToken(token: token)
-            } catch {
-                #if DEBUG
-                print("[Push] Failed to register device token: \(error.localizedDescription)")
-                #endif
+            let maxRetries = 3
+            var lastError: Error?
+            for attempt in 0..<maxRetries {
+                do {
+                    _ = try await APIClient.shared.registerDeviceToken(token: token)
+                    #if DEBUG
+                    print("[Push] Device token registered successfully (attempt \(attempt + 1))")
+                    #endif
+                    return
+                } catch {
+                    lastError = error
+                    #if DEBUG
+                    print("[Push] Failed to register device token (attempt \(attempt + 1)/\(maxRetries)): \(error.localizedDescription)")
+                    #endif
+                    if attempt < maxRetries - 1 {
+                        // Exponential backoff: 2s, 4s, 8s
+                        let delay = UInt64(pow(2.0, Double(attempt + 1))) * 1_000_000_000
+                        try? await Task.sleep(nanoseconds: delay)
+                    }
+                }
             }
+            #if DEBUG
+            if let lastError = lastError {
+                print("[Push] Device token registration failed after \(maxRetries) attempts: \(lastError.localizedDescription)")
+            }
+            #endif
         }
     }
 

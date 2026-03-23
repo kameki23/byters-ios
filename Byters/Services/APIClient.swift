@@ -391,15 +391,26 @@ class APIClient {
         )
     }
 
-    func updateProfile(name: String?, phone: String?, bio: String?, prefecture: String?, city: String?, birthDate: String? = nil, gender: String? = nil) async throws -> User {
+    func updateProfile(name: String?, phone: String?, bio: String?, prefecture: String?, city: String?, birthDate: String? = nil, gender: String? = nil, sendAllFields: Bool = false) async throws -> User {
         var body: [String: Any] = [:]
-        if let name = name { body["name"] = name }
-        if let phone = phone { body["phone"] = phone }
-        if let bio = bio { body["bio"] = bio }
-        if let prefecture = prefecture { body["prefecture"] = prefecture }
-        if let city = city { body["city"] = city }
-        if let birthDate = birthDate { body["birth_date"] = birthDate }
-        if let gender = gender { body["gender"] = gender }
+        if sendAllFields {
+            // 全フィールドを明示的に送信（空文字も含む）
+            body["name"] = name ?? ""
+            body["phone"] = phone ?? ""
+            body["bio"] = bio ?? ""
+            body["prefecture"] = prefecture ?? ""
+            body["city"] = city ?? ""
+            body["birth_date"] = birthDate ?? ""
+            body["gender"] = gender ?? ""
+        } else {
+            if let name = name { body["name"] = name }
+            if let phone = phone { body["phone"] = phone }
+            if let bio = bio { body["bio"] = bio }
+            if let prefecture = prefecture { body["prefecture"] = prefecture }
+            if let city = city { body["city"] = city }
+            if let birthDate = birthDate { body["birth_date"] = birthDate }
+            if let gender = gender { body["gender"] = gender }
+        }
 
         let user: User = try await request(
             endpoint: "/auth/profile",
@@ -696,11 +707,13 @@ class APIClient {
             body["back_image"] = "data:image/jpeg;base64," + backData.base64EncodedString()
         }
 
-        return try await request(
+        let result: SimpleResponse = try await request(
             endpoint: "/identity/submit",
             method: "POST",
             body: body
         )
+        CacheService.shared.remove(forKey: "identity_verification_status")
+        return result
     }
 
     // MARK: - Applications Endpoints
@@ -881,11 +894,28 @@ class APIClient {
     }
 
     func sendMessage(roomId: String, content: String) async throws -> ChatMessage {
-        return try await request(
-            endpoint: "/chat/rooms/\(roomId)/send",
-            method: "POST",
-            body: ["content": content]
-        )
+        let endpoint = "/chat/rooms/\(roomId)/send"
+        let body: [String: Any] = ["content": content]
+
+        do {
+            return try await request(
+                endpoint: endpoint,
+                method: "POST",
+                body: body
+            )
+        } catch let error as APIError {
+            // オフライン時はキューに保存して後で再送
+            if case .offline = error {
+                if let bodyData = try? JSONSerialization.data(withJSONObject: body) {
+                    await OfflineQueueManager.shared.enqueue(
+                        endpoint: endpoint,
+                        method: "POST",
+                        body: bodyData
+                    )
+                }
+            }
+            throw error
+        }
     }
 
     func sendMessageWithImage(roomId: String, content: String?, imageBase64: String) async throws -> ChatMessage {
@@ -942,7 +972,8 @@ class APIClient {
             CacheService.shared.save(profile, forKey: cacheKey)
             return profile
         } catch {
-            if let cached = CacheService.shared.load(EmployerProfile.self, forKey: cacheKey, ttl: 60 * 60 * 24) {
+            // 永続キャッシュ（TTLなし）: 修正するまでデータを保持
+            if let cached = CacheService.shared.loadPermanent(EmployerProfile.self, forKey: cacheKey) {
                 return cached
             }
             throw error
